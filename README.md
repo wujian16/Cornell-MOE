@@ -1,3 +1,12 @@
+Useful links and reminders
+====
+1. The [workaround of "fork" public repo into private repo][22]
+2. Google code style:
+    - [Python][23]
+    - [C++][24]
+3. How to name a new branch: yourName_issueNumber_description
+4. [How to contribute code][25]
+
 <p align="center">
     <img src="https://github.com/yelp/MOE/raw/master/moe/static/img/MOE_full_logo.png" alt="MOE Logo">
 </p>
@@ -189,3 +198,7 @@ MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/lic
 [19]: http://orfe.princeton.edu/
 [20]: http://people.orie.cornell.edu/pfrazier/Presentations/2014.01.Lancaster.BGO.pdf
 [21]: http://yelp.github.io/MOE/why_moe.html
+[22]: http://stackoverflow.com/questions/10065526/github-how-to-make-a-fork-of-public-repository-private
+[23]: http://google.github.io/styleguide/pyguide.html
+[24]: https://google.github.io/styleguide/cppguide.html
+[25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request
