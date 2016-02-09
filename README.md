@@ -4,7 +4,7 @@ Useful links and reminders
 2. Google code style:
     - [Python][23]
     - [C++][24]
-3. How to name a new branch: yourName_issueNumber_description
+3. How to name a new branch: ``yourName_issueNumber_description``
 4. [How to contribute code][25]
 
 <p align="center">
