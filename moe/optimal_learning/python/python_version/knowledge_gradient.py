@@ -13,7 +13,7 @@ import scipy.stats
 
 from moe.optimal_learning.python.constant import DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS, DEFAULT_MAX_NUM_THREADS
 from moe.optimal_learning.python.interfaces.optimization_interface import OptimizableInterface
-from moe.optimal_learning.python.python_version.gaussian_process import MINIMUM_STD_DEV_GRAD_CHOLESKY
+#from moe.optimal_learning.python.python_version.gaussian_process import MINIMUM_STD_DEV_GRAD_CHOLESKY
 from moe.optimal_learning.python.python_version.optimization import multistart_optimize, NullOptimizer
 
 
@@ -357,9 +357,10 @@ class KnowledgeGradient(OptimizableInterface):
         num_combination = num_points+self.discrete
         combination = numpy.reshape(numpy.append(union_of_points, self._discrete_pts), (num_combination, self.dim))
 
-        #mu_star = self._gaussian_process.compute_mean_of_points(self._discrete_pts)
         var_star = self._gaussian_process.compute_covariance_of_points(combination, union_of_points)
+        #K is the covariance between discrete_pts and the points_to_sample
         K=var_star[num_points:num_combination, :num_points]
+        #chol_var is the D(x_1, ..., x_q) in the document
         chol_var = scipy.linalg.cholesky(var_star[:num_points, :num_points]+numpy.diag(noise*numpy.ones(num_points)), lower=True, overwrite_a=True)
 
         #compute derivative of D in the document
@@ -402,19 +403,25 @@ class KnowledgeGradient(OptimizableInterface):
             improvement_this_iter = self._best_so_far-sample_values_this_iter
             winner = numpy.argmax(improvement_this_iter)
 
-            #tmp_points only contain union_of_points + the best point in discrete_pts
-            tmp_points = numpy.reshape(numpy.append(union_of_points, self._discrete_pts[winner,]), (num_points+1, self.dim))
-            tmp_grad_var = self._gaussian_process.compute_grad_variance_of_points(tmp_points, num_derivatives=self.num_to_sample)
+            #tmp_grad_var is the covariace among the best point in discrete_pts and points_to_sample wrt points_to_sample
+            tmp_grad_var = self._gaussian_process.compute_grad_covariance_of_points(union_of_points, self._discrete_pts[winner,], num_derivatives=self.num_to_sample)
             for diff_index in xrange(self.num_to_sample):
-
-                tmp_winner = numpy.dot(K[winner, ...], grad_chol_decomp[diff_index,...])
-                #tmp_winner += (tmp_grad_var[diff_index, num_points, :num_points, ...].T * (numpy.mat(chol_var).I).T).T
+                tmp_winner = numpy.einsum('i, ijk -> jk',K[winner, ...], grad_chol_decomp[diff_index,...])
+                #print "test 1st component", tmp_winner, numpy.mat(K[winner, ...])*numpy.mat(grad_chol_decomp[diff_index,...,0])
                 tmp_winner += scipy.linalg.solve_triangular(
+                        chol_var,
+                        tmp_grad_var[diff_index, ...,0,...],
+                        lower=True,
+                        overwrite_b=True,
+                )
+                '''
+                print "test 2nd component", scipy.linalg.solve_triangular(
                         chol_var,
                         tmp_grad_var[diff_index, num_points, :num_points, ...],
                         lower=True,
                         overwrite_b=True,
-                )
+                ), numpy.mat(tmp_grad_var[diff_index, num_points, :num_points, 0])*(numpy.mat(chol_var).I).T
+                '''
                 aggregate_dx[diff_index, ...] -= numpy.dot(tmp_winner.T, normal_draws)
 
         return aggregate_dx / float(self._num_mc_iterations)
@@ -428,7 +435,6 @@ class KnowledgeGradient(OptimizableInterface):
         num_combination = num_points+self.discrete
         combination = numpy.reshape(numpy.append(union_of_points, self._discrete_pts), (num_combination, self.dim))
 
-        #mu_star = self._gaussian_process.compute_mean_of_points(self._discrete_pts)
         var_star = self._gaussian_process.compute_covariance_of_points(combination, union_of_points)
         K=var_star[num_points:num_combination, :num_points]
         
@@ -452,8 +458,7 @@ class KnowledgeGradient(OptimizableInterface):
             # Note: we do not always use this approach b/c it is extremely expensive.
             R = scipy.linalg.qr(numpy.dot(numpy.diag(numpy.sqrt(E)), VH), mode='r')[0]
             chol_var = -R.T
-        
-        #grad_var = self._gaussian_process.compute_grad_variance_of_points(combination, num_derivatives=self.num_to_sample)
+
         grad_chol_decomp = self._gaussian_process.compute_grad_cholesky_variance_of_points(
                 union_of_points,
                 chol_var=chol_var,
@@ -501,20 +506,16 @@ class KnowledgeGradient(OptimizableInterface):
         #dimension of grad_chol_decomp_tiled: _num_mc_iterations * num_to_sample * dim
         grad_chol_decomp_tiled = numpy.empty((normals.shape[0], grad_chol_decomp.shape[0], grad_chol_decomp.shape[3]))
 
-        grad_var = numpy.empty((normals.shape[0], grad_chol_decomp.shape[0], grad_chol_decomp.shape[3]))
-        for diff_index in xrange(self.num_to_sample):
-            for k in xrange(self._num_mc_iterations):
-                tmp_points = numpy.reshape(numpy.append(union_of_points, self._discrete_pts[winner_indexes[k],]), (num_points+1, self.dim))
-                grad_var[k,...] = self._gaussian_process.compute_grad_variance_of_points(tmp_points, num_derivatives=self.num_to_sample)[diff_index, num_points, :num_points, ...]
+        grad_var = self._gaussian_process.compute_grad_covariance_of_points(union_of_points, self._discrete_pts[winner_indexes,], self.num_to_sample)
 
         for diff_index in xrange(self.num_to_sample):
             grad_chol_decomp_tiled[...] = 0.0
             for k in xrange(self._num_mc_iterations):
-                grad_chol_decomp_tiled[k, ...] = numpy.dot(K[winner_indexes[k], ...], grad_chol_decomp[diff_index,...])
+                grad_chol_decomp_tiled[k, ...] = numpy.einsum('i, ijk -> jk', K[winner_indexes[k], ...], grad_chol_decomp[diff_index,...])
                 #tmp_winner += (tmp_grad_var[diff_index, num_points, :num_points, ...].T * (numpy.mat(chol_var).I).T).T
                 grad_chol_decomp_tiled[k, ...] += scipy.linalg.solve_triangular(
                         chol_var,
-                        grad_var[k,...],
+                        grad_var[diff_index,...,k,...],
                         lower=True,
                         overwrite_b=True,
                 )
