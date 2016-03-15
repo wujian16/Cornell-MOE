@@ -438,11 +438,39 @@ class GaussianProcess final {
                                double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
+    Computes the covariance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) and each point of discrete points.
+
+    .. Note:: ``points_to_sample`` should not contain duplicate points.
+
+    .. Note:: comments are copied in Python: interfaces/gaussian_process_interface.py
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :var_star[num_to_sample][num_pts]: covariance of GP evaluated at ``points_to_sample`` and ``discrete_pts``
+  \endrst*/
+
+  void ComputeCovarianceOfPoints(StateType * points_to_sample_state,
+                                 double const * restrict discrete_pts,
+                                 int num_pts,
+                                 double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
     Similar to ComputeGradCholeskyVarianceOfPoints() except this does not include the gradient terms from
     the cholesky factorization.  Description will not be duplicated here.
   \endrst*/
   void ComputeGradVarianceOfPoints(StateType * points_to_sample_state,
                                    double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Similar to ComputeGradCholeskyVarianceOfPoints() except this does not include the gradient terms from
+    the cholesky factorization.  Description will not be duplicated here.
+  \endrst*/
+  void ComputeGradCovarianceOfPoints(StateType * points_to_sample_state,
+                                     double const * restrict discrete_pts,
+                                     int num_pts,
+                                     double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Computes the gradient of the cholesky factorization of the variance of this GP with respect to ``points_to_sample``.
@@ -523,6 +551,16 @@ class GaussianProcess final {
   \endrst*/
   void ComputeGradVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
                                            double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Similar to ComputeGradCholeskyVarianceOfPointsPerPoint() except this does not include the gradient terms from
+    the cholesky factorization.  Description will not be duplicated here.
+  \endrst*/
+  void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
+                                             double const * restrict discrete_pts,
+                                             int num_pts,
+                                             int diff_index,
+                                             double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Computes the gradient of the cholesky factorization of the variance of this GP with respect to the
