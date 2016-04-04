@@ -521,6 +521,24 @@ void GaussianProcess::ComputeMeanOfPoints(const StateType& points_to_sample_stat
                               1.0, 0.0, num_sampled_, points_to_sample_state.num_to_sample, num_sampled_, mean_of_points);
 }
 
+
+/*!\rst
+  Calculates the mean (from the GPP) of a set of points:
+
+  ``mus = Ks^T * K^-1 * y``
+
+  See Rasmussen and Willians page 19 alg 2.1
+\endrst*/
+void GaussianProcess::ComputeMeanOfAdditionalPoints(double const * discrete_pts,
+                                                    int num_pts,
+                                                    double * restrict mean_of_points) const noexcept {
+  double *kt = new double[num_pts*num_sampled_];
+  BuildMixCovarianceMatrix(discrete_pts, num_pts, kt);
+  GeneralMatrixVectorMultiply(kt, 'T', K_inv_y_.data(),
+                              1.0, 0.0, num_sampled_, num_pts, num_sampled_, mean_of_points);
+  delete[] kt;
+}
+
 /*!\rst
   Gradient of the mean of a GP.  Note that the output storage skips known zeros (see declaration docs for details).
   See Scott Clark's PhD thesis for more spelled out mathematical details, but this is a reasonably straightforward
@@ -568,7 +586,7 @@ void GaussianProcess::ComputeCovarianceOfPoints(StateType * points_to_sample_sta
   num_to_sample, num_pts, var_star);
 
   // Compute K_t
-  double * kt;
+  double * kt = new double[num_pts*num_sampled_];;
   BuildMixCovarianceMatrix(discrete_pts, num_pts, kt);
 
   // following block computes Vars -= V^T*V, with the exact method depending on what quantities were precomputed
@@ -592,6 +610,7 @@ void GaussianProcess::ComputeCovarianceOfPoints(StateType * points_to_sample_sta
     GeneralMatrixMatrixMultiply(points_to_sample_state->K_inv_times_K_star.data(), 'T',
                                 kt, -1.0, 1.0, num_to_sample, num_sampled_, num_to_sample, var_star);
   }
+  delete[] kt;
 }
 
 /*!\rst
@@ -772,7 +791,7 @@ void GaussianProcess::ComputeGradCovarianceOfPointsPerPoint(StateType * points_t
   // Result is computed as: A_{d,l,p} * C_{l,j}.  (Again, recall that p is fixed, so this output is over a matrix indexed {d,j}.)
   double * restrict grad_var_target_row = grad_var + diff_index*dim_;
   // Compute K_t
-  double * kt;
+  double * kt = new double[num_pts*num_sampled_];;
   BuildMixCovarianceMatrix(discrete_pts, num_pts, kt);
 
   // Compute K^-1 * K_t
@@ -780,6 +799,7 @@ void GaussianProcess::ComputeGradCovarianceOfPointsPerPoint(StateType * points_t
   GeneralMatrixMatrixMultiply(points_to_sample_state->grad_K_star.data() + diff_index*dim_*num_sampled_, 'N',
                               kt, 1.0, 0.0, dim_, num_sampled_, num_pts, grad_var_target_row);
 
+  delete[] kt;
   // Fill the p-th block column of the output (p = diff_index); we will then copy this into the p-th block column.
   for (int j = 0; j < num_pts; ++j) {
     // Compute the leading term: \pderiv{K_ss{i=p,j}}{Xs_{d,p}}.

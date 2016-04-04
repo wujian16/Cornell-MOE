@@ -205,8 +205,8 @@ class KnowledgeGradient(OptimizableInterface):
         Generally gradient descent is preferred but when it fails to converge this may be the only "robust" option.
         This function is also useful for plotting or debugging purposes (just to get a bunch of KG values).
         TODO(GH-56): Allow callers to pass in a source of randomness.
-        :param ei_evaluator: object specifying how to evaluate the expected improvement
-        :type ei_evaluator: interfaces.expected_improvement_interface.ExpectedImprovementInterface subclass
+        :param kg_evaluator: object specifying how to evaluate the knowledge gradient
+        :type kg_evaluator: interfaces.expected_improvement_interface.ExpectedImprovementInterface subclass
         :param points_to_evaluate: points at which to compute KG
         :type points_to_evaluate: array of float64 with shape (num_to_evaluate, num_to_sample, ei_evaluator.dim)
         :param randomness: random source(s) used for monte-carlo integration (when applicable) (UNUSED)

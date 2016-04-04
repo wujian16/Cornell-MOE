@@ -398,6 +398,17 @@ class GaussianProcess final {
                            double * restrict mean_of_points) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
+    \param
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+    \output
+      :mean_of_points[num_pts]: mean of GP, one per GP dimension
+  \endrst*/
+  void ComputeMeanOfAdditionalPoints(double const * discrete_pts,
+                                     int num_pts,
+                                     double * restrict mean_of_points) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
     Computes the gradient of the mean of this GP at each of ``Xs`` (``points_to_sample``) wrt ``Xs``.
 
     .. Note:: ``points_to_sample`` should not contain duplicate points.
@@ -446,6 +457,8 @@ class GaussianProcess final {
 
     \param
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
       :var_star[num_to_sample][num_pts]: covariance of GP evaluated at ``points_to_sample`` and ``discrete_pts``
@@ -464,8 +477,15 @@ class GaussianProcess final {
                                    double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
-    Similar to ComputeGradCholeskyVarianceOfPoints() except this does not include the gradient terms from
-    the cholesky factorization.  Description will not be duplicated here.
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_var[dim][num_to_sample][num_pts][state->num_derivatives]: gradient of the
+        variance of the GP.  ``grad_var[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
   \endrst*/
   void ComputeGradCovarianceOfPoints(StateType * points_to_sample_state,
                                      double const * restrict discrete_pts,
@@ -553,8 +573,17 @@ class GaussianProcess final {
                                            double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
-    Similar to ComputeGradCholeskyVarianceOfPointsPerPoint() except this does not include the gradient terms from
-    the cholesky factorization.  Description will not be duplicated here.
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+      :diff_index: index of ``points_to_sample`` in {0, .. ``num_to_sample``-1} to be differentiated against
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_pts]: gradient of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
+        k = ``diff_index``
   \endrst*/
   void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
                                              double const * restrict discrete_pts,
@@ -950,7 +979,7 @@ struct ExpectedImprovementState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose EI (and/or gradients) are being evaluated
   \endrst*/
   void SetCurrentPoint(const EvaluatorType& ei_evaluator,
-                          double const * restrict points_to_sample) OL_NONNULL_POINTERS;
+                       double const * restrict points_to_sample) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new ``points_to_sample``, the location of the potential samples whose EI is to be evaluated.

@@ -187,7 +187,7 @@ void TriangularMatrixVectorSolve(double const * restrict A, char trans, int size
     :trans: 'N' to solve ``A * X = B``, 'T' to solve ``A^T * X = B``
     :size_m: dimension of ``A``
     :lda: the first dimension of ``A`` as declared by the caller; ``lda >= size_m``
-    :X[size_m][size_n]: the RHS matrix, ``B``
+    :B[size_m][size_n]: the RHS matrix, ``B``
   \output
     :X[size_m][size_n]: the solution, ``A\B``.
 \endrst*/
