@@ -22,16 +22,16 @@ KnowledgeGradientEvaluator::KnowledgeGradientEvaluator(const GaussianProcess& ga
                                                        double const * discrete_pts,
                                                        int num_pts,
                                                        int num_mc_iterations,
-                                                       double const noise,
+                                                       double noise,
                                                        double best_so_far)
     : dim_(gaussian_process_in.dim()),
       num_mc_iterations_(num_mc_iterations),
       best_so_far_(best_so_far),
       gaussian_process_(&gaussian_process_in),
+      num_pts_(num_pts),
       noise_(noise),
-      num_pts_(num_pts)
       to_sample_mean_(mean_value_discrete(discrete_pts, num_pts)){
-      std::copy(discrete_pts, discrete_pts + num_pts, discrete_pts_.data());
+    std::copy(discrete_pts, discrete_pts + num_pts, discrete_pts_.data());
 }
 
 /*!\rst
@@ -51,7 +51,7 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
     kg_state->cholesky_to_sample_var.data(), num_union, leading_minor_index);
   }
 
-  gaussian_process_->ComputeCovarianceOfPoints(kg_state->points_to_sample_state,
+  gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state),
                                                discrete_pts_.data(), num_pts_,
                                                kg_state->covariance_union_discrete.data());
 
@@ -64,7 +64,7 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
   double aggregate = 0.0;
   for (int i = 0; i < num_mc_iterations_; ++i) {
     double improvement_this_step = 0.0;
-    double norm = new double[num_union];
+    double *norm = new double[num_union];
     for (int j = 0; j < num_union; ++j) {
       norm[j] = (*(kg_state->normal_rng))();
     }
@@ -77,7 +77,7 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
                                 num_union,
                                 num_pts_,
                                 num_union,
-                                kg_state->KG_this_step_from_var);
+                                kg_state->KG_this_step_from_var.data());
     delete[] norm;
     for (int j = 0; j < num_pts_; ++j) {
       double KG_total = best_so_far_ - (to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
@@ -153,7 +153,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
       }
   }
 
-  gaussian_process_->ComputeCovarianceOfPoints(kg_state->points_to_sample_state,
+  gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state),
                                                discrete_pts_.data(), num_pts_,
                                                kg_state->covariance_union_discrete.data());
   std::copy(kg_state->covariance_union_discrete.data(), kg_state->covariance_union_discrete.data()+num_union*num_pts_,
@@ -165,7 +165,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
   std::fill(kg_state->aggregate.begin(), kg_state->aggregate.end(), 0.0);
 
   for (int i = 0; i < num_mc_iterations_; ++i) {
-    double norm = new double[num_union];
+    double *norm = new double[num_union];
     for (int j = 0; j < num_union; ++j) {
       norm[j] = (*(kg_state->normal_rng))();
     }
@@ -176,7 +176,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
                                 num_union,
                                 num_pts_,
                                 num_union,
-                                kg_state->KG_this_step_from_var);
+                                kg_state->KG_this_step_from_var.data());
     delete[] norm;
     double improvement_this_step = 0.0;
     int winner = num_pts_ + 1;  // an out of-bounds initial value
@@ -205,7 +205,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
          }
          GeneralMatrixMatrixMultiply(grad_cov, 'N', kg_state->cholesky_to_sample_var.data(),
                                      1,0,
-                                     1,num_uion,num_union,
+                                     1,num_union,num_union,
                                      grad_cov);
          double *grad_chol=new double[num_union*num_union];
          double *cov = new double[num_union];
@@ -219,7 +219,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
          }
          GeneralMatrixMatrixMultiply(cov, 'N', grad_chol,
                                      1,1,
-                                     1,num_uion,num_union,
+                                     1,num_union,num_union,
                                      grad_cov);
          GeneralMatrixVectorMultiply(grad_cov, 'N', kg_state->normals.data(), -1.0, 1.0,
                                      1, num_union, 1, kg_state->aggregate.data() + j + k*dim_);
@@ -253,9 +253,9 @@ KnowledgeGradientState::KnowledgeGradientState(const EvaluatorType& kg_evaluator
     : dim(kg_evaluator.dim()),
       num_to_sample(num_to_sample_in),
       num_being_sampled(num_being_sampled_in),
-      num_pts(num_pts_in),
       num_derivatives(configure_for_gradients ? num_to_sample : 0),
       num_union(num_to_sample + num_being_sampled),
+      num_pts(num_pts_in),
       union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
       points_to_sample_state(*kg_evaluator.gaussian_process(), union_of_points.data(), num_union, num_derivatives),
       normal_rng(normal_rng_in),
@@ -288,10 +288,10 @@ void KnowledgeGradientState::SetupState(const EvaluatorType& kg_evaluator,
 \endrst*/
 void EvaluateKGAtPointList(const GaussianProcess& gaussian_process, const ThreadSchedule& thread_schedule,
                            double const * restrict initial_guesses, double const * restrict points_being_sampled,
-                           double const * restrict discrete_pts, int num_multistarts, int num_to_sample,
+                           double const * discrete_pts, int num_multistarts, int num_to_sample,
                            int num_being_sampled, int num_pts, double best_so_far,
                            int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
-                           double * restrict function_values, double * restrict best_next_point) {
+                           double * restrict function_values, double * restrict best_next_point, double noise) {
   if (unlikely(num_multistarts <= 0)) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
   }
@@ -303,7 +303,7 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process, const Thread
   KnowledgeGradientEvaluator kg_evaluator(gaussian_process, discrete_pts, num_pts, max_int_steps, noise, best_so_far);
 
   std::vector<typename KnowledgeGradientEvaluator::StateType> kg_state_vector;
-  SetupKnowledgeGradientState(kg_evaluator, start_point_set, points_being_sampled,
+  SetupKnowledgeGradientState(kg_evaluator, initial_guesses, points_being_sampled,
                               num_to_sample, num_being_sampled, num_pts, thread_schedule.max_num_threads,
                               configure_for_gradients, normal_rng, &kg_state_vector);
 
@@ -330,13 +330,13 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                     const GradientDescentParameters& optimizer_parameters,
                                     const DomainType& domain, const ThreadSchedule& thread_schedule,
                                     double const * restrict points_being_sampled,
-                                    double const * restrict discrete_pts,
+                                    double const * discrete_pts,
                                     int num_to_sample, int num_being_sampled,
                                     int num_pts, double best_so_far,
                                     int max_int_steps, bool lhc_search_only,
                                     int num_lhc_samples, bool * restrict found_flag,
                                     UniformRandomGenerator * uniform_generator,
-                                    NormalRNG * normal_rng, double * restrict best_points_to_sample) {
+                                    NormalRNG * normal_rng, double * restrict best_points_to_sample, double noise) {
   if (unlikely(num_to_sample <= 0)) {
     return;
   }
@@ -350,7 +350,7 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                                  num_to_sample, num_being_sampled, num_pts,
                                                  best_so_far, max_int_steps,
                                                  &found_flag_local, uniform_generator, normal_rng,
-                                                 next_points_to_sample.data());
+                                                 next_points_to_sample.data(), noise);
   }
 
   // if gradient descent EI optimization failed OR we're only doing latin hypercube searches
@@ -372,7 +372,7 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                                           num_being_sampled, num_pts, best_so_far,
                                                           max_int_steps,
                                                           &found_flag_local, uniform_generator,
-                                                          normal_rng, next_points_to_sample.data());
+                                                          normal_rng, next_points_to_sample.data(), noise);
 
       // if latin hypercube 'dumb' search failed
       if (unlikely(found_flag_local == false)) {
@@ -392,18 +392,17 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
     const TensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled, double const * restrict discrete_pts,
+    double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
-    NormalRNG * normal_rng, double * restrict best_points_to_sample);
+    NormalRNG * normal_rng, double * restrict best_points_to_sample, double noise);
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
     const SimplexIntersectTensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled,double const * restrict discrete_pts,
+    double const * restrict points_being_sampled,double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, double best_so_far, int max_int_steps,
-    bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
-    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
+    int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
+    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample, double noise);
 
 }  // end namespace optimal_learning

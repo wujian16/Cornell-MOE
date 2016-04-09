@@ -115,7 +115,22 @@
 #ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_OPTIMIZATION_HPP_
 #define MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_OPTIMIZATION_HPP_
 
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <vector>
+
+#include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
+
 #include "gpp_common.hpp"
+#include "gpp_domain.hpp"
+#include "gpp_exception.hpp"
+#include "gpp_covariance.hpp"
+#include "gpp_logging.hpp"
+#include "gpp_math.hpp"
+#include "gpp_optimization.hpp"
+#include "gpp_optimizer_parameters.hpp"
+#include "gpp_random.hpp"
 
 namespace optimal_learning {
 
@@ -148,7 +163,7 @@ class KnowledgeGradientEvaluator final {
                              double const * discrete_pts,
                              int num_pts,
                              int num_mc_iterations,
-                             double const noise,
+                             double noise,
                              double best_so_far);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -159,7 +174,8 @@ class KnowledgeGradientEvaluator final {
     return num_pts_;
   }
 
-  static std::vector<double> mean_value_discrete(double* discrete_pts, int num_pts){
+  std::vector<double> mean_value_discrete(double const * discrete_pts,
+                                          int num_pts) noexcept OL_WARN_UNUSED_RESULT {
     double* temp = new double[num_pts];
     gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, temp);
     std::vector<double> result(num_pts);
@@ -225,7 +241,7 @@ class KnowledgeGradientEvaluator final {
   //! pointer to gaussian process used in EI computations
   const GaussianProcess * gaussian_process_;
   //! the set of points to approximate KG factor
-  const std::vector<double> discrete_pts_;
+  std::vector<double> discrete_pts_;
   //! number of points in discrete_pts
   const int num_pts_;
   //! noise
@@ -279,9 +295,9 @@ struct KnowledgeGradientState final {
          must have a different NormalRNG (different seeds, not just different objects).
   \endrst*/
   KnowledgeGradientState(const EvaluatorType& kg_evaluator, double const * restrict points_to_sample,
-                           double const * restrict points_being_sampled, int num_to_sample_in,
-                           int num_being_sampled_in, int num_pts_in,
-                           bool configure_for_gradients, NormalRNGInterface * normal_rng_in);
+                         double const * restrict points_being_sampled, int num_to_sample_in,
+                         int num_being_sampled_in, int num_pts_in,
+                         bool configure_for_gradients, NormalRNGInterface * normal_rng_in);
 
   KnowledgeGradientState(KnowledgeGradientState&& other);
 
@@ -559,7 +575,7 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
     const ThreadSchedule& thread_schedule,
     double const * restrict start_point_set,
     double const * restrict points_being_sampled,
-    double const * restrict discrete_pts,
+    double const * discrete_pts,
     int num_multistarts,
     int num_to_sample,
     int num_being_sampled,
@@ -625,6 +641,7 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
     :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
     :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
       the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
   \output
     :found_flag[1]: true if best_next_point corresponds to a nonzero KG
     :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
@@ -636,12 +653,13 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
                                                     const GradientDescentParameters& optimizer_parameters,
                                                     const DomainType& domain, const ThreadSchedule& thread_schedule,
                                                     double const * restrict points_being_sampled,
-                                                    double const * restrict discrete_pts,
+                                                    double const * discrete_pts,
                                                     int num_to_sample, int num_being_sampled, int num_pts,
                                                     double best_so_far,
                                                     int max_int_steps, bool * restrict found_flag,
                                                     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
-                                                    double * restrict best_next_point) {
+                                                    double * restrict best_next_point,
+                                                    double noise) {
   std::vector<double> starting_points(gaussian_process.dim()*optimizer_parameters.num_multistarts*num_to_sample);
 
   // GenerateUniformPointsInDomain() is allowed to return fewer than the requested number of multistarts
@@ -654,7 +672,7 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
                                                              points_being_sampled, discrete_pts, num_multistarts,
                                                              num_to_sample, num_being_sampled, num_pts,
                                                              best_so_far, max_int_steps,
-                                                             normal_rng, found_flag, best_next_point);
+                                                             normal_rng, found_flag, best_next_point, noise);
 #ifdef OL_WARNING_PRINT
   if (false == *found_flag) {
     OL_WARNING_PRINTF("WARNING: %s DID NOT CONVERGE\n", OL_CURRENT_FUNCTION_NAME);
@@ -691,6 +709,7 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
     :max_int_steps: maximum number of MC iterations
     :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
       the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
   \output
     :found_flag[1]: true if best_next_point corresponds to a nonzero KG
     :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
@@ -702,13 +721,14 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
                            const ThreadSchedule& thread_schedule,
                            double const * restrict initial_guesses,
                            double const * restrict points_being_sampled,
-                           double const * restrict discrete_pts,
+                           double const * discrete_pts,
                            int num_multistarts, int num_to_sample,
                            int num_being_sampled, int num_pts, double best_so_far,
                            int max_int_steps,
                            bool * restrict found_flag, NormalRNG * normal_rng,
                            double * restrict function_values,
-                           double * restrict best_next_point);
+                           double * restrict best_next_point,
+                           double noise);
 
 /*!\rst
   Perform a random, naive search to "solve" the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
@@ -739,6 +759,7 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
     :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
     :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
       the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
   \output
     found_flag[1]: true if best_next_point corresponds to a nonzero KG
     :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
@@ -750,14 +771,15 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
                                                          const DomainType& domain,
                                                          const ThreadSchedule& thread_schedule,
                                                          double const * restrict points_being_sampled,
-                                                         double const * restrict discrete_pts,
+                                                         double const * discrete_pts,
                                                          int num_multistarts, int num_to_sample,
                                                          int num_being_sampled, int num_pts, double best_so_far,
                                                          int max_int_steps,
                                                          bool * restrict found_flag,
                                                          UniformRandomGenerator * uniform_generator,
                                                          NormalRNG * normal_rng,
-                                                         double * restrict best_next_point) {
+                                                         double * restrict best_next_point,
+                                                         double noise) {
   std::vector<double> initial_guesses(gaussian_process.dim()*num_multistarts*num_to_sample);
   RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
   num_multistarts = repeated_domain.GenerateUniformPointsInDomain(num_multistarts, uniform_generator,
@@ -766,7 +788,7 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
   EvaluateKGAtPointList(gaussian_process, thread_schedule, initial_guesses.data(),
                         points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
                         num_being_sampled, num_pts, best_so_far, max_int_steps,
-                        found_flag, normal_rng, nullptr, best_next_point);
+                        found_flag, normal_rng, nullptr, best_next_point, noise);
 }
 
 
@@ -810,6 +832,7 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
     :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
     :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
       the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
   \output
     :found_flag[1]: true if best_points_to_sample corresponds to a nonzero KG if sampled simultaneously
     :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
@@ -821,31 +844,31 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                   const GradientDescentParameters& optimizer_parameters,
                                   const DomainType& domain, const ThreadSchedule& thread_schedule,
                                   double const * restrict points_being_sampled,
-                                  double const * restrict discrete_pts,
+                                  double const * discrete_pts,
                                   int num_to_sample, int num_being_sampled,
                                   int num_pts, double best_so_far,
                                   int max_int_steps, bool lhc_search_only,
                                   int num_lhc_samples, bool * restrict found_flag,
                                   UniformRandomGenerator * uniform_generator,
-                                  NormalRNG * normal_rng, double * restrict best_points_to_sample);
+                                  NormalRNG * normal_rng, double * restrict best_points_to_sample,
+                                  double noise);
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
     const TensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled, double const * restrict discrete_pts,
+    double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
-    NormalRNG * normal_rng, double * restrict best_points_to_sample);
+    NormalRNG * normal_rng, double * restrict best_points_to_sample, double noise);
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
     const SimplexIntersectTensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled,double const * restrict discrete_pts,
+    double const * restrict points_being_sampled,double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, double best_so_far, int max_int_steps,
-    bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
-    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
+    int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
+    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample, double noise);
 
 }  // end namespace optimal_learning
 
