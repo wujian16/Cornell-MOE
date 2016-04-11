@@ -95,6 +95,7 @@ set(OPTIMAL_LEARNING_CORE_SOURCES
   gpp_random.cpp
   gpp_expected_improvement_gpu.cpp
   gpp_knowledge_gradient_optimization.cpp
+  gpp_python_knowledge_gradient.cpp
   )
 
 # readonly
