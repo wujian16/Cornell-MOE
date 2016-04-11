@@ -768,18 +768,18 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
 \endrst*/
 template <typename DomainType>
 void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess& gaussian_process,
-                                                         const DomainType& domain,
-                                                         const ThreadSchedule& thread_schedule,
-                                                         double const * restrict points_being_sampled,
-                                                         double const * discrete_pts,
-                                                         int num_multistarts, int num_to_sample,
-                                                         int num_being_sampled, int num_pts, double best_so_far,
-                                                         int max_int_steps,
-                                                         bool * restrict found_flag,
-                                                         UniformRandomGenerator * uniform_generator,
-                                                         NormalRNG * normal_rng,
-                                                         double * restrict best_next_point,
-                                                         double noise) {
+                                                           const DomainType& domain,
+                                                           const ThreadSchedule& thread_schedule,
+                                                           double const * restrict points_being_sampled,
+                                                           double const * discrete_pts,
+                                                           int num_multistarts, int num_to_sample,
+                                                           int num_being_sampled, int num_pts, double best_so_far,
+                                                           int max_int_steps,
+                                                           bool * restrict found_flag,
+                                                           UniformRandomGenerator * uniform_generator,
+                                                           NormalRNG * normal_rng,
+                                                           double * restrict best_next_point,
+                                                           double noise) {
   std::vector<double> initial_guesses(gaussian_process.dim()*num_multistarts*num_to_sample);
   RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
   num_multistarts = repeated_domain.GenerateUniformPointsInDomain(num_multistarts, uniform_generator,
@@ -841,17 +841,17 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
 \endrst*/
 template <typename DomainType>
 void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
-                                  const GradientDescentParameters& optimizer_parameters,
-                                  const DomainType& domain, const ThreadSchedule& thread_schedule,
-                                  double const * restrict points_being_sampled,
-                                  double const * discrete_pts,
-                                  int num_to_sample, int num_being_sampled,
-                                  int num_pts, double best_so_far,
-                                  int max_int_steps, bool lhc_search_only,
-                                  int num_lhc_samples, bool * restrict found_flag,
-                                  UniformRandomGenerator * uniform_generator,
-                                  NormalRNG * normal_rng, double * restrict best_points_to_sample,
-                                  double noise);
+                                    const GradientDescentParameters& optimizer_parameters,
+                                    const DomainType& domain, const ThreadSchedule& thread_schedule,
+                                    double const * restrict points_being_sampled,
+                                    double const * discrete_pts,
+                                    int num_to_sample, int num_being_sampled,
+                                    int num_pts, double best_so_far,
+                                    int max_int_steps, bool lhc_search_only,
+                                    int num_lhc_samples, bool * restrict found_flag,
+                                    UniformRandomGenerator * uniform_generator,
+                                    NormalRNG * normal_rng, double * restrict best_points_to_sample,
+                                    double noise);
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGOptimalPointsToSample(
