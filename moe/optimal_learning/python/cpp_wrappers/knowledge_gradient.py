@@ -128,7 +128,6 @@ class KnowledgeGradient(OptimizableInterface):
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
             randomness=None,
-            mvndst_parameters=None
     ):
         """Construct a KnowledgeGradient object that supports q,p-KG.
         TODO(GH-56): Allow callers to pass in a source of randomness.
@@ -165,12 +164,14 @@ class KnowledgeGradient(OptimizableInterface):
         else:
             self._points_to_sample = points_to_sample
 
-        if mvndst_parameters is None:
-            self._mvndst_parameters = DEFAULT_MVNDST_PARAMS
+        if randomness is None:
+            self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
+            # Set seed based on less repeatable factors (e.g,. time)
+            self._randomness.SetRandomizedUniformGeneratorSeed(0)
+            self._randomness.SetRandomizedNormalRNGSeed(0)
         else:
-            self._mvndst_parameters = mvndst_parameters
+            self._randomness = randomness
 
-        self.log = logging.getLogger(__name__)
         self.objective_type = None  # Not used for KG, but the field is expected in C++
 
     @property
@@ -320,7 +321,6 @@ class KnowledgeGradient(OptimizableInterface):
                 self._num_mc_iterations,
                 self._best_so_far,
                 self._noise,
-                force_monte_carlo,
                 self._randomness,
         )
 
@@ -364,7 +364,6 @@ class KnowledgeGradient(OptimizableInterface):
                 self._num_mc_iterations,
                 self._best_so_far,
                 self._noise,
-                force_monte_carlo,
                 self._randomness,
         )
         return cpp_utils.uncppify(grad_kg, (self.num_to_sample, self.dim))

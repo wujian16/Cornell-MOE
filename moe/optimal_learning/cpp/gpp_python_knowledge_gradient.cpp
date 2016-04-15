@@ -47,8 +47,7 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
                                        const boost::python::list& points_being_sampled,
                                        int num_pts, int num_to_sample, int num_being_sampled,
                                        int max_int_steps, double best_so_far,
-                                       double noise, bool force_monte_carlo,
-                                       RandomnessSourceContainer& randomness_source) {
+                                       double noise, RandomnessSourceContainer& randomness_source) {
   PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled,
@@ -72,8 +71,7 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
                                                         const boost::python::list& points_being_sampled,
                                                         int num_pts, int num_to_sample, int num_being_sampled,
                                                         int max_int_steps, double best_so_far,
-                                                        double noise, bool force_monte_carlo,
-                                                        RandomnessSourceContainer& randomness_source) {
+                                                        double noise, RandomnessSourceContainer& randomness_source) {
   PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gaussian_process.dim(),
                                                 num_to_sample, num_being_sampled);
@@ -125,8 +123,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
                                            const PythonInterfaceInputContainer& input_container_discrete,
                                            const PythonInterfaceInputContainer& input_container,
                                            const DomainType& domain,
-                                           OptimizerTypes optimizer_type,
-                                           int num_pts, int num_to_sample, double best_so_far,
+                                           OptimizerTypes optimizer_type, int num_to_sample, double best_so_far,
                                            int max_int_steps, int max_num_threads,
                                            RandomnessSourceContainer& randomness_source,
                                            boost::python::dict& status,
@@ -214,7 +211,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
       TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
 
       DispatchKnowledgeGradientOptimization(optimizer_parameters, gaussian_process, input_container_discrete,
-                                            input_container, domain, optimizer_type, num_pts, num_to_sample, best_so_far,
+                                            input_container, domain, optimizer_type, num_to_sample, best_so_far,
                                             max_int_steps, max_num_threads,
                                             randomness_source, status, best_points_to_sample_C.data(), noise);
       break;
@@ -223,7 +220,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
       SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
 
       DispatchKnowledgeGradientOptimization(optimizer_parameters, gaussian_process, input_container_discrete,
-                                            input_container, domain, optimizer_type, num_pts, num_to_sample, best_so_far,
+                                            input_container, domain, optimizer_type, num_to_sample, best_so_far,
                                             max_int_steps, max_num_threads,
                                             randomness_source, status, best_points_to_sample_C.data(), noise);
       break;

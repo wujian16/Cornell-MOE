@@ -26,6 +26,7 @@
 #include "gpp_model_selection_test.hpp"
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
+#include "gpp_knowledge_gradient_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -65,6 +66,14 @@ int RunCppTestsWrapper() {
     OL_FAILURE_PRINTF("GP (mean, var, EI) tests failed\n");
   } else {
     OL_SUCCESS_PRINTF("GP (mean, var, EI) tests\n");
+  }
+  total_errors += error;
+
+  error = PingKGGeneralTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG tests\n");
   }
   total_errors += error;
 

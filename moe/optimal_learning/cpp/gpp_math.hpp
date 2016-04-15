@@ -443,7 +443,7 @@ class GaussianProcess final {
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
-      :var_star[num_to_sample][num_to_sample]: variance of GP evaluated at ``points_to_sample``
+      :var_star[num_to_sample][num_to_sample]: variance of GP evaluated at ``points_to_sample``, LOWER TRIANGLE
   \endrst*/
   void ComputeVarianceOfPoints(StateType * points_to_sample_state,
                                double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
@@ -464,10 +464,12 @@ class GaussianProcess final {
       :var_star[num_to_sample][num_pts]: covariance of GP evaluated at ``points_to_sample`` and ``discrete_pts``
   \endrst*/
 
+
   void ComputeCovarianceOfPoints(StateType * points_to_sample_state,
                                  double const * restrict discrete_pts,
                                  int num_pts,
                                  double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
+
 
   /*!\rst
     Similar to ComputeGradCholeskyVarianceOfPoints() except this does not include the gradient terms from
@@ -487,6 +489,7 @@ class GaussianProcess final {
         variance of the GP.  ``grad_var[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
   \endrst*/
+
   void ComputeGradCovarianceOfPoints(StateType * points_to_sample_state,
                                      double const * restrict discrete_pts,
                                      int num_pts,
@@ -585,6 +588,7 @@ class GaussianProcess final {
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
         k = ``diff_index``
   \endrst*/
+
   void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
                                              double const * restrict discrete_pts,
                                              int num_pts,
@@ -734,7 +738,7 @@ struct PointsToSampleState final {
   // derived variables for predictive component; these are all *temporary* quantities
   //! the "mixed" covariance matrix: ``Ks, Ks_{ij}, K(X,Xs) = covariance(X_i, Xs_j)``, covariance matrix between training and test inputs (``num_sampled x num_to_sample``)
   std::vector<double> K_star;
-  //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``
+  //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``, dimension: dim*num_sampled*num_derivatives
   std::vector<double> grad_K_star;
   //! the variance matrix (output from the GP)
   std::vector<double> V;

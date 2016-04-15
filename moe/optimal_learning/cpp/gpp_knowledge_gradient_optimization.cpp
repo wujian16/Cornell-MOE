@@ -28,10 +28,11 @@ KnowledgeGradientEvaluator::KnowledgeGradientEvaluator(const GaussianProcess& ga
       num_mc_iterations_(num_mc_iterations),
       best_so_far_(best_so_far),
       gaussian_process_(&gaussian_process_in),
+      discrete_pts_(num_pts*dim_),
       num_pts_(num_pts),
       noise_(noise),
       to_sample_mean_(mean_value_discrete(discrete_pts, num_pts)){
-    std::copy(discrete_pts, discrete_pts + num_pts, discrete_pts_.data());
+    std::copy(discrete_pts, discrete_pts + num_pts*dim_, discrete_pts_.data());
 }
 
 /*!\rst
@@ -236,7 +237,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
 }
 
 void KnowledgeGradientState::SetCurrentPoint(const EvaluatorType& kg_evaluator,
-                          double const * restrict points_to_sample) {
+                                             double const * restrict points_to_sample) {
   // update points_to_sample in union_of_points
   std::copy(points_to_sample, points_to_sample + num_to_sample*dim, union_of_points.data());
 

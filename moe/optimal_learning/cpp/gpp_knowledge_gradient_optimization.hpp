@@ -180,6 +180,7 @@ class KnowledgeGradientEvaluator final {
     gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, temp);
     std::vector<double> result(num_pts);
     std::copy(temp, temp + num_pts, result.data());
+    delete[] temp;
     return result;
   }
 
