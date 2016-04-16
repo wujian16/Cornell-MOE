@@ -257,7 +257,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
 
   int num_sampled = 7;
 
-  int num_pts = 10;
+  int num_pts = 100;
 
   double noise = 0.1;
 
@@ -265,7 +265,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   double alpha = 2.80723;
   // set best_so_far to be larger than max(points_sampled_value) (but don't make it huge or stability will be suffer)
   double best_so_far = 7.0;
-  const int num_mc_iter = 16;
+  const int num_mc_iter = 160;
 
   MockKnowledgeGradientEnvironment KG_environment;
 
@@ -309,13 +309,13 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
 int PingKGGeneralTest() {
   double epsilon_KG[2] = {1.0e-2, 1.0e-3};
   int total_errors = PingKGTest<PingKnowledgeGradient>(1, 0, epsilon_KG, 2.0e-3, 9.0e-2, 1.0e-18);
-/*
+
   total_errors += PingKGTest<PingKnowledgeGradient>(1, 5, epsilon_KG, 2.0e-3, 9.0e-2, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 2.0e-3, 9.0e-2, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(4, 0, epsilon_KG, 2.0e-3, 9.0e-2, 1.0e-18);
-*/
+
   return total_errors;
 }
 

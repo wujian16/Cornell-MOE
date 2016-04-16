@@ -31,7 +31,7 @@
 #include "gpp_exception.hpp"
 #include "gpp_python_common.hpp"
 #include "gpp_python_expected_improvement.hpp"
-//#include "gpp_python_knowledge_gradient.hpp"
+#include "gpp_python_knowledge_gradient.hpp"
 #include "gpp_python_gaussian_process.hpp"
 #include "gpp_python_model_selection.hpp"
 #include "gpp_python_test.hpp"
