@@ -588,7 +588,7 @@ BOOST_PYTHON_MODULE(GPP) {
   ExportEnumTypes();
   ExportEstimationPolicies();
   ExportExpectedImprovementFunctions();
-  //ExportKnowldegeGradientFunctions();
+  ExportKnowldegeGradientFunctions();
   ExportGaussianProcessFunctions();
   ExportModelSelectionFunctions();
   ExportOptimizerParameterStructs();

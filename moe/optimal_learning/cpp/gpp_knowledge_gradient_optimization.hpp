@@ -174,13 +174,15 @@ class KnowledgeGradientEvaluator final {
     return num_pts_;
   }
 
-  std::vector<double> mean_value_discrete(double const * discrete_pts,
-                                          int num_pts) noexcept OL_WARN_UNUSED_RESULT {
-    double* temp = new double[num_pts];
-    gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, temp);
-    std::vector<double> result(num_pts);
-    std::copy(temp, temp + num_pts, result.data());
-    delete[] temp;
+  double noise_variance() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return noise_;
+  }
+
+
+  std::vector<double> discrete_points(double const * discrete_pts,
+                                      int num_pts) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> result(num_pts*dim_);
+    std::copy(discrete_pts, discrete_pts + num_pts*dim_, result.data());
     return result;
   }
 
@@ -239,7 +241,7 @@ class KnowledgeGradientEvaluator final {
   int num_mc_iterations_;
   //! best (minimum) objective function value (in points_sampled_value)
   double best_so_far_;
-  //! pointer to gaussian process used in EI computations
+  //! pointer to gaussian process used in KG computations
   const GaussianProcess * gaussian_process_;
   //! the set of points to approximate KG factor
   std::vector<double> discrete_pts_;
@@ -247,8 +249,6 @@ class KnowledgeGradientEvaluator final {
   const int num_pts_;
   //! noise
   const double noise_;
-  //! the mean of the GP evaluated at discrete_pts
-  const std::vector<double> to_sample_mean_;
 };
 
 /*!\rst
@@ -328,6 +328,15 @@ struct KnowledgeGradientState final {
     return union_of_points;
   }
 
+/*
+  std::vector<double> mean_value_discrete(double const * discrete_pts,
+                                          int num_pts) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> result(num_pts);
+    gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, result.data());
+    return result;
+  }
+*/
+
   int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim*num_to_sample;
   }
@@ -395,16 +404,14 @@ struct KnowledgeGradientState final {
   // temporary storage: preallocated space used by KnowledgeGradientEvaluator's member functions
   //! the cholesky (``LL^T``) factorization of the GP variance evaluated at union_of_points
   std::vector<double> cholesky_to_sample_var;
-  //! the covariance of the GP among union_of_points and discrete_pts
-  std::vector<double> covariance_union_discrete;
   // the product of the inverse of cholesky_to_sample_var and covariance_union_discrete
   std::vector<double> inverse_cholesky_covariance;
   //! the gradient of the cholesky (``LL^T``) factorization of the GP variance evaluated at union_of_points
   // wrt union_of_points[0:num_to_sample]
   // (L_{d,*,*,k}^{-1} * L_{d,*,*,k} * L_{d,*,*,k}^{-1})^T
   std::vector<double> grad_chol_decomp;
-  //! the gradient of the GP covariance evaluated among union_of_points and discrete_pts wrt union_of_points[0:num_to_sample]
-  std::vector<double> grad_covariance;
+  //! the mean of the GP evaluated at discrete_pts
+  std::vector<double> to_sample_mean_;
 
   //! improvement (per mc iteration) evaluated at each of union_of_points
   std::vector<double> KG_this_step_from_var;
@@ -600,7 +607,7 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
                               configure_for_gradients, normal_rng, &kg_state_vector);
 
   // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), 0.0, start_point_set);
+  OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
 
   using RepeatedDomain = RepeatedDomain<DomainType>;
   RepeatedDomain repeated_domain(domain, num_to_sample);

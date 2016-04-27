@@ -1281,6 +1281,7 @@ class MultistartOptimizer final {
 
           // compute objective at the new potential optimum; note Optimize() guarantees optimum point is already in state
           objective_value = objective_evaluator.ComputeObjectiveFunction(objective_state_vector + thread_id);
+          //printf("current value %f \n", objective_value);
 
           if (unlikely(function_values != nullptr)) {
             function_values[i] = objective_value;
@@ -1315,6 +1316,7 @@ class MultistartOptimizer final {
 
 #pragma omp critical
       {
+        //printf("init value %f and current value %f \n", best_objective_value_so_far_init, best_objective_value_so_far_local);
         if (io_container->best_objective_value_so_far < best_objective_value_so_far_local) {
           io_container->found_flag = true;
           io_container->best_objective_value_so_far = best_objective_value_so_far_local;

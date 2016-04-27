@@ -520,10 +520,42 @@ class GaussianProcess final {
       :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the cholesky-factored
         variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
+
+    ** store in UPPER triangle
   \endrst*/
   void ComputeGradCholeskyVarianceOfPoints(StateType * points_to_sample_state,
                                            double const * restrict chol_var,
                                            double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+
+
+  /*!\rst
+    Computes the gradient of the invers of the cholesky factorization of the variance of this GP with respect to ``points_to_sample``.
+
+    Note that ``grad_chol`` is nominally sized:
+
+    ``grad_chol[dim][num_to_sample][num_to_sample][num_to_sample]``.
+
+    Let this be indexed ``grad_chol[d][i][j][k]``, which is read the derivative of ``var[i][j]``
+    with respect to ``x_{d,k}`` (x = ``points_to_sample``)
+
+    .. Note:: comments are copied in Python: interfaces/gaussian_process_interface.py
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :chol_var[num_to_sample][num_to_sample]: the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``)
+        e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the invers of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
+  \endrst*/
+  void ComputeGradInverseCholeskyVarianceOfPoints(StateType * points_to_sample_state,
+                                                  double const * restrict chol_var,
+                                                  double const * restrict cov,
+                                                  double const * restrict discrete_pts,
+                                                  int num_pts,
+                                                  double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Seed the random number generator with the specified seed.
@@ -590,9 +622,9 @@ class GaussianProcess final {
   \endrst*/
 
   void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
+                                             int diff_index,
                                              double const * restrict discrete_pts,
                                              int num_pts,
-                                             int diff_index,
                                              double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
@@ -609,7 +641,7 @@ class GaussianProcess final {
         e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
-      :grad_chol[dim][num_to_sample][num_to_sample]: gradient of the cholesky-factored
+      :grad_chol[dim][num_to_sample][num_to_sample]: gradient of the inverse of the cholesky-factored
         variance of the GP.  ``grad_chol[d][i][j]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
         k = ``diff_index``
@@ -617,6 +649,32 @@ class GaussianProcess final {
   void ComputeGradCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
                                                    double const * restrict chol_var,
                                                    double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Computes the gradient of the invers of the cholesky factorization of the variance of this GP with respect to the
+    ``diff_index``-th point in ``points_to_sample``.
+
+    This internal method is meant to be used by ComputeGradInverseCholeskyVarianceOfPoints() to construct the gradient wrt all
+    points of ``points_to_sample``. See that function for more details.
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :diff_index: index of ``points_to_sample`` in {0, .. ``num_to_sample``-1} to be differentiated against
+      :chol_var[num_to_sample][num_to_sample]: the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``)
+        e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_to_sample]: gradient of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
+        k = ``diff_index``
+  \endrst*/
+  void ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
+                                                          double const * restrict chol_var,
+                                                          double const * restrict cov,
+                                                          double const * restrict discrete_pts,
+                                                          int num_pts,
+                                                          double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Recomputes (including resizing as needed) the derived quantities in this class.

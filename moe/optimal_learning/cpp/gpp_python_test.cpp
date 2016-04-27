@@ -69,7 +69,7 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = PingKGGeneralTest();
+  error = RunKGTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("KG tests failed\n");
   } else {
@@ -197,6 +197,14 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = EvaluateKGAtPointListTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG evaluation at point list\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG evaluation at point list\n");
+  }
+  total_errors += error;
+
   error = MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode::kAnalytic);
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic EI Optimization single/multithreaded consistency check\n");
@@ -213,7 +221,15 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error += HeuristicExpectedImprovementOptimizationTest();
+  error = MultithreadedKGOptimizationTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG single/multithreaded consistency check\n");
+  }
+  total_errors += error;
+
+  error = HeuristicExpectedImprovementOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("Heuristic EI Optimization\n");
   } else {
@@ -261,7 +277,32 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG optimization\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG optimization\n");
+  }
+  total_errors += error;
+
+  error = KnowledgeGradientOptimizationTest(DomainTypes::kSimplex);
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo simplex KG optimization\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo simplex KG optimization\n");
+  }
+  total_errors += error;
+
+  error = KnowledgeGradientOptimizationMultipleSamplesTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
+  }
+  total_errors += error;
+
   return total_errors;
+
 }
 
 }  // end unnamed namespace

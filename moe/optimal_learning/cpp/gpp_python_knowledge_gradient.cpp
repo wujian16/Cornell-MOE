@@ -53,6 +53,7 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled,
                                                 gaussian_process.dim(), num_to_sample, num_being_sampled);
   bool configure_for_gradients = false;
+
   KnowledgeGradientEvaluator kg_evaluator(gaussian_process, input_container_discrete.points_to_sample.data(),
                                           num_pts, max_int_steps, noise, best_so_far);
   KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
@@ -93,7 +94,7 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
 }
 
 /*!\rst
-  Utility that dispatches EI optimization based on optimizer type and num_to_sample.
+  Utility that dispatches KG optimization based on optimizer type and num_to_sample.
   This is just used to reduce copy-pasted code.
 
   \param
@@ -106,17 +107,18 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
     :input_container: PythonInterfaceInputContainer object containing data about points_being_sampled
     :domain: object specifying the domain to optimize over (see gpp_domain.hpp)
     :optimizer_type: type of optimization to use (e.g., null, gradient descent)
-    :num_to_sample: how many simultaneous experiments you would like to run (i.e., the q in q,p-EI)
+    :num_to_sample: how many simultaneous experiments you would like to run (i.e., the q in q,p-KG)
     :best_so_far: value of the best sample so far (must be min(points_sampled_value))
     :max_int_steps: maximum number of MC iterations
     :max_num_threads: maximum number of threads for use by OpenMP (generally should be <= # cores)
-    :randomness_source: object containing randomness sources (sufficient for multithreading) used in EI computation
+    :randomness_source: object containing randomness sources (sufficient for multithreading) used in KG computation
     :status: pydict object; cannot be None
   \output
     :randomness_source: PRNG internal states modified
     :status: modified on exit to describe whether convergence occurred
     :best_points_to_sample[num_to_sample][dim]: next set of points to evaluate
 \endrst*/
+
 template <typename DomainType>
 void DispatchKnowledgeGradientOptimization(const boost::python::object& optimizer_parameters,
                                            const GaussianProcess& gaussian_process,
@@ -195,7 +197,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
-  int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
+  int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
   const boost::python::list points_to_sample_dummy;
   PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gaussian_process.dim(), num_to_sample_input, num_being_sampled);
@@ -280,10 +282,10 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
 
 void ExportKnowldegeGradientFunctions() {
   boost::python::def("compute_knowledge_gradient", ComputeKnowledgeGradientWrapper, R"%%(
-    Compute expected improvement.
+    Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
     use (fast/accurate) analytic evaluation.
-    Otherwise monte carlo-based EI computation is used.
+    Otherwise monte carlo-based KG computation is used.
 
     :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
     :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
@@ -309,10 +311,10 @@ void ExportKnowldegeGradientFunctions() {
     )%%");
 
   boost::python::def("compute_grad_knowledge_gradient", ComputeGradKnowledgeGradientWrapper, R"%%(
-    Compute the gradient of expected improvement evaluated at points_to_sample.
+    Compute the gradient of knowledge gradient evaluated at points_to_sample.
     If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
     use (fast/accurate) analytic evaluation.
-    Otherwise monte carlo-based EI computation is used.
+    Otherwise monte carlo-based KG computation is used.
 
     :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
     :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)

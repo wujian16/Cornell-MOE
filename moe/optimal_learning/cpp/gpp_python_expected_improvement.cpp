@@ -38,10 +38,11 @@
 #include "gpp_optimizer_parameters.hpp"
 #include "gpp_python_common.hpp"
 
+#include "gpp_knowledge_gradient_optimization.hpp"
+
 namespace optimal_learning {
 
 namespace {
-
 double ComputeExpectedImprovementWrapper(const GaussianProcess& gaussian_process,
                                          const boost::python::list& points_to_sample,
                                          const boost::python::list& points_being_sampled,

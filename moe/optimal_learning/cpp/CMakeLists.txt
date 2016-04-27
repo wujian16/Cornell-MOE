@@ -119,7 +119,7 @@ set(OPTIMAL_LEARNING_PYTHON_SOURCES
   gpp_python.cpp
   gpp_python_common.cpp
   gpp_python_expected_improvement.cpp
-  #gpp_python_knowledge_gradient.cpp
+  gpp_python_knowledge_gradient.cpp
   gpp_python_gaussian_process.cpp
   gpp_python_model_selection.cpp
   gpp_python_test.cpp

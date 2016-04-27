@@ -88,6 +88,15 @@ OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceTest();
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceNoiseTest();
 
+
+/*!\rst
+  Checks that the gradients (spatial) of the inver of the cholesky factorization of GP variance with noise are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int PingGPInverseCholeskyVarianceNoiseTest();
+
 /*!\rst
   Checks that the gradients (spatial) of Expected Improvement are computed correctly.
 
@@ -103,6 +112,7 @@ OL_WARN_UNUSED_RESULT int PingEIGeneralTest();
     number of test failures: 0 if all is working well.
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingEIOnePotentialSampleTest();
+
 
 /*!\rst
   Runs a battery of tests for the GP and EI functions, including ping tests for:

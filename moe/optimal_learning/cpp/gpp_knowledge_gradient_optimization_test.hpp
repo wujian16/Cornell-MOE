@@ -38,6 +38,57 @@ OL_WARN_UNUSED_RESULT int PingKGGeneralTest();
 
 
 /*!\rst
+  Checks that the gradients (spatial) of Knowledge Gradient are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int RunKGTests();
+
+
+/*!\rst
+  Checks that multithreaded KG optimization behaves the same way that single threaded does.
+
+  \return
+    number of test failures: 0 if KG multi/single threaded optimization are consistent
+\endrst*/
+OL_WARN_UNUSED_RESULT int MultithreadedKGOptimizationTest();
+
+/*!\rst
+  Checks that KG optimization is working on tensor product or simplex domain using
+  monte-carlo KG evaluation.
+
+  \param
+    :domain_type: type of the domain to test on (e.g., tensor product, simplex)
+  \return
+    number of test failures: 0 if KG optimization is working properly
+\endrst*/
+OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTest(DomainTypes domain_type);
+
+/*!\rst
+  Checks that ComputeKGOptimalPointsToSample works on a tensor product domain.
+  This test exercises the the code tested in:
+  KnowledgeGradientOptimizationTest(kTensorProduct)
+  for ``ei_mode = {kAnalytic, kMonteCarlo}``.
+
+  This test checks the generation of multiple, simultaneous experimental points to sample.
+
+  \return
+    number of test failures: 0 if KG optimization is working properly
+\endrst*/
+OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationMultipleSamplesTest();
+
+/*!\rst
+  Tests EvaluateKGAtPointList (computes KG at a specified list of points, multithreaded).
+  Checks that the returned best point is in fact the best.
+  Verifies multithreaded consistency.
+
+  \return
+    number of test failures: 0 if function evaluation is working properly
+\endrst*/
+OL_WARN_UNUSED_RESULT int EvaluateKGAtPointListTest();
+
+/*!\rst
   Class to conveniently hold and generate random data that are commonly needed for testing functions in gpp_math.cpp.  In
   particular, this mock is used for testing GP mean, GP variance, and expected improvement (and their gradients).
 
