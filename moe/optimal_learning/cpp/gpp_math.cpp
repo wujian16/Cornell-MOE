@@ -446,7 +446,16 @@ void GaussianProcess::RecomputeDerivedVariables() {
                        K_chol_.data(), num_sampled_, leading_minor_index);
   }
 
+  mean_ = 0.0;
+  for (int i=0; i<num_sampled_; ++i){
+     mean_ += points_sampled_value_[i];
+  }
+  mean_ /= num_sampled_;
+
   std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), K_inv_y_.begin());
+  for (int i=0; i<num_sampled_; ++i){
+     K_inv_y_[i] -= mean_;
+  }
   CholeskyFactorLMatrixVectorSolve(K_chol_.data(), num_sampled_, K_inv_y_.data());
 }
 
@@ -457,6 +466,7 @@ GaussianProcess::GaussianProcess(const CovarianceInterface& covariance_in,
                                  int dim_in, int num_sampled_in)
     : dim_(dim_in),
       num_sampled_(num_sampled_in),
+      mean_(0.0),
       covariance_ptr_(covariance_in.Clone()),
       points_sampled_(points_sampled_in, points_sampled_in + num_sampled_in*dim_in),
       points_sampled_value_(points_sampled_value_in, points_sampled_value_in + num_sampled_in),
@@ -470,6 +480,7 @@ GaussianProcess::GaussianProcess(const CovarianceInterface& covariance_in,
 GaussianProcess::GaussianProcess(const GaussianProcess& source)
     : dim_(source.dim_),
       num_sampled_(source.num_sampled_),
+      mean_(source.mean_),
       covariance_ptr_(source.covariance_ptr_->Clone()),
       points_sampled_(source.points_sampled_),
       points_sampled_value_(source.points_sampled_value_),
@@ -521,8 +532,11 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
 \endrst*/
 void GaussianProcess::ComputeMeanOfPoints(const StateType& points_to_sample_state,
                                           double * restrict mean_of_points) const noexcept {
+  for (int i=0; i<points_to_sample_state.num_to_sample; ++i){
+    mean_of_points[i] = mean_;
+  }
   GeneralMatrixVectorMultiply(points_to_sample_state.K_star.data(), 'T', K_inv_y_.data(),
-                              1.0, 0.0, num_sampled_, points_to_sample_state.num_to_sample, num_sampled_, mean_of_points);
+                              1.0, 1.0, num_sampled_, points_to_sample_state.num_to_sample, num_sampled_, mean_of_points);
 }
 
 
@@ -538,8 +552,11 @@ void GaussianProcess::ComputeMeanOfAdditionalPoints(double const * discrete_pts,
                                                     double * restrict mean_of_points) const noexcept {
   std::vector<double> kt(num_pts*num_sampled_, 0.0);
   BuildMixCovarianceMatrix(discrete_pts, num_pts, kt.data());
+  for (int i=0; i<num_pts; ++i){
+    mean_of_points[i] = mean_;
+  }
   GeneralMatrixVectorMultiply(kt.data(), 'T', K_inv_y_.data(),
-                              1.0, 0.0, num_sampled_, num_pts, num_sampled_, mean_of_points);
+                              1.0, 1.0, num_sampled_, num_pts, num_sampled_, mean_of_points);
 }
 
 /*!\rst

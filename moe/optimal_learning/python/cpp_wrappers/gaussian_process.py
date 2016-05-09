@@ -130,6 +130,26 @@ class GaussianProcess(GaussianProcessInterface):
         )
         return numpy.array(mu)
 
+    def compute_mean_of_additional_points(self, discrete_pts):
+        r"""Compute the mean of this GP at each of point of ``Xd`` (``discrete_pts``).
+
+        ``discrete_pts`` may not contain duplicate points. Violating this results in singular covariance matrices.
+
+        .. Note:: Comments are copied from
+          :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface.GaussianProcessInterface.compute_mean_of_points`
+
+        :param discrete_pts: num_pts points (in dim dimensions) being sampled from the GP
+        :type discrete_pts: array of float64 with shape (num_pts, dim)
+        :return: mean: where mean[i] is the mean at points_to_sample[i]
+        :rtype: array of float64 with shape (num_to_sample)
+
+        """
+        mu = self._gaussian_process.compute_mean_of_additional_points(
+                cpp_utils.cppify(discrete_pts),
+                discrete_pts.shape[0],
+        )
+        return numpy.array(mu)
+
     def compute_grad_mean_of_points(self, points_to_sample, num_derivatives=-1):
         r"""Compute the gradient of the mean of this GP at each of point of ``Xs`` (``points_to_sample``) wrt ``Xs``.
 

@@ -688,6 +688,8 @@ class GaussianProcess final {
   int dim_;
   //! number of points in ``points_sampled``
   int num_sampled_;
+  //! the mean of the ``points_sampled_value_``
+  double mean_;
 
   // state variables for prior
   //! covariance class (for computing covariance and its gradients)

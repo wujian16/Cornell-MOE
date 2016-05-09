@@ -18,7 +18,7 @@ from moe.optimal_learning.python.interfaces.optimization_interface import Optimi
 
 
 def multistart_knowledge_gradient_optimization(
-        ei_optimizer,
+        kg_optimizer,
         num_multistarts,
         discrete_pts,
         num_to_sample,
@@ -51,8 +51,8 @@ def multistart_knowledge_gradient_optimization(
     The option of using GPU to compute general q,p-EI via MC simulation is also available. To enable it, make sure you have
     installed GPU components of MOE, otherwise, it will throw Runtime excpetion.
 
-    :param ei_optimizer: object that optimizes (e.g., gradient descent, newton) EI over a domain
-    :type ei_optimizer: cpp_wrappers.optimization.*Optimizer object
+    :param kg_optimizer: object that optimizes (e.g., gradient descent, newton) EI over a domain
+    :type kg_optimizer: cpp_wrappers.optimization.*Optimizer object
     :param num_multistarts: number of times to multistart ``ei_optimizer`` (UNUSED, data is in ei_optimizer.optimizer_parameters)
     :type num_multistarts: int > 0
     :param num_to_sample: how many simultaneous experiments you would like to run (i.e., the q in q,p-EI)
@@ -67,7 +67,7 @@ def multistart_knowledge_gradient_optimization(
     :type max_num_threads: int > 0
     :param status: (output) status messages from C++ (e.g., reporting on optimizer success, etc.)
     :type status: dict
-    :return: point(s) that maximize the expected improvement (solving the q,p-EI problem)
+    :return: point(s) that maximize the knowledge gradient (solving the q,p-EI problem)
     :rtype: array of float64 with shape (num_to_sample, ei_optimizer.objective_function.dim)
 
     """
@@ -83,15 +83,15 @@ def multistart_knowledge_gradient_optimization(
         status = {}
 
     best_points_to_sample = C_GP.multistart_knowledge_gradient_optimization(
-            ei_optimizer.optimizer_parameters,
-            ei_optimizer.objective_function._gaussian_process._gaussian_process,
-            cpp_utils.cppify(ei_optimizer.domain.domain_bounds),
+            kg_optimizer.optimizer_parameters,
+            kg_optimizer.objective_function._gaussian_process._gaussian_process,
+            cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
             cpp_utils.cppify(discrete_pts),
-            cpp_utils.cppify(ei_optimizer.objective_function._points_being_sampled),
+            cpp_utils.cppify(kg_optimizer.objective_function._points_being_sampled),
             num_pts, num_to_sample,
-            ei_optimizer.objective_function.num_being_sampled,
-            ei_optimizer.objective_function._best_so_far,
-            ei_optimizer.objective_function._num_mc_iterations,
+            kg_optimizer.objective_function.num_being_sampled,
+            kg_optimizer.objective_function._best_so_far,
+            kg_optimizer.objective_function._num_mc_iterations,
             max_num_threads,
             noise,
             randomness,
@@ -99,15 +99,15 @@ def multistart_knowledge_gradient_optimization(
     )
 
     # reform output to be a list of dim-dimensional points, dim = len(self.domain)
-    return cpp_utils.uncppify(best_points_to_sample, (num_to_sample, ei_optimizer.objective_function.dim))
+    return cpp_utils.uncppify(best_points_to_sample, (num_to_sample, kg_optimizer.objective_function.dim))
 
 
 
 class KnowledgeGradient(OptimizableInterface):
 
-    r"""Implementation of Expected Improvement computation via C++ wrappers: EI and its gradient at specified point(s) sampled from a GaussianProcess.
+    r"""Implementation of knowledge gradient computation via C++ wrappers: EI and its gradient at specified point(s) sampled from a GaussianProcess.
 
-    A class to encapsulate the computation of expected improvement and its spatial gradient using points sampled from an
+    A class to encapsulate the computation of knowledge gradient and its spatial gradient using points sampled from an
     associated GaussianProcess. The general EI computation requires monte-carlo integration; it can support q,p-EI optimization.
     It is designed to work with any GaussianProcess.
 
@@ -123,7 +123,6 @@ class KnowledgeGradient(OptimizableInterface):
             gaussian_process,
             discrete_pts,
             noise,
-            num_to_sample,
             points_to_sample=None,
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
@@ -150,8 +149,7 @@ class KnowledgeGradient(OptimizableInterface):
         self._gaussian_process = gaussian_process
         self._discrete_pts = numpy.copy(discrete_pts)
         self._noise = noise
-        self._num_to_sample = num_to_sample
-        self._mu_star = self._gaussian_process.compute_mean_of_points(self._discrete_pts)
+        self._mu_star = self._gaussian_process.compute_mean_of_additional_points(self._discrete_pts)
         self._best_so_far = numpy.amin(self._mu_star)
 
         if points_being_sampled is None:
@@ -160,9 +158,11 @@ class KnowledgeGradient(OptimizableInterface):
             self._points_being_sampled = numpy.copy(points_being_sampled)
 
         if points_to_sample is None:
-            self._points_to_sample = numpy.zeros((self._num_to_sample, self._gaussian_process.dim))
+            self._points_to_sample = numpy.zeros((1, self._gaussian_process.dim))
         else:
             self._points_to_sample = points_to_sample
+
+        self._num_to_sample = points_to_sample.shape[0]
 
         if randomness is None:
             self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
@@ -218,7 +218,7 @@ class KnowledgeGradient(OptimizableInterface):
             max_num_threads=DEFAULT_MAX_NUM_THREADS,
             status=None,
     ):
-        """Evaluate Expected Improvement (1,p-EI) over a specified list of ``points_to_evaluate``.
+        """Evaluate knowledge gradient (1,p-EI) over a specified list of ``points_to_evaluate``.
 
         .. Note:: We use ``points_to_evaluate`` instead of ``self._points_to_sample`` and compute the EI at those points only.
             ``self._points_to_sample`` is unchanged.
@@ -274,20 +274,20 @@ class KnowledgeGradient(OptimizableInterface):
         return numpy.array(kg_values)
 
     def compute_knowledge_gradient(self, force_monte_carlo=False):
-        r"""Compute the expected improvement at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
+        r"""Compute the knowledge gradient at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
 
         .. Note:: These comments were copied from
           :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_expected_improvement`
 
         ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
 
-        Computes the expected improvement ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``, where ``Xs``
+        Computes the knowledge gradient ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``, where ``Xs``
         are potential points to sample (union of ``points_to_sample`` and ``points_being_sampled``) and ``X`` are
         already sampled points.  The ``^+`` indicates that the expression in the expectation evaluates to 0 if it
         is negative.  ``f^*(X)`` is the MINIMUM over all known function evaluations (``points_sampled_value``),
         whereas ``f(Xs)`` are *GP-predicted* function evaluations.
 
-        In words, we are computing the expected improvement (over the current ``best_so_far``, best known
+        In words, we are computing the knowledge gradient (over the current ``best_so_far``, best known
         objective function value) that would result from sampling (aka running new experiments) at
         ``points_to_sample`` with ``points_being_sampled`` concurrent/ongoing experiments.
 
@@ -306,7 +306,7 @@ class KnowledgeGradient(OptimizableInterface):
 
         :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
         :type force_monte_carlo: boolean
-        :return: the expected improvement from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
+        :return: the knowledge gradient from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
         :rtype: float64
 
         """
@@ -327,7 +327,7 @@ class KnowledgeGradient(OptimizableInterface):
     compute_objective_function = compute_knowledge_gradient
 
     def compute_grad_knowledge_gradient(self, force_monte_carlo=False):
-        r"""Compute the gradient of expected improvement at ``points_to_sample`` wrt ``points_to_sample``, with ``points_being_sampled`` concurrent samples.
+        r"""Compute the gradient of knowledge gradient at ``points_to_sample`` wrt ``points_to_sample``, with ``points_being_sampled`` concurrent samples.
 
         .. Note:: These comments were copied from
           :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_grad_expected_improvement`
@@ -371,5 +371,5 @@ class KnowledgeGradient(OptimizableInterface):
     compute_grad_objective_function = compute_grad_knowledge_gradient
 
     def compute_hessian_objective_function(self, **kwargs):
-        """We do not currently support computation of the (spatial) hessian of Expected Improvement."""
-        raise NotImplementedError('Currently we cannot compute the hessian of expected improvement.')
+        """We do not currently support computation of the (spatial) hessian of knowledge gradient."""
+        raise NotImplementedError('Currently we cannot compute the hessian of knowledge gradient.')

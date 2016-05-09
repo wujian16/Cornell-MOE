@@ -99,9 +99,9 @@ def multistart_hyperparameter_optimization(
     .. WARNING:: this function fails if NO improvement can be found!  In that case,
        the output will always be the first randomly chosen point. status will report failure.
 
-    :param ei_optimizer: object that optimizes (e.g., gradient descent, newton) log likelihood over a domain
-    :type ei_optimizer: cpp_wrappers.optimization.*Optimizer object
-    :param num_multistarts: number of times to multistart ``ei_optimizer`` (UNUSED, data is in log_likelihood_optimizer.optimizer_parameters)
+    :param log_likelihood_optimizer: object that optimizes (e.g., gradient descent, newton) log likelihood over a domain
+    :type log_likelihood_optimizer: cpp_wrappers.optimization.*Optimizer object
+    :param num_multistarts: number of times to multistart ``log_likelihood_optimizer`` (UNUSED, data is in log_likelihood_optimizer.optimizer_parameters)
     :type num_multistarts: int > 0
     :param randomness: RNGs used by C++ to generate initial guesses
     :type randomness: RandomnessSourceContainer (C++ object; e.g., from C_GP.RandomnessSourceContainer())

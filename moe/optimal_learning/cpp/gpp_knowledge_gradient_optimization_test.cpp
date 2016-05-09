@@ -133,8 +133,8 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
         points_being_sampled_(points_being_sampled, points_being_sampled + num_being_sampled_*dim_),
         discrete_pts_(random_discrete(dim_, num_pts_)),
         grad_KG_(num_to_sample_*dim_*num_pts_*(num_to_sample_+num_being_sampled_)),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_),
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_),
         kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, noise, best_so_far){
   }
 
@@ -229,7 +229,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   std::vector<double> grad_KG_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
   //! expected improvement evaluator object that specifies the parameters & GP for KG evaluation
@@ -409,7 +409,7 @@ int MultithreadedKGOptimizationTest() {
   boost::uniform_real<double> uniform_double_upper_bound(2.5, 5.5);
 
   std::vector<double> noise_variance(num_sampled, 0.0003);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(kDim, 1.0, 1.0), noise_variance, kDim,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(kDim, 1.0, 1.0), noise_variance, kDim,
                                                         num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
@@ -619,7 +619,7 @@ int EvaluateKGAtPointListTest() {
 
   int num_sampled = 20;  // arbitrary
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), noise_variance, dim, num_sampled,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound, uniform_double_upper_bound,
                                                         uniform_double_hyperparameter, &uniform_generator);
 
@@ -754,7 +754,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
   int num_sampled = 20;
 
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), noise_variance,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance,
                                                         dim, num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound,
                                                         uniform_double_hyperparameter,
@@ -939,7 +939,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   int num_sampled = 20;
 
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0),
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
                                                         noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound,
                                                         uniform_double_upper_bound,
@@ -1153,7 +1153,7 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
 
   const int num_sampled = 20;
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0),
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
                                                         noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound,
                                                         uniform_double_upper_bound,

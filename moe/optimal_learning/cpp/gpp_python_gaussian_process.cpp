@@ -50,10 +50,10 @@ GaussianProcess * make_gaussian_process(const boost::python::list& hyperparamete
                                                 points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, dim, num_sampled, num_to_sample);
 
-  SquareExponential square_exponential(input_container.dim, input_container.alpha,
+  MaternNu2p5 matern_25(input_container.dim, input_container.alpha,
                                        input_container.lengths.data());
 
-  GaussianProcess * new_gp = new GaussianProcess(square_exponential, input_container.points_sampled.data(),
+  GaussianProcess * new_gp = new GaussianProcess(matern_25, input_container.points_sampled.data(),
                                                  input_container.points_sampled_value.data(),
                                                  input_container.noise_variance.data(),
                                                  input_container.dim, input_container.num_sampled);
@@ -71,6 +71,18 @@ boost::python::list GetMeanWrapper(const GaussianProcess& gaussian_process,
   GaussianProcess::StateType points_to_sample_state(gaussian_process, input_container.points_to_sample.data(),
                                                     input_container.num_to_sample, num_derivatives);
   gaussian_process.ComputeMeanOfPoints(points_to_sample_state, to_sample_mean.data());
+
+  return VectorToPylist(to_sample_mean);
+}
+
+
+boost::python::list GetAdditionalMeanWrapper(const GaussianProcess& gaussian_process,
+                                             const boost::python::list& discrete_pts,
+                                             int num_pts) {
+  PythonInterfaceInputContainer input_container(discrete_pts, gaussian_process.dim(), num_pts);
+
+  std::vector<double> to_sample_mean(input_container.num_to_sample);
+  gaussian_process.ComputeMeanOfAdditionalPoints(input_container.points_to_sample.data(), input_container.num_to_sample, to_sample_mean.data());
 
   return VectorToPylist(to_sample_mean);
 }
@@ -236,6 +248,17 @@ void ExportGaussianProcessFunctions() {
       .add_property("dim", &GaussianProcess::dim, "Return the number of spatial dimensions.")
       .add_property("num_sampled", &GaussianProcess::num_sampled, "Return the number of sampled points.")
       .def("compute_mean_of_points", GetMeanWrapper, R"%%(
+        Compute the (predicted) mean, mus, of the Gaussian Process posterior.
+        ``mus_i = Ks_{i,k} * K^-1_{k,l} * y_l = Ks^T * K^-1 * y``
+
+        :param points_to_sample: points at which to compute GP-derived quantities (mean, variance, etc.; i.e., make predictions)
+        :type points_to_sample: list of float64 with shape (num_to_sample, dim)
+        :param num_to_sample: number of points to sample
+        :type num_to_sample: int > 0
+        :return: GP mean evaluated at each of ``points_to_sample``
+        :rtype: list of float64 with shape (num_to_sample, )
+        )%%")
+      .def("compute_mean_of_additional_points", GetAdditionalMeanWrapper, R"%%(
         Compute the (predicted) mean, mus, of the Gaussian Process posterior.
         ``mus_i = Ks_{i,k} * K^-1_{k,l} * y_l = Ks^T * K^-1 * y``
 

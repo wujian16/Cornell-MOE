@@ -498,8 +498,17 @@ void LogMarginalLikelihoodEvaluator::FillLogLikelihoodState(LogMarginalLikelihoo
                                                     log_likelihood_state->K_chol.data());
 
   // K_inv_y
-  std::copy(points_sampled_value_.begin(), points_sampled_value_.end(),
-            log_likelihood_state->K_inv_y.begin());
+  double mean_ = 0.0;
+  for (int i=0; i<num_sampled_; ++i){
+     mean_ += points_sampled_value_[i];
+  }
+  mean_ /= num_sampled_;
+  std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), log_likelihood_state->y.begin());
+  std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), log_likelihood_state->K_inv_y.begin());
+  for (int i=0; i<num_sampled_; ++i){
+     log_likelihood_state->K_inv_y[i] -= mean_;
+     log_likelihood_state->y[i] -= mean_;
+  }
   CholeskyFactorLMatrixVectorSolve(log_likelihood_state->K_chol.data(), num_sampled_,
                                    log_likelihood_state->K_inv_y.data());
 }
@@ -538,9 +547,8 @@ double LogMarginalLikelihoodEvaluator::ComputeLogLikelihood(
 
   // compute term1 = -\frac{1}{2} * y^T * K^-1 * y
   // term1 = y^T * K_inv_y
-  double log_marginal_term1 = -0.5*DotProduct(points_sampled_value_.data(),
+  double log_marginal_term1 = -0.5*DotProduct(log_likelihood_state.y.data(),
                                               log_likelihood_state.K_inv_y.data(), num_sampled_);
-
   // compute term3 = -\frac{n}{2} * \log(2*pi), where log(2*pi) has been precomputed
   double log_marginal_term3 = -0.5*static_cast<double>(num_sampled_)*kLog2Pi;
 
@@ -743,6 +751,7 @@ void LogMarginalLikelihoodState::SetupState(const EvaluatorType& log_likelihood_
     num_sampled = log_likelihood_eval.num_sampled();
     K_chol.resize(num_sampled*num_sampled);
     K_inv_y.resize(num_sampled);
+    y.resize(num_sampled);
     grad_hyperparameter_cov_matrix.resize(num_hyperparameters*num_sampled*num_sampled);
     temp_vec.resize(num_sampled);
   }
@@ -759,6 +768,7 @@ LogMarginalLikelihoodState::LogMarginalLikelihoodState(const EvaluatorType& log_
       covariance_ptr(covariance_in.Clone()),
       K_chol(num_sampled*num_sampled),
       K_inv_y(num_sampled),
+      y(num_sampled),
       grad_hyperparameter_cov_matrix(num_hyperparameters*num_sampled*num_sampled),
       temp_vec(num_sampled) {
   std::vector<double> hyperparameters(num_hyperparameters);

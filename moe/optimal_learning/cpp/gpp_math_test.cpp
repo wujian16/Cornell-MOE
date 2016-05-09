@@ -83,8 +83,8 @@ class PingGPPMean final : public PingableMatrixInputVectorOutputInterface {
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_),
         grad_mu_(num_to_sample_*dim_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -165,7 +165,7 @@ class PingGPPMean final : public PingableMatrixInputVectorOutputInterface {
   std::vector<double> grad_mu_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -197,8 +197,8 @@ class PingGPPAdditionalMean final : public PingableMatrixInputVectorOutputInterf
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_),
         grad_mu_(num_to_sample_*dim_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -277,7 +277,7 @@ class PingGPPAdditionalMean final : public PingableMatrixInputVectorOutputInterf
   std::vector<double> grad_mu_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -305,8 +305,8 @@ class PingGPPVariance final : public PingableMatrixInputVectorOutputInterface {
         noise_variance_(num_sampled_, 0.0),
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         grad_variance_(dim_*Square(num_to_sample_)*num_to_sample_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -377,7 +377,7 @@ class PingGPPVariance final : public PingableMatrixInputVectorOutputInterface {
   std::vector<double> grad_variance_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -410,8 +410,8 @@ class PingGPPCovariance final : public PingableMatrixInputVectorOutputInterface 
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         grad_variance_(dim_*num_to_sample_*num_pts_*num_to_sample_),
         discrete_pts_(num_pts_*dim_, 0.0),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
       UniformRandomGenerator uniform_generator(318);
       boost::uniform_real<double> uniform_double(-5.0, 5.0);
       for (int i = 0; i < dim_*num_pts_; ++i) {
@@ -490,7 +490,7 @@ class PingGPPCovariance final : public PingableMatrixInputVectorOutputInterface 
   std::vector<double> discrete_pts_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -520,8 +520,8 @@ class PingGPPCholeskyVariance final : public PingableMatrixInputVectorOutputInte
         noise_variance_(num_sampled_, 0.0),
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         grad_variance_(dim_*Square(num_to_sample_)*num_to_sample_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -592,7 +592,7 @@ class PingGPPCholeskyVariance final : public PingableMatrixInputVectorOutputInte
   std::vector<double> grad_variance_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -622,8 +622,8 @@ class PingGPPCholeskyVarianceNoise final : public PingableMatrixInputVectorOutpu
         noise_variance_(num_sampled_, 0.0),
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         grad_variance_(dim_*Square(num_to_sample_)*num_to_sample_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -704,7 +704,7 @@ class PingGPPCholeskyVarianceNoise final : public PingableMatrixInputVectorOutpu
   std::vector<double> grad_variance_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -738,8 +738,8 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         grad_variance_(dim_*num_to_sample_*num_pts_*num_to_sample_),
         discrete_pts_(num_pts_*dim_, 0.0),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), std::vector<double>(num_sampled_, 0.0).data(), noise_variance_.data(), dim_, num_sampled_) {
       UniformRandomGenerator uniform_generator(318);
       boost::uniform_real<double> uniform_double(-5.0, 5.0);
       for (int i = 0; i < dim_*num_pts_; ++i) {
@@ -841,7 +841,7 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
   std::vector<double> discrete_pts_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
 
@@ -874,8 +874,8 @@ class PingExpectedImprovement final : public PingableMatrixInputVectorOutputInte
         points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_),
         points_being_sampled_(points_being_sampled, points_being_sampled + num_being_sampled_*dim_),
         grad_EI_(num_to_sample_*dim_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_), ei_evaluator_(gaussian_process_, num_mc_iter, best_so_far) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_), ei_evaluator_(gaussian_process_, num_mc_iter, best_so_far) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -946,7 +946,7 @@ class PingExpectedImprovement final : public PingableMatrixInputVectorOutputInte
   std::vector<double> grad_EI_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
   //! expected improvement evaluator object that specifies the parameters & GP for EI evaluation
@@ -975,8 +975,8 @@ class PingOnePotentialSampleExpectedImprovement final : public PingableMatrixInp
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
         points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_),
         grad_EI_(dim_),
-        sqexp_covariance_(dim_, alpha, lengths),
-        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_), ei_evaluator_(gaussian_process_, best_so_far) {
+        matern25_covariance_(dim_, alpha, lengths),
+        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_), ei_evaluator_(gaussian_process_, best_so_far) {
     if (num_being_sampled != 0) {
       OL_THROW_EXCEPTION(InvalidValueException<int>, "PingOnePotentialSample: num_being_sampled MUST be 0!", num_being_sampled, 0);
     }
@@ -1043,7 +1043,7 @@ class PingOnePotentialSampleExpectedImprovement final : public PingableMatrixInp
   std::vector<double> grad_EI_;
 
   //! covariance class (for computing covariance and its gradients)
-  SquareExponential sqexp_covariance_;
+  MaternNu2p5 matern25_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
   //! expected improvement evaluator object that specifies the parameters & GP for EI evaluation
@@ -1322,7 +1322,7 @@ int EIOnePotentialSampleEdgeCasesTest() {
   std::vector<double> noise_variance = {0.0, 0.0};
   auto best_so_far = *std::min_element(points_sampled_value.begin(), points_sampled_value.end());
 
-  SquareExponential covariance(dim, 0.2, 0.3);
+  MaternNu2p5 covariance(dim, 0.2, 0.3);
   // First a symmetric case: only one historical point
   GaussianProcess gaussian_process(covariance, points_sampled.data(), points_sampled_value.data(),
                                    noise_variance.data(), dim, 1);
@@ -1639,7 +1639,7 @@ int MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode ei_mode) {
   boost::uniform_real<double> uniform_double_upper_bound(2.5, 5.5);
 
   std::vector<double> noise_variance(num_sampled, 0.0003);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(kDim, 1.0, 1.0), noise_variance, kDim,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(kDim, 1.0, 1.0), noise_variance, kDim,
                                                         num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
@@ -1865,7 +1865,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTestCore(ExpectedImprov
   int num_sampled = 20;
 
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), noise_variance,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance,
                                                         dim, num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound,
                                                         uniform_double_hyperparameter,
@@ -2067,7 +2067,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationSimplexTestCore(Expecte
   int num_sampled = 20;
 
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0),
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
                                                         noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound,
                                                         uniform_double_upper_bound,
@@ -2283,7 +2283,7 @@ int ExpectedImprovementOptimizationMultipleSamplesTest() {
 
   const int num_sampled = 20;
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0),
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
                                                         noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound,
                                                         uniform_double_upper_bound,
@@ -2426,7 +2426,7 @@ int EvaluateEIAtPointListTest() {
 
   int num_sampled = 20;  // arbitrary
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), noise_variance, dim, num_sampled,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance, dim, num_sampled,
                                                         uniform_double_lower_bound, uniform_double_upper_bound,
                                                         uniform_double_hyperparameter, &uniform_generator);
 

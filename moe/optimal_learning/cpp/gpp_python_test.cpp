@@ -84,7 +84,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic, MC EI match for 1 potential sample case\n");
   }
   total_errors += error;
-
+/*
   error = RunGPUTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("GPU tests failed\n");
@@ -92,7 +92,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("GPU tests passed\n");
   }
   total_errors += error;
-
+*/
   error = RunLogLikelihoodPingTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("LogLikelihood ping tests failed\n");
