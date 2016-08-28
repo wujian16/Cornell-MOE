@@ -552,6 +552,7 @@ class GaussianProcess final {
   \endrst*/
   void ComputeGradInverseCholeskyVarianceOfPoints(StateType * points_to_sample_state,
                                                   double const * restrict chol_var,
+                                                  double const * restrict var,
                                                   double const * restrict cov,
                                                   double const * restrict discrete_pts,
                                                   int num_pts,
@@ -671,6 +672,7 @@ class GaussianProcess final {
   \endrst*/
   void ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
                                                           double const * restrict chol_var,
+                                                          double const * restrict var,
                                                           double const * restrict cov,
                                                           double const * restrict discrete_pts,
                                                           int num_pts,

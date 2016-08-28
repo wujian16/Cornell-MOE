@@ -186,6 +186,13 @@ class KnowledgeGradientEvaluator final {
     return result;
   }
 
+/*
+  std::vector<double> mean_value_discrete(double const * discrete_pts,
+                                          int num_pts) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> sample_mean(num_pts+)
+  }
+*/
+
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return gaussian_process_;
   }
@@ -412,7 +419,8 @@ struct KnowledgeGradientState final {
   std::vector<double> grad_chol_decomp;
   //! the mean of the GP evaluated at discrete_pts
   std::vector<double> to_sample_mean_;
-
+  //! the gradient of the GP mean evaluated at union_of_points, wrt union_of_points[0:num_to_sample]
+  std::vector<double> grad_mu;
   //! improvement (per mc iteration) evaluated at each of union_of_points
   std::vector<double> KG_this_step_from_var;
   //! tracks the aggregate grad EI from all mc iterations

@@ -162,7 +162,7 @@ class KnowledgeGradient(OptimizableInterface):
         else:
             self._points_to_sample = points_to_sample
 
-        self._num_to_sample = points_to_sample.shape[0]
+        self._num_to_sample = self._points_to_sample.shape[0]
 
         if randomness is None:
             self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
