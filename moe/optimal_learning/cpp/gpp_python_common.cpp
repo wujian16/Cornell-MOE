@@ -41,6 +41,15 @@ void CopyPylistToVector(const boost::python::list& input, int size, std::vector<
   }
 }
 
+
+void CopyPylistToIntVector(const boost::python::list& input, int size, std::vector<int>& output) {
+  output.resize(size);
+  for (int i = 0; i < size; ++i) {
+    output[i] = boost::python::extract<int>(input[i]);
+  }
+}
+
+
 void CopyPylistToClosedIntervalVector(const boost::python::list& input, int size, std::vector<ClosedInterval>& output) {
   output.resize(size);
   for (int i = 0; i < size; ++i) {
@@ -48,6 +57,7 @@ void CopyPylistToClosedIntervalVector(const boost::python::list& input, int size
     output[i].max = boost::python::extract<double>(input[2*i + 1]);
   }
 }
+
 
 boost::python::list VectorToPylist(const std::vector<double>& input) {
   boost::python::list result;
@@ -57,39 +67,67 @@ boost::python::list VectorToPylist(const std::vector<double>& input) {
   return result;
 }
 
-PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, int dim_in, int num_to_sample_in)
-    : dim(dim_in),
-      num_to_sample(num_to_sample_in),
-      points_to_sample(dim*num_to_sample) {
-  CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
+
+boost::python::list IntVectorToPylist(const std::vector<int>& input) {
+  boost::python::list result;
+  for (const auto& entry : input) {
+    result.append(entry);
+  }
+  return result;
 }
 
-PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, const boost::python::list& points_being_sampled_in, int dim_in, int num_to_sample_in, int num_being_sampled_in)
+
+
+
+PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
+                                                             int dim_in, int num_to_sample_in, int num_derivatives_in)
+    : dim(dim_in),
+      num_to_sample(num_to_sample_in),
+      num_derivatives(num_derivatives_in),
+      points_to_sample(dim*num_to_sample),
+      derivatives(num_derivatives) {
+  CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
+  CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
+}
+
+PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in,
+                                                             const boost::python::list& points_being_sampled_in,
+                                                             const boost::python::list& derivatives_in,
+                                                             int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_derivatives_in)
     : dim(dim_in),
       num_to_sample(num_to_sample_in),
       num_being_sampled(num_being_sampled_in),
+      num_derivatives(num_derivatives_in),
       points_to_sample(dim*num_to_sample),
-      points_being_sampled(dim*num_being_sampled) {
+      points_being_sampled(dim*num_being_sampled),
+      derivatives(num_derivatives) {
   CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
   CopyPylistToVector(points_being_sampled_in, dim*num_being_sampled, points_being_sampled);
+  CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
 }
 
-PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& hyperparameters_in, const boost::python::list& points_sampled_in, const boost::python::list& points_sampled_value_in, const boost::python::list& noise_variance_in, const boost::python::list& points_to_sample_in, int dim_in, int num_sampled_in, int num_to_sample_in)
+PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& hyperparameters_in, const boost::python::list& points_sampled_in,
+                              const boost::python::list& points_sampled_value_in, const boost::python::list& noise_variance_in,
+                              const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
+                              int num_derivatives_in, int dim_in, int num_sampled_in, int num_to_sample_in)
     : dim(dim_in),
       num_sampled(num_sampled_in),
       num_to_sample(num_to_sample_in),
+      num_derivatives(num_derivatives_in),
       alpha(boost::python::extract<double>(hyperparameters_in[0])),
       lengths(dim),
       points_sampled(dim*num_sampled),
-      points_sampled_value(num_sampled),
-      noise_variance(num_sampled),
-      points_to_sample(0) {
+      points_sampled_value(num_sampled*(1+num_derivatives_in)),
+      noise_variance(1+num_derivatives_in),
+      points_to_sample(dim*num_to_sample),
+      derivatives(num_derivatives) {
   const boost::python::list& lengths_in = boost::python::extract<boost::python::list>(hyperparameters_in[1]);
   CopyPylistToVector(lengths_in, dim, lengths);
   CopyPylistToVector(points_sampled_in, dim*num_sampled, points_sampled);
-  CopyPylistToVector(points_sampled_value_in, num_sampled, points_sampled_value);
-  CopyPylistToVector(noise_variance_in, num_sampled, noise_variance);
+  CopyPylistToVector(points_sampled_value_in, num_sampled*(1+num_derivatives_in), points_sampled_value);
+  CopyPylistToVector(noise_variance_in, 1+num_derivatives, noise_variance);
   CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
+  CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
 }
 
 RandomnessSourceContainer::RandomnessSourceContainer(int num_threads)

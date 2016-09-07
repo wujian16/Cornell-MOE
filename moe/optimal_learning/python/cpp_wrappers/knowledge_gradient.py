@@ -23,7 +23,6 @@ def multistart_knowledge_gradient_optimization(
         discrete_pts,
         num_to_sample,
         num_pts,
-        noise,
         randomness=None,
         max_num_threads=DEFAULT_MAX_NUM_THREADS,
         status=None,
@@ -93,7 +92,6 @@ def multistart_knowledge_gradient_optimization(
             kg_optimizer.objective_function._best_so_far,
             kg_optimizer.objective_function._num_mc_iterations,
             max_num_threads,
-            noise,
             randomness,
             status,
     )
@@ -122,7 +120,6 @@ class KnowledgeGradient(OptimizableInterface):
             self,
             gaussian_process,
             discrete_pts,
-            noise,
             points_to_sample=None,
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
@@ -147,9 +144,13 @@ class KnowledgeGradient(OptimizableInterface):
         """
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process = gaussian_process
+
+        # self._num_derivatives = gaussian_process._historical_data.num_derivatives
+
         self._discrete_pts = numpy.copy(discrete_pts)
-        self._noise = noise
+
         self._mu_star = self._gaussian_process.compute_mean_of_additional_points(self._discrete_pts)
+
         self._best_so_far = numpy.amin(self._mu_star)
 
         if points_being_sampled is None:
@@ -320,7 +321,6 @@ class KnowledgeGradient(OptimizableInterface):
                 self.num_being_sampled,
                 self._num_mc_iterations,
                 self._best_so_far,
-                self._noise,
                 self._randomness,
         )
 
@@ -363,7 +363,6 @@ class KnowledgeGradient(OptimizableInterface):
                 self.num_being_sampled,
                 self._num_mc_iterations,
                 self._best_so_far,
-                self._noise,
                 self._randomness,
         )
         return cpp_utils.uncppify(grad_kg, (self.num_to_sample, self.dim))

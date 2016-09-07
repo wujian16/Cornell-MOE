@@ -46,21 +46,25 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
                                        const boost::python::list& points_to_sample,
                                        const boost::python::list& points_being_sampled,
                                        int num_pts, int num_to_sample, int num_being_sampled,
-                                       int max_int_steps, double best_so_far,
-                                       double noise, RandomnessSourceContainer& randomness_source) {
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
+                                       int max_int_steps, double best_so_far, RandomnessSourceContainer& randomness_source) {
 
-  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled,
-                                                gaussian_process.dim(), num_to_sample, num_being_sampled);
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+
   bool configure_for_gradients = false;
 
   KnowledgeGradientEvaluator kg_evaluator(gaussian_process, input_container_discrete.points_to_sample.data(),
-                                          num_pts, max_int_steps, noise, best_so_far);
+                                          num_pts, max_int_steps, best_so_far);
   KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
                                                  input_container.points_being_sampled.data(),
                                                  input_container.num_to_sample,
                                                  input_container.num_being_sampled,
                                                  input_container_discrete.num_to_sample,
+                                                 gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
                                                  configure_for_gradients,
                                                  randomness_source.normal_rng_vec.data());
   return kg_evaluator.ComputeKnowledgeGradient(&kg_state);
@@ -71,21 +75,24 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
                                                         const boost::python::list& points_to_sample,
                                                         const boost::python::list& points_being_sampled,
                                                         int num_pts, int num_to_sample, int num_being_sampled,
-                                                        int max_int_steps, double best_so_far,
-                                                        double noise, RandomnessSourceContainer& randomness_source) {
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
-  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled);
+                                                        int max_int_steps, double best_so_far, RandomnessSourceContainer& randomness_source) {
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
 
   std::vector<double> grad_KG(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
   KnowledgeGradientEvaluator kg_evaluator(gaussian_process, input_container_discrete.points_to_sample.data(),
-                                          num_pts, max_int_steps, noise, best_so_far);
+                                          num_pts, max_int_steps, best_so_far);
   KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
                                                  input_container.points_being_sampled.data(),
                                                  input_container.num_to_sample,
                                                  input_container.num_being_sampled,
                                                  input_container_discrete.num_to_sample,
+                                                 gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
                                                  configure_for_gradients,
                                                  randomness_source.normal_rng_vec.data());
   kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_KG.data());
@@ -129,7 +136,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
                                            int max_int_steps, int max_num_threads,
                                            RandomnessSourceContainer& randomness_source,
                                            boost::python::dict& status,
-                                           double * restrict best_points_to_sample, double noise) {
+                                           double * restrict best_points_to_sample) {
 
   bool found_flag = false;
   switch (optimizer_type) {
@@ -147,7 +154,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
                                                             best_so_far, max_int_steps,
                                                             &found_flag, &randomness_source.uniform_generator,
                                                             randomness_source.normal_rng_vec.data(),
-                                                            best_points_to_sample, noise);
+                                                            best_points_to_sample);
       status[std::string("lhc_") + domain.kName + "_domain_found_update"] = found_flag;
       break;
     }  // end case kNull optimizer_type
@@ -166,7 +173,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
                                      best_so_far, max_int_steps,
                                      random_search_only, num_random_samples, &found_flag,
                                      &randomness_source.uniform_generator,
-                                     randomness_source.normal_rng_vec.data(), best_points_to_sample, noise);
+                                     randomness_source.normal_rng_vec.data(), best_points_to_sample);
 
       status[std::string("gradient_descent_") + domain.kName + "_domain_found_update"] = found_flag;
       break;
@@ -185,8 +192,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
                                                                    const boost::python::list& discrete_pts,
                                                                    const boost::python::list& points_being_sampled,
                                                                    int num_pts, int num_to_sample, int num_being_sampled,
-                                                                   double best_so_far, int max_int_steps,
-                                                                   int max_num_threads, double noise,
+                                                                   double best_so_far, int max_int_steps, int max_num_threads,
                                                                    RandomnessSourceContainer& randomness_source,
                                                                    boost::python::dict& status) {
   // TODO(GH-131): make domain objects constructible from python; and pass them in through
@@ -199,8 +205,14 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
 
   int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gaussian_process.dim(), num_to_sample_input, num_being_sampled);
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+
+  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+
+
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
 
@@ -214,8 +226,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
 
       DispatchKnowledgeGradientOptimization(optimizer_parameters, gaussian_process, input_container_discrete,
                                             input_container, domain, optimizer_type, num_to_sample, best_so_far,
-                                            max_int_steps, max_num_threads,
-                                            randomness_source, status, best_points_to_sample_C.data(), noise);
+                                            max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kTensorProduct
     case DomainTypes::kSimplex: {
@@ -223,8 +234,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
 
       DispatchKnowledgeGradientOptimization(optimizer_parameters, gaussian_process, input_container_discrete,
                                             input_container, domain, optimizer_type, num_to_sample, best_so_far,
-                                            max_int_steps, max_num_threads,
-                                            randomness_source, status, best_points_to_sample_C.data(), noise);
+                                            max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kSimplex
     default: {
@@ -244,7 +254,7 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
                                                  const boost::python::list& points_being_sampled,
                                                  int num_multistarts, int num_pts, int num_to_sample,
                                                  int num_being_sampled, double best_so_far,
-                                                 int max_int_steps, int max_num_threads, double noise,
+                                                 int max_int_steps, int max_num_threads,
                                                  RandomnessSourceContainer& randomness_source,
                                                  boost::python::dict& status) {
   // abort if we do not have enough sources of randomness to run with max_num_threads
@@ -252,11 +262,16 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
-  int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
+  int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gaussian_process.dim(), num_pts);
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gaussian_process.dim(),
-                                                num_to_sample_input, num_being_sampled);
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+
+  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+
+
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
   std::vector<double> initial_guesses_C(input_container.dim * num_multistarts);
@@ -270,7 +285,7 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
                         num_multistarts, num_to_sample, input_container.num_being_sampled,
                         input_container_discrete.num_to_sample, best_so_far,
                         max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
-                        result_function_values_C.data(), result_point_C.data(), noise);
+                        result_function_values_C.data(), result_point_C.data());
 
   status["evaluate_KG_at_point_list"] = found_flag;
 

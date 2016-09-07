@@ -74,7 +74,8 @@ struct PythonInterfaceInputContainer {
       :dim: number of spatial dimension (independent parameters)
       :num_to_sample: number of points being sampled from the GP
   \endrst*/
-  PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, int dim_in, int num_to_sample_in);
+  PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
+                                int dim_in, int num_to_sample_in, int num_derivatives_in);
 
   /*!\rst
     Minimal constructor that sets up ``points_to_sample`` and ``points_being_sampled``; generally used when a
@@ -87,7 +88,10 @@ struct PythonInterfaceInputContainer {
       :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
       :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-EI)
   \endrst*/
-  PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, const boost::python::list& points_being_sampled_in, int dim_in, int num_to_sample_in, int num_being_sampled_in);
+  PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in,
+                                const boost::python::list& points_being_sampled_in,
+                                const boost::python::list& derivatives_in,
+                                int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_derivatives_in);
 
   /*!\rst
     Constructor that sets up GP-related members held in this container; generally used when a GaussianProcess object is not
@@ -104,19 +108,26 @@ struct PythonInterfaceInputContainer {
       :num_sampled: number of already-sampled points
       :num_to_sample: number of points being sampled from the GP
   \endrst*/
-  PythonInterfaceInputContainer(const boost::python::list& hyperparameters_in, const boost::python::list& points_sampled_in, const boost::python::list& points_sampled_value_in, const boost::python::list& noise_variance_in, const boost::python::list& points_to_sample_in, int dim_in, int num_sampled_in, int num_to_sample_in);
+  PythonInterfaceInputContainer(const boost::python::list& hyperparameters_in, const boost::python::list& points_sampled_in,
+                                const boost::python::list& points_sampled_value_in, const boost::python::list& noise_variance_in,
+                                const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
+                                int num_derivatives_in, int dim_in, int num_sampled_in, int num_to_sample_in);
 
   int dim;
   int num_sampled;
   int num_to_sample;
   int num_being_sampled;
+  int num_derivatives;
+
   double alpha;
   std::vector<double> lengths;
+
   std::vector<double> points_sampled;
   std::vector<double> points_sampled_value;
   std::vector<double> noise_variance;
   std::vector<double> points_to_sample;
   std::vector<double> points_being_sampled;
+  std::vector<int> derivatives;
 };
 
 /*!\rst
@@ -238,6 +249,8 @@ class RandomnessSourceContainer {
 \endrst*/
 void CopyPylistToVector(const boost::python::list& input, int size, std::vector<double>& output);
 
+void CopyPylistToIntVector(const boost::python::list& input, int size, std::vector<int>& output);
+
 /*!\rst
   Copies the first size [min, max] pairs from input to output.
   Size of input MUST be 2*size.
@@ -262,6 +275,8 @@ void CopyPylistToClosedIntervalVector(const boost::python::list& input, int size
     python list that is element-wise equivalent to input
 \endrst*/
 boost::python::list VectorToPylist(const std::vector<double>& input);
+
+boost::python::list IntVectorToPylist(const std::vector<int>& input);
 
 /*!\rst
   Export C++'s enum classes to Python; e.g., DomainTypes, OptimizerTypes, etc. Includes docstrings.

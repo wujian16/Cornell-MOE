@@ -48,7 +48,251 @@
 
 namespace optimal_learning {
 
+
+namespace {  // utilities for building covariance matrix and its hyperparameter derivatives
+
+/*!\rst
+  Computes the covariance matrix of a list of points, ``X_i``.  Matrix is computed as:
+
+  ``A_{i,j} = covariance(X_i, X_j)``.
+
+  Result is SPD assuming covariance operator is SPD and points are unique.
+
+  Generally, this is called from other functions with "points_sampled" as the input and not any
+  arbitrary list of points; hence the very specific input name.
+
+  Point list cannot contain duplicates.  Doing so (or providing nearly duplicate points) can lead to
+  semi-definite matrices or very poor numerical conditioning.
+
+  \param
+    :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
+    :noise_variance[num_sampled]: i-th entry is amt of noise variance to add to i-th diagonal entry; i.e., noise measuring i-th point
+    :points_sampled[dim][num_sampled]: list of points
+    :dim: spatial dimension of a point
+    :num_sampled: number of points
+  \output
+    :cov_matrix[num_sampled*(length+1)][num_sampled*(length+1)]: computed covariance matrix
+\endrst*/
+OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const CovarianceInterface& covariance,
+                                                                double const * restrict points_sampled,
+                                                                int dim, int num_sampled,
+                                                                double const * restrict noise_variance,
+                                                                int const * derivatives,
+                                                                int num_derivatives,
+                                                                double * restrict cov_matrix) noexcept {
+    // we only work with lower triangular parts of symmetric matrices, so only fill half of it
+    double * cov_temp = new double [(num_derivatives+1)*(num_derivatives+1)]();
+    for (int i = 0; i < num_sampled; ++i) {//col
+        for (int j = 0; j < num_sampled; ++j) {//row
+            covariance.Covariance(points_sampled + j*dim, derivatives, num_derivatives,
+                                  points_sampled + i*dim, derivatives, num_derivatives,
+                                  cov_temp);
+            for (int m = 0; m < num_derivatives+1; ++m){//col
+                for (int n = 0; n < num_derivatives+1; ++n){//row
+                    int row = j*(num_derivatives+1) + n;
+                    int col = i*(num_derivatives+1) + m;
+                    //if (row>=col){
+                        cov_matrix[row + col*num_sampled*(num_derivatives+1)] = cov_temp[n];
+                    //}
+                    if (row == col){
+                        cov_matrix[row + col*num_sampled*(num_derivatives+1)] += noise_variance[m];
+                    }
+                }
+                cov_temp += num_derivatives+1;
+            }
+            cov_temp -= Square(num_derivatives+1);
+        }
+    }
+    delete [] cov_temp;
+}
+
+/*!\rst
+  Build ``A_{jik} = \pderiv{K_{ij}}{\theta_k}``
+
+  Hence the outer loop structure is identical to BuildCovarianceMatrix().
+
+  Note the structure of the resulting tensor is ``num_hyperparameters`` blocks of size
+  ``num_sampled X num_sampled``.  Consumers of this want ``dK/d\theta_k`` located sequentially.
+  However, for a given pair of points (x, y), it is more efficient to compute all
+  hyperparameter derivatives at once.  Thus the innermost loop writes to all
+  ``num_hyperparameters`` blocks at once.
+
+  Consumers of this result generally require complete storage (i.e., will not take advantage
+  of its symmetry), so instead of ignoring the upper triangles, we copy them from the
+  (already-computed) lower triangles to avoid redundant work.
+
+  Since CovarianceInterface.HyperparameterGradCovariance() returns a vector of size ``|\theta_k|``,
+  the inner loop writes all relevant entries of ``A_{jik}`` simultaneously to prevent recomputation.
+
+  \param
+    :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
+    :points_sampled[dim][num_sampled]: list of points
+    :dim: spatial dimension of a point
+    :num_sampled: number of points
+  \output
+    :grad_cov_matrix[num_sampled][num_sampled][covariance.GetNumberOfHyperparameters()]: gradients of covariance matrix wrt hyperparameters
+\endrst*/
+OL_NONNULL_POINTERS void BuildHyperparameterGradCovarianceMatrix(const CovarianceInterface& covariance,
+                                                                 double const * restrict points_sampled,
+                                                                 int dim, int num_sampled,
+                                                                 double const * restrict noise_variance,
+                                                                 int const * derivatives,
+                                                                 int num_derivatives,
+                                                                 double * restrict grad_cov_matrix) noexcept {
+    int num_hyperparameters = covariance.GetNumberOfHyperparameters();
+    num_hyperparameters += num_derivatives+1;
+
+    const int offset = (num_sampled*(num_derivatives+1))*(num_sampled*(num_derivatives+1));
+
+    std::vector<double> grad_covariance((dim+1)*(num_derivatives+1)*(num_derivatives+1), 0.0);
+
+    // pointer to row that we're copying from
+    // operator is symmetric, so we compute just the lower triangle & copy into the upper triangle
+    for (int i = 0; i < num_sampled; ++i) { // col
+        for (int j = 0; j < i; ++j) { // row
+            for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
+                for (int m = 0; m < num_derivatives+1; ++m){
+                    for (int n = 0; n < num_derivatives+1; ++n){
+                        int row = j*(num_derivatives+1)+m;
+                        int col = i*(num_derivatives+1)+n;
+                        grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
+                           grad_cov_matrix[col + row*num_sampled*(num_derivatives+1) + i_hyper*offset];
+                    }
+                }
+            }
+        }
+
+        for (int j = i; j < num_sampled; ++j) { //row
+            // compute all hyperparameter derivs at once for efficiency
+            covariance.HyperparameterGradCovariance(points_sampled+j*dim, derivatives, num_derivatives,
+                                                    points_sampled+i*dim, derivatives, num_derivatives,
+                                                    grad_covariance.data());
+            for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
+                // have to write each deriv to the correct block, due to the block structure of the output
+                for (int m = 0; m < num_derivatives+1; ++m){
+                    for (int n = 0; n < num_derivatives+1; ++n){
+                        int row = j*(num_derivatives+1)+m;
+                        int col = i*(num_derivatives+1)+n;
+                        if (i_hyper < dim+1){
+                            grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
+                               grad_covariance[i_hyper + m*(dim+1) + n*(dim+1)*(num_derivatives+1)];
+                        }
+                        else{
+                            if (row == col && i_hyper == (m+dim+1)){
+                                grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 1;
+                            }
+                            else{
+                                grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+}  // end unnamed namespace
+
+
 namespace {  // tests for pinging log likelihood measures wrt their hyperparameters
+
+/*!\rst
+  Supports evaluating a covariance function, covariance.Covariance() and its hyperparameter gradient,
+  covariance.HyperparameterGradCovariance()
+
+  Since we're differentiating against hyperparameters, this class saves off the base set of hyperparameters, living in the
+  class variable covariance (saved off by EvaluateAndStoreAnalyticGradient).  Then evaluation at different hyperparameters
+  (via EvaluateFunction) is supported by building additional local covariance objects.
+
+  The output of coariance is a scalar.
+\endrst*/
+template <typename CovarianceClass>
+class PingGradCovarianceHyperparameters final : public PingableMatrixInputVectorOutputInterface {
+ public:
+  PingGradCovarianceHyperparameters(double const * restrict points_sampled, int const * derivatives,
+                                    int num_derivatives, int dim, int num_sampled) OL_NONNULL_POINTERS
+      : dim_(dim),
+        num_hyperparameters_(0),
+        gradients_already_computed_(false),
+        derivatives_(derivatives, derivatives+num_derivatives),
+        num_derivatives_(num_derivatives),
+        points_sampled_(points_sampled, points_sampled + dim*num_sampled),
+        num_sampled_(num_sampled),
+        grad_hyperparameter_covariance_((dim+2+num_derivatives)*Square(num_sampled*(1+num_derivatives))),
+        covariance_(dim, 1.0, 1.0) {
+    num_hyperparameters_ = covariance_.GetNumberOfHyperparameters();
+    num_hyperparameters_ += 1+num_derivatives_;
+    grad_hyperparameter_covariance_.resize(num_hyperparameters_*Square(num_sampled*(1+num_derivatives)));
+  }
+
+  virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
+    *num_rows = num_hyperparameters_;
+    *num_cols = 1;
+  }
+
+  virtual int GetGradientsSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return num_hyperparameters_*GetOutputSize();
+  }
+
+  virtual int GetOutputSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return Square(num_sampled_*(1+num_derivatives_));
+  }
+
+  virtual void EvaluateAndStoreAnalyticGradient(double const * restrict hyperparameters, double * restrict gradients) noexcept override OL_NONNULL_POINTERS_LIST(2) {
+    if (gradients_already_computed_ == true) {
+      OL_WARNING_PRINTF("WARNING: grad_covariance data already set.  Overwriting...\n");
+    }
+    gradients_already_computed_ = true;
+
+    CovarianceClass covariance_local(dim_, hyperparameters[0], hyperparameters + 1);
+
+    std::vector<double> noise_variance(hyperparameters+covariance_local.GetNumberOfHyperparameters(),
+                                       hyperparameters+num_hyperparameters_);
+    BuildHyperparameterGradCovarianceMatrix(covariance_local, points_sampled_.data(), dim_, num_sampled_, noise_variance.data(),
+                                            derivatives_.data(), num_derivatives_,
+                                            grad_hyperparameter_covariance_.data());
+
+    if (gradients != nullptr) {
+      std::copy(grad_hyperparameter_covariance_.begin(), grad_hyperparameter_covariance_.end(), gradients);
+    }
+  }
+
+  virtual double GetAnalyticGradient(int row_index, int OL_UNUSED(column_index), int output_index) const override OL_WARN_UNUSED_RESULT {
+    if (gradients_already_computed_ == false) {
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingGradCovarianceHyperparameters::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+    }
+
+    return grad_hyperparameter_covariance_[row_index*GetOutputSize()+output_index];
+  }
+
+  virtual void EvaluateFunction(double const * restrict hyperparameters, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
+    CovarianceClass covariance_local(dim_, hyperparameters[0], hyperparameters + 1);
+
+    std::vector<double> noise_variance(hyperparameters+covariance_local.GetNumberOfHyperparameters(),
+                                       hyperparameters+num_hyperparameters_);
+
+    BuildCovarianceMatrixWithNoiseVariance(covariance_local, points_sampled_.data(), dim_, num_sampled_,
+                                           noise_variance.data(), derivatives_.data(), num_derivatives_,
+                                           function_values);
+  }
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGradCovarianceHyperparameters);
+
+ private:
+  int dim_;
+  int num_hyperparameters_;
+  bool gradients_already_computed_;
+
+  std::vector<int> derivatives_;
+  int num_derivatives_;
+
+  std::vector<double> points_sampled_;
+  int num_sampled_;
+  std::vector<double> grad_hyperparameter_covariance_;
+
+  CovarianceClass covariance_;
+};
 
 /*!\rst
   Supports evaluating log likelihood functions and their gradients wrt hyperparameters.
@@ -61,10 +305,11 @@ class PingLogLikelihood final : public PingableMatrixInputVectorOutputInterface 
  public:
   using CovarianceType = CovarianceClass;
 
-  PingLogLikelihood(const CovarianceClass& covariance, double const * restrict points_sampled, double const * restrict points_sampled_value, double const * restrict noise_variance, int dim, int num_sampled) OL_NONNULL_POINTERS
-      : num_hyperparameters_(covariance.GetNumberOfHyperparameters()),
+  PingLogLikelihood(const CovarianceClass& covariance, double const * restrict points_sampled, double const * restrict points_sampled_value,
+                    int const * derivatives, int num_derivatives, int dim, int num_sampled) OL_NONNULL_POINTERS
+      : num_hyperparameters_(covariance.GetNumberOfHyperparameters()+1+num_derivatives),
         gradients_already_computed_(false),
-        log_likelihood_eval_(points_sampled, points_sampled_value, noise_variance, dim, num_sampled),
+        log_likelihood_eval_(points_sampled, points_sampled_value, derivatives, num_derivatives, dim, num_sampled),
         grad_log_marginal_likelihood_(num_hyperparameters_) {
   }
 
@@ -88,7 +333,9 @@ class PingLogLikelihood final : public PingableMatrixInputVectorOutputInterface 
     gradients_already_computed_ = true;
 
     CovarianceClass covariance_local(log_likelihood_eval_.dim(), hyperparameters[0], hyperparameters + 1);
-    typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval_, covariance_local);
+    std::vector<double> noise_variance(hyperparameters+log_likelihood_eval_.dim()+1,
+                                       hyperparameters+log_likelihood_eval_.dim()+2+log_likelihood_eval_.num_derivatives());
+    typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval_, covariance_local, noise_variance);
     log_likelihood_eval_.ComputeGradLogLikelihood(&log_likelihood_state, grad_log_marginal_likelihood_.data());
 
     if (gradients != nullptr) {
@@ -106,7 +353,11 @@ class PingLogLikelihood final : public PingableMatrixInputVectorOutputInterface 
 
   virtual void EvaluateFunction(double const * restrict hyperparameters, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
     CovarianceClass covariance_local(log_likelihood_eval_.dim(), hyperparameters[0], hyperparameters + 1);
-    typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval_, covariance_local);
+
+    std::vector<double> noise_variance(hyperparameters+log_likelihood_eval_.dim()+1,
+                                       hyperparameters+log_likelihood_eval_.dim()+2+log_likelihood_eval_.num_derivatives());
+
+    typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval_, covariance_local, noise_variance);
 
     *function_values = log_likelihood_eval_.ComputeLogLikelihood(log_likelihood_state);
   }
@@ -126,6 +377,8 @@ class PingLogLikelihood final : public PingableMatrixInputVectorOutputInterface 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingLogLikelihood);
 };
 
+
+
 /*!\rst
   Supports evaluating log likelihood functions and their hessians wrt hyperparameters.
 
@@ -134,7 +387,7 @@ class PingLogLikelihood final : public PingableMatrixInputVectorOutputInterface 
 
   Hessians are tested against gradients, so ``GetOutputSize`` returns ``num_hyperparameters``.
 \endrst*/
-template <typename LogLikelihoodEvaluator, typename CovarianceClass>
+/*template <typename LogLikelihoodEvaluator, typename CovarianceClass>
 class PingHessianLogLikelihood final : public PingableMatrixInputVectorOutputInterface {
  public:
   using CovarianceType = CovarianceClass;
@@ -202,7 +455,59 @@ class PingHessianLogLikelihood final : public PingableMatrixInputVectorOutputInt
   std::vector<double> hessian_log_marginal_likelihood_;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingHessianLogLikelihood);
-};
+};*/
+
+
+
+template <typename PingCovarianceClass>
+OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDerivativesTest(char const * class_name, int num_hyperparameters, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
+  const int dim = 3;
+  int errors_this_iteration = 0;
+  int total_errors = 0;
+
+  int* derivatives = new int[3]{0, 1, 2};
+  int num_derivatives = 3;
+
+  num_hyperparameters += 1+num_derivatives;
+
+  std::vector<double> hyperparameters(num_hyperparameters);
+
+  int num_being_sampled = 0;
+  int num_to_sample = 1;
+  int num_sampled = 7;
+
+  MockExpectedImprovementEnvironment EI_environment;
+  UniformRandomGenerator uniform_generator(2718);
+  boost::uniform_real<double> uniform_double(3.0, 5.0);
+
+  for (int i = 0; i < 50; ++i) {
+    EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
+
+    for (int j = 0; j < num_hyperparameters; ++j) {
+      hyperparameters[j] = uniform_double(uniform_generator.engine);
+    }
+
+    PingCovarianceClass covariance_evaluator(EI_environment.points_sampled(), derivatives, num_derivatives,
+                                             EI_environment.dim, num_sampled);
+
+    covariance_evaluator.EvaluateAndStoreAnalyticGradient(hyperparameters.data(), nullptr);
+
+/*    errors_this_iteration = covariance_evaluator.CheckSymmetry();
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("hyperparameter gradients from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
+    }*/
+    errors_this_iteration += PingDerivative(covariance_evaluator, hyperparameters.data(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
+    }
+    total_errors += errors_this_iteration;
+  }
+  delete [] derivatives;
+  return total_errors;
+}
+
+
 
 /*!\rst
   Pings the gradients (hyperparameters) of the likelihood functions 50 times with randomly generated test cases
@@ -228,23 +533,31 @@ OL_WARN_UNUSED_RESULT int PingLogLikelihoodTest(char const * class_name, int num
   int num_to_sample = 1;
   int num_sampled = 7;
 
+  int * derivatives = new int[3]{0, 1, 2};
+  int num_derivatives = 3;
+
+  num_hyperparameters += 1+num_derivatives;
+
   std::vector<double> hyperparameters(num_hyperparameters);
 
   MockExpectedImprovementEnvironment EI_environment;
-  std::vector<double> noise_variance(num_sampled, 0.0);
+  //std::vector<double> noise_variance(num_sampled, 0.0);
 
   UniformRandomGenerator uniform_generator(3141);
   boost::uniform_real<double> uniform_double(3.0, 5.0);
 
   for (int i = 0; i < 50; ++i) {
-    EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled);
+    EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
 
     for (int j = 0; j < num_hyperparameters; ++j) {
       hyperparameters[j] = uniform_double(uniform_generator.engine);
     }
 
     typename PingLogLikelihood::CovarianceType sqexp(EI_environment.dim, 1.0, 1.0);
-    PingLogLikelihood log_likelihood_evaluator(sqexp, EI_environment.points_sampled(), EI_environment.points_sampled_value(), noise_variance.data(), EI_environment.dim, EI_environment.num_sampled);
+
+    PingLogLikelihood log_likelihood_evaluator(sqexp, EI_environment.points_sampled(), EI_environment.points_sampled_value(),
+                                               derivatives, num_derivatives, EI_environment.dim, EI_environment.num_sampled);
+
     log_likelihood_evaluator.EvaluateAndStoreAnalyticGradient(hyperparameters.data(), nullptr);
     errors_this_iteration = PingDerivative(log_likelihood_evaluator, hyperparameters.data(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
 
@@ -255,10 +568,11 @@ OL_WARN_UNUSED_RESULT int PingLogLikelihoodTest(char const * class_name, int num
   }
 
   if (total_errors != 0) {
-    OL_PARTIAL_FAILURE_PRINTF("%s hyperparameter gradient pings failed with %d errors\n", class_name, total_errors);
+    OL_PARTIAL_FAILURE_PRINTF("%s loglikehood hyperparameter gradient pings failed with %d errors\n", class_name, total_errors);
   } else {
-    OL_PARTIAL_SUCCESS_PRINTF("%s hyperparameter gradient pings passed\n", class_name);
+    OL_PARTIAL_SUCCESS_PRINTF("%s loglikehood hyperparameter gradient pings passed\n", class_name);
   }
+  delete [] derivatives;
 
   return total_errors;
 }
@@ -269,6 +583,28 @@ int RunLogLikelihoodPingTests() {
   int total_errors = 0;
   int current_errors = 0;
 
+  {
+    double epsilon_square_exponential_hyperparameters[2] = {9.0e-3, 2.0e-3};
+    current_errors = PingCovarianceHyperparameterDerivativesTest<PingGradCovarianceHyperparameters<SquareExponential> >("Square Exponential", 4, epsilon_square_exponential_hyperparameters, 4.0e-3, 5.0e-3, 3.0e-14);
+    if (current_errors != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("pinging sqexp covariance hyperparameters failed with %d errors\n", current_errors);
+    }
+    else{
+      OL_PARTIAL_SUCCESS_PRINTF("Pinging sqexp covariance hyperparameters passed\n");
+    }
+    total_errors += current_errors;
+  }
+
+  {
+    double epsilon_log_marginal[2] = {1.0e-2, 2.0e-3};
+    current_errors = PingLogLikelihoodTest<PingLogLikelihood<LogMarginalLikelihoodEvaluator, SquareExponential> >("Log Marginal Likelihood sqexp", 4, epsilon_log_marginal, 5.0e-4, 1.0e-3, 1.0e-18);
+    if (current_errors != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("pinging log likelihood failed with %d errors\n", current_errors);
+    }
+    total_errors += current_errors;
+  }
+
+/*
   {
     double epsilon_log_marginal[2] = {1.0e-2, 2.0e-3};
     current_errors = PingLogLikelihoodTest<PingLogLikelihood<LogMarginalLikelihoodEvaluator, SquareExponentialSingleLength> >("Log Marginal Likelihood sqexp single", 2, epsilon_log_marginal, 5.0e-4, 1.0e-3, 1.0e-18);
@@ -313,6 +649,7 @@ int RunLogLikelihoodPingTests() {
     }
     total_errors += current_errors;
   }
+*/
 
   if (total_errors != 0) {
     OL_PARTIAL_FAILURE_PRINTF("Pinging GP functions failed with %d errors\n\n", total_errors);
@@ -353,6 +690,10 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
   const int dim = 2;
   const int num_sampled = 40;
 
+  int * derivatives = new int[2]{0,1};
+  int num_derivatives = 2;
+  std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
+
   double initial_likelihood;
   double final_likelihood;
 
@@ -361,10 +702,10 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
   const double pre_mult = 0.5;
   const double max_relative_change = 0.02;
   double tolerance = 1.0e-10;
-  if (objective_mode == LogLikelihoodTypes::kLeaveOneOutLogLikelihood) {
+/*  if (objective_mode == LogLikelihoodTypes::kLeaveOneOutLogLikelihood) {
     tolerance = 1.0e-7;  // less accurate b/c current implementation uses matrix inverse for speed
-  }
-  const int max_gradient_descent_steps = 600;
+  }*/
+  const int max_gradient_descent_steps = 2000;
   const int max_num_restarts = 5;
   const int num_steps_averaged = 0;
   GradientDescentParameters gd_parameters(1, max_gradient_descent_steps, max_num_restarts, num_steps_averaged, gamma, pre_mult, max_relative_change, tolerance);
@@ -374,11 +715,15 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
 
   // covariance object that will be set with the wrong hyperparameters; used as an initial guess for optimization
   CovarianceClass covariance_wrong(dim, 1.0, 1.0);
-  int num_hyperparameters = covariance_wrong.GetNumberOfHyperparameters();
+  int num_hyperparameters = covariance_wrong.GetNumberOfHyperparameters() + num_derivatives +1;
 
   std::vector<double> hyperparameters_optimized(num_hyperparameters);  // optimized hyperparameters
   std::vector<double> hyperparameters_temp(num_hyperparameters);  // temp hyperparameters
   std::vector<double> hyperparameters_wrong(num_hyperparameters);  // wrong hyperparameters to start gradient descent
+
+  std::vector<double> noise_variance_optimized(num_derivatives+1);  // optimized hyperparameters
+  std::vector<double> noise_variance_temp(num_derivatives+1);  // temp hyperparameters
+  std::vector<double> noise_variance_wrong(num_derivatives+1);  // wrong hyperparameters to start gradient descent
 
   // seed randoms
   UniformRandomGenerator uniform_generator(3141);
@@ -392,34 +737,54 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
   } else {
     wrong_hyperparameter_range = {0.3, 3.0};
   }
-  boost::uniform_real<double> uniform_wrong_hyperparameters(wrong_hyperparameter_range.min, wrong_hyperparameter_range.max);
-  FillRandomCovarianceHyperparameters(uniform_wrong_hyperparameters, &uniform_generator, &hyperparameters_wrong, &covariance_wrong);
 
-  std::vector<ClosedInterval> hyperparameter_domain_bounds(num_hyperparameters, {1.0e-10, 1.0e10});
+  boost::uniform_real<double> uniform_wrong_hyperparameters(wrong_hyperparameter_range.min, wrong_hyperparameter_range.max);
+  FillRandomCovarianceHyperparameters(uniform_wrong_hyperparameters, &uniform_generator, &hyperparameters_wrong,
+                                      &covariance_wrong, &noise_variance_wrong);
+
+  std::vector<ClosedInterval> hyperparameter_domain_bounds(num_hyperparameters, {1.0e-5, 1.0e10});
   HyperparameterDomainType hyperparameter_domain(hyperparameter_domain_bounds.data(), num_hyperparameters);
 
-  std::vector<double> noise_variance(num_sampled, 0.1);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(covariance_wrong, noise_variance, dim, num_sampled,
+
+
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(covariance_wrong, input_derivatives, num_derivatives, dim, num_sampled,
                                                         uniform_double_lower_bound, uniform_double_upper_bound,
                                                         uniform_double_hyperparameter, &uniform_generator);
 
+
   LogLikelihoodEvaluator log_likelihood_eval(mock_gp_data.gaussian_process_ptr->points_sampled().data(),
                                              mock_gp_data.gaussian_process_ptr->points_sampled_value().data(),
-                                             mock_gp_data.gaussian_process_ptr->noise_variance().data(),
-                                             dim, num_sampled);
-  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval, covariance_wrong);
+                                             derivatives, num_derivatives, dim, num_sampled);
+
+  delete [] derivatives;
+  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval, covariance_wrong, noise_variance_wrong);
 
   initial_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
-  OL_VERBOSE_PRINTF("initial likelihood: %.18E\n", initial_likelihood);
+  //OL_VERBOSE_PRINTF
+  printf("initial likelihood: %.18E\n", initial_likelihood);
 
-  RestartedGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance_wrong, gd_parameters, hyperparameter_domain, hyperparameters_optimized.data());
+  RestartedGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance_wrong, noise_variance_wrong,
+                                                     gd_parameters, hyperparameter_domain, hyperparameters_optimized.data());
   log_likelihood_state.SetHyperparameters(log_likelihood_eval, hyperparameters_optimized.data());
+
   final_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
+  printf("final likelihood 1: %.18E\n", final_likelihood);
+
 
   // verify that convergence occurred
   covariance_wrong.SetHyperparameters(hyperparameters_optimized.data());
+  std::copy(hyperparameters_optimized.data()+dim+1, hyperparameters_optimized.data()+num_hyperparameters, noise_variance_optimized.data());
   gd_parameters.pre_mult *= 0.1;
-  RestartedGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance_wrong, gd_parameters, hyperparameter_domain, hyperparameters_temp.data());
+  RestartedGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance_wrong, noise_variance_optimized,
+                                                     gd_parameters, hyperparameter_domain, hyperparameters_temp.data());
+
+  log_likelihood_state.SetHyperparameters(log_likelihood_eval, hyperparameters_temp.data());
+
+  final_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
+  printf("final likelihood 2: %.18E\n", final_likelihood);
+  for (int i = 0; i < num_hyperparameters; ++i){
+      printf("the final hyper %d, %f\n", i, hyperparameters_temp[i]);
+  }
 
   double norm_delta_hyperparameter;
   for (IdentifyType<decltype(hyperparameters_temp)>::type::size_type i = 0, size = hyperparameters_temp.size(); i < size; ++i) {
@@ -507,6 +872,7 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
     7. Verify that the gradient is below newton tolerance.
     8. TODO(GH-121): Verify that the eigenvalues of the Hessian are all negative (=> maxima)
 \endrst*/
+/*
 template <typename LogLikelihoodEvaluator, typename CovarianceClass>
 OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodNewtonOptimizationTestCore(LogLikelihoodTypes OL_UNUSED(objective_mode)) {
   using DomainType = TensorProductDomain;
@@ -625,6 +991,7 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodNewtonOptimizationTestCore(Log
 
   return total_errors;
 }
+*/
 
 /*!\rst
   Tests multistarted Newton optimization for hyperparameters.
@@ -649,7 +1016,7 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodNewtonOptimizationTestCore(Log
     6. Verify that the log marginal likelihood after multistart optimization is better than the likelihood at the
        hyperparameters from step 0 (since these are not optimal)
 \endrst*/
-template <typename LogLikelihoodEvaluator, typename CovarianceClass>
+/*template <typename LogLikelihoodEvaluator, typename CovarianceClass>
 OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodNewtonOptimizationTestCore(LogLikelihoodTypes OL_UNUSED(objective_mode)) {
   using DomainType = TensorProductDomain;
   using HyperparameterDomainType = TensorProductDomain;
@@ -821,10 +1188,11 @@ OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodNewtonOptimizationTe
   }
 
   return total_errors;
-}
+}*/
 
 }  // end unnamed namespace
 
+/*
 int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogLikelihoodTypes objective_mode) {
   switch (optimizer_type) {
     case OptimizerTypes::kGradientDescent: {
@@ -867,6 +1235,12 @@ int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogL
     }
   }  // end switch over optimizer_type
 }
+*/
+
+
+int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogLikelihoodTypes objective_mode) {
+    return HyperparameterLikelihoodOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+}
 
 int EvaluateLogLikelihoodAtPointListTest() {
   using DomainType = TensorProductDomain;
@@ -878,6 +1252,10 @@ int EvaluateLogLikelihoodAtPointListTest() {
   // grid search parameters
   int num_grid_search_points = 100000;
 
+  int * derivatives = new int[2]{0,1};
+  int num_derivatives = 2;
+  std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
+
   // random number generators
   UniformRandomGenerator uniform_generator(314);
   boost::uniform_real<double> uniform_double_hyperparameter(0.4, 1.3);
@@ -888,18 +1266,18 @@ int EvaluateLogLikelihoodAtPointListTest() {
   ThreadSchedule thread_schedule(kMaxNumThreads, omp_sched_guided);
 
   int num_sampled = 11;  // arbitrary
-  std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance,
-                                                        dim, num_sampled, uniform_double_lower_bound,
-                                                        uniform_double_upper_bound, uniform_double_hyperparameter,
-                                                        &uniform_generator);
+  //std::vector<double> noise_variance(num_sampled, 0.002);
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), input_derivatives, num_derivatives, dim, num_sampled,
+                                                        uniform_double_lower_bound, uniform_double_upper_bound,
+                                                        uniform_double_hyperparameter, &uniform_generator);
 
   using LogLikelihoodEvaluator = LogMarginalLikelihoodEvaluator;
   LogLikelihoodEvaluator log_marginal_eval(mock_gp_data.gaussian_process_ptr->points_sampled().data(),
                                            mock_gp_data.gaussian_process_ptr->points_sampled_value().data(),
-                                           mock_gp_data.gaussian_process_ptr->noise_variance().data(),
-                                           dim, num_sampled);
-  int num_hyperparameters = mock_gp_data.covariance_ptr->GetNumberOfHyperparameters();
+                                           derivatives, num_derivatives, dim, num_sampled);
+  delete [] derivatives;
+
+  int num_hyperparameters = mock_gp_data.covariance_ptr->GetNumberOfHyperparameters() +1 +num_derivatives;
   std::vector<ClosedInterval> hyperparameter_log_domain_bounds(num_hyperparameters, {-2.0, 1.0});
   HyperparameterDomainType hyperparameter_log_domain(hyperparameter_log_domain_bounds.data(), num_hyperparameters);
 
@@ -921,7 +1299,7 @@ int EvaluateLogLikelihoodAtPointListTest() {
   HyperparameterDomainType hyperparameter_domain_linearspace(hyperparameter_domain_linearspace_bounds.data(), num_hyperparameters);
 
   bool found_flag = false;
-  EvaluateLogLikelihoodAtPointList(log_marginal_eval, *mock_gp_data.covariance_ptr,
+  EvaluateLogLikelihoodAtPointList(log_marginal_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
                                    hyperparameter_domain_linearspace, thread_schedule,
                                    initial_guesses.data(), num_grid_search_points, &found_flag,
                                    function_values.data(), grid_search_best_point.data());
@@ -947,7 +1325,7 @@ int EvaluateLogLikelihoodAtPointListTest() {
     std::vector<double> function_values_single_thread(num_grid_search_points);
     ThreadSchedule single_thread_schedule(1, omp_sched_static);
     found_flag = false;
-    EvaluateLogLikelihoodAtPointList(log_marginal_eval, *mock_gp_data.covariance_ptr,
+    EvaluateLogLikelihoodAtPointList(log_marginal_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
                                      hyperparameter_domain_linearspace, single_thread_schedule,
                                      initial_guesses.data(), num_grid_search_points,
                                      &found_flag, function_values_single_thread.data(),

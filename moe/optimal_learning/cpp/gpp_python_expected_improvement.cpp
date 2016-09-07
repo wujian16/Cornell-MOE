@@ -38,7 +38,7 @@
 #include "gpp_optimizer_parameters.hpp"
 #include "gpp_python_common.hpp"
 
-#include "gpp_knowledge_gradient_optimization.hpp"
+//#include "gpp_knowledge_gradient_optimization.hpp"
 
 namespace optimal_learning {
 
@@ -50,17 +50,19 @@ double ComputeExpectedImprovementWrapper(const GaussianProcess& gaussian_process
                                          int max_int_steps, double best_so_far,
                                          bool force_monte_carlo,
                                          RandomnessSourceContainer& randomness_source) {
-  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled,
-                                                gaussian_process.dim(), num_to_sample, num_being_sampled);
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
 
   bool configure_for_gradients = false;
-  if ((num_to_sample == 1) && (num_being_sampled == 0) && (force_monte_carlo == false)) {
+/*  if ((num_to_sample == 1) && (num_being_sampled == 0) && (force_monte_carlo == false)) {
     OnePotentialSampleExpectedImprovementEvaluator ei_evaluator(gaussian_process, best_so_far);
     OnePotentialSampleExpectedImprovementEvaluator::StateType ei_state(ei_evaluator,
                                                                        input_container.points_to_sample.data(),
                                                                        configure_for_gradients);
     return ei_evaluator.ComputeExpectedImprovement(&ei_state);
-  } else {
+  } else {*/
     ExpectedImprovementEvaluator ei_evaluator(gaussian_process, max_int_steps, best_so_far);
     ExpectedImprovementEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
                                                      input_container.points_being_sampled.data(),
@@ -69,7 +71,7 @@ double ComputeExpectedImprovementWrapper(const GaussianProcess& gaussian_process
                                                      configure_for_gradients,
                                                      randomness_source.normal_rng_vec.data());
     return ei_evaluator.ComputeExpectedImprovement(&ei_state);
-  }
+//  }
 }
 
 boost::python::list ComputeGradExpectedImprovementWrapper(const GaussianProcess& gaussian_process,
@@ -79,18 +81,20 @@ boost::python::list ComputeGradExpectedImprovementWrapper(const GaussianProcess&
                                                           int max_int_steps, double best_so_far,
                                                           bool force_monte_carlo,
                                                           RandomnessSourceContainer& randomness_source) {
-  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled);
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
 
   std::vector<double> grad_EI(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
-  if ((num_to_sample == 1) && (num_being_sampled == 0) && (force_monte_carlo == false)) {
+/*  if ((num_to_sample == 1) && (num_being_sampled == 0) && (force_monte_carlo == false)) {
     OnePotentialSampleExpectedImprovementEvaluator ei_evaluator(gaussian_process, best_so_far);
     OnePotentialSampleExpectedImprovementEvaluator::StateType ei_state(ei_evaluator,
                                                                        input_container.points_to_sample.data(),
                                                                        configure_for_gradients);
     ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
-  } else {
+  } else {*/
     ExpectedImprovementEvaluator ei_evaluator(gaussian_process, max_int_steps, best_so_far);
     ExpectedImprovementEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
                                                      input_container.points_being_sampled.data(),
@@ -99,7 +103,7 @@ boost::python::list ComputeGradExpectedImprovementWrapper(const GaussianProcess&
                                                      configure_for_gradients,
                                                      randomness_source.normal_rng_vec.data());
     ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
-  }
+//  }
 
   return VectorToPylist(grad_EI);
 }
@@ -152,7 +156,7 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
       // optimizer_parameters must contain an int num_random_samples field, extract it
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
-      if (use_gpu == true) {
+/*      if (use_gpu == true) {
 #ifdef OL_GPU_ENABLED
         CudaComputeOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process, domain, thread_schedule,
                                                                 input_container.points_being_sampled.data(),
@@ -164,7 +168,7 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
 #else
         OL_THROW_EXCEPTION(OptimalLearningException, "GPU is not installed or enabled!");
 #endif
-      } else {
+      } else {*/
         ComputeOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process, domain, thread_schedule,
                                                             input_container.points_being_sampled.data(),
                                                             num_random_samples, num_to_sample,
@@ -173,7 +177,7 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
                                                             &found_flag, &randomness_source.uniform_generator,
                                                             randomness_source.normal_rng_vec.data(),
                                                             best_points_to_sample);
-      }
+//      }
       status[std::string("lhc_") + domain.kName + "_domain_found_update"] = found_flag;
       break;
     }  // end case kNull optimizer_type
@@ -185,7 +189,7 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       bool random_search_only = false;
-      if (use_gpu == true) {
+/*      if (use_gpu == true) {
 #ifdef OL_GPU_ENABLED
         CudaComputeOptimalPointsToSample(gaussian_process, gradient_descent_parameters, domain, thread_schedule,
                                          input_container.points_being_sampled.data(), num_to_sample,
@@ -195,14 +199,14 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
 #else
         OL_THROW_EXCEPTION(OptimalLearningException, "GPU is not installed or enabled!");
 #endif
-      } else {
+      } else {*/
         ComputeOptimalPointsToSample(gaussian_process, gradient_descent_parameters, domain, thread_schedule,
                                      input_container.points_being_sampled.data(), num_to_sample,
                                      input_container.num_being_sampled, best_so_far, max_int_steps,
                                      random_search_only, num_random_samples, &found_flag,
                                      &randomness_source.uniform_generator,
                                      randomness_source.normal_rng_vec.data(), best_points_to_sample);
-      }
+//      }
       status[std::string("gradient_descent_") + domain.kName + "_domain_found_update"] = found_flag;
       break;
     }  // end case kGradientDescent optimizer_type
@@ -233,7 +237,11 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
 
   int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gaussian_process.dim(), num_to_sample_input, num_being_sampled);
+
+  const boost::python::list gradients;
+  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample_input, num_being_sampled, gaussian_process.num_derivatives());
+
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
 
@@ -248,8 +256,7 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
       DispatchExpectedImprovementOptimization(optimizer_parameters, gaussian_process, input_container,
                                               domain, optimizer_type, num_to_sample, best_so_far,
                                               max_int_steps, max_num_threads, use_gpu, which_gpu,
-                                              randomness_source,
-                                              status, best_points_to_sample_C.data());
+                                              randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kTensorProduct
     case DomainTypes::kSimplex: {
@@ -258,8 +265,7 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
       DispatchExpectedImprovementOptimization(optimizer_parameters, gaussian_process, input_container,
                                               domain, optimizer_type, num_to_sample, best_so_far,
                                               max_int_steps, max_num_threads, use_gpu, which_gpu,
-                                              randomness_source,
-                                              status, best_points_to_sample_C.data());
+                                              randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kSimplex
     default: {
@@ -296,6 +302,7 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
     :status: modified on exit to describe whether convergence occurred
     :best_points_to_sample[num_to_sample][dim]: next set of points to evaluate
 \endrst*/
+/*
 template <typename DomainType>
 void DispatchHeuristicExpectedImprovementOptimization(const boost::python::object& optimizer_parameters,
                                                       const GaussianProcess& gaussian_process,
@@ -393,7 +400,7 @@ boost::python::list HeuristicExpectedImprovementOptimizationWrapper(const boost:
 
   return VectorToPylist(best_points_to_sample_C);
 }
-
+*/
 boost::python::list EvaluateEIAtPointListWrapper(const GaussianProcess& gaussian_process,
                                                  const boost::python::list& initial_guesses,
                                                  const boost::python::list& points_being_sampled,
@@ -407,10 +414,14 @@ boost::python::list EvaluateEIAtPointListWrapper(const GaussianProcess& gaussian
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
+
   int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gaussian_process.dim(),
-                                                num_to_sample_input, num_being_sampled);
+
+  const boost::python::list gradients;
+  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
+                                                num_to_sample_input, num_being_sampled, gaussian_process.num_derivatives());
+
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
   std::vector<double> initial_guesses_C(input_container.dim * num_multistarts);
@@ -432,7 +443,7 @@ boost::python::list EvaluateEIAtPointListWrapper(const GaussianProcess& gaussian
 
 }  // end unnamed namespace
 
-void ExportEstimationPolicies() {
+/* void ExportEstimationPolicies() {
   boost::python::class_<ObjectiveEstimationPolicyInterface, boost::noncopyable>("ObjectiveEstimationPolicyInterface", R"%%(
     Pure abstract (in the C++ sense) base class for objective function estimation (e.g., Constant Liar, Kriging Believer).
     Serves no purpose in Python but is needed by boost to allow pointer casts of derived types to this type.
@@ -473,7 +484,7 @@ void ExportEstimationPolicies() {
     :param kriging_noise_variance: the noise_variance to associate to each function value estimate (MUST be >= 0.0)
     :type kriging_noise_variance: float64 >= 0.0
     )%%"));
-}
+}*/
 
 void ExportExpectedImprovementFunctions() {
   boost::python::def("compute_expected_improvement", ComputeExpectedImprovementWrapper, R"%%(
@@ -589,7 +600,7 @@ void ExportExpectedImprovementFunctions() {
     :rtype: list of float64 with shape (num_to_sample, dim)
     )%%");
 
-  boost::python::def("heuristic_expected_improvement_optimization", HeuristicExpectedImprovementOptimizationWrapper, R"%%(
+/*  boost::python::def("heuristic_expected_improvement_optimization", HeuristicExpectedImprovementOptimizationWrapper, R"%%(
     Compute a heuristic approximation to the result of multistart_expected_improvement_optimization(). That is, it
     optimizes an approximation to q,0-EI over the specified domain using the specified optimization method.
     Can optimize for num_to_sample (aka "q") new points to sample (i.e., experiments to run) simultaneously.
@@ -646,7 +657,7 @@ void ExportExpectedImprovementFunctions() {
     :type status: dict
     :return: next set of points to eval
     :rtype: list of float64 with shape (num_to_sample, dim)
-    )%%");
+    )%%");*/
 
   boost::python::def("evaluate_EI_at_point_list", EvaluateEIAtPointListWrapper, R"%%(
     Evaluates the expected improvement at each point in initial_guesses; can handle q,p-EI.

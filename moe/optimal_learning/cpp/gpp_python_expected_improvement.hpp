@@ -17,7 +17,7 @@ namespace optimal_learning {
   These classes do not have any useful behavior inside Python; instead (like GaussianProcess), they
   are meant to be constructed and passed back to C++.
 \endrst*/
-void ExportEstimationPolicies();
+//void ExportEstimationPolicies();
 
 /*!\rst
   Exports functions (with docstrings) for expected improvement operations:

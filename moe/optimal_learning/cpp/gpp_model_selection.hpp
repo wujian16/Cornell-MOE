@@ -236,7 +236,7 @@ enum class LogLikelihoodTypes {
 
 struct UniformRandomGenerator;
 struct LogMarginalLikelihoodState;
-struct LeaveOneOutLogLikelihoodState;
+//struct LeaveOneOutLogLikelihoodState;
 
 /*!\rst
   This serves as a quick summary of the Log Marginal Likelihood (LML).  Please see the file comments here and
@@ -271,14 +271,15 @@ class LogMarginalLikelihoodEvaluator final {
     \param
       :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
       :points_sampled[dim][num_sampled]: points that have already been sampled
-      :points_sampled_value[num_sampled]: values of the already-sampled points
-      :noise_variance[num_sampled]: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
+      :points_sampled_value[num_derivatives+1][num_sampled]: values of the already-sampled points
+      //:noise_variance[num_sampled]: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
       :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
       :num_sampled: number of already-sampled points
   \endrst*/
   LogMarginalLikelihoodEvaluator(double const * restrict points_sampled_in,
                                  double const * restrict points_sampled_value_in,
-                                 double const * restrict noise_variance_in,
+                                 int const * derivatives_in,
+                                 int num_derivatives_in,
                                  int dim_in, int num_sampled_in) OL_NONNULL_POINTERS;
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -287,6 +288,10 @@ class LogMarginalLikelihoodEvaluator final {
 
   int num_sampled() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return num_sampled_;
+  }
+
+  int num_derivatives() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return num_derivatives_;
   }
 
   /*!\rst
@@ -307,10 +312,10 @@ class LogMarginalLikelihoodEvaluator final {
   /*!\rst
     Wrapper for ComputeHessianLogLikelihood(); see that function for details.
   \endrst*/
-  void ComputeHessianObjectiveFunction(StateType * log_likelihood_state,
+/*  void ComputeHessianObjectiveFunction(StateType * log_likelihood_state,
                                        double * restrict hessian_log_marginal) const noexcept OL_NONNULL_POINTERS {
     ComputeHessianLogLikelihood(log_likelihood_state, hessian_log_marginal);
-  }
+  }*/
 
   /*!\rst
     Sets up the LogMarginalLikelihoodState object so that it can be used to compute log marginal and its gradients.
@@ -366,8 +371,8 @@ class LogMarginalLikelihoodEvaluator final {
       :log_likelihood_state[1]: state with temporary storage modified
       :hessian_log_marginal[n_hyper][n_hyper]: ``(i,j)``-th entry is ``\mixpderiv{LML}{\theta_i}{\theta_j}``, where ``LML = log(p(y | X, \theta))``
   \endrst*/
-  void ComputeHessianLogLikelihood(StateType * log_likelihood_state,
-                                   double * restrict hessian_log_marginal) const noexcept OL_NONNULL_POINTERS;
+/*  void ComputeHessianLogLikelihood(StateType * log_likelihood_state,
+                                   double * restrict hessian_log_marginal) const noexcept OL_NONNULL_POINTERS;*/
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(LogMarginalLikelihoodEvaluator);
 
@@ -400,8 +405,8 @@ class LogMarginalLikelihoodEvaluator final {
       :hessian_hyperparameter_cov_matrix[num_sampled][num_sampled][n_hyper][n_hyper]:
         ``(i,j,k,l)``-th entry is ``\mixpderiv{cov(X_i, X_j)}{\theta_k}{\theta_l}``
   \endrst*/
-  void BuildHyperparameterHessianCovarianceMatrix(StateType * log_likelihood_state,
-                                                  double * hessian_hyperparameter_cov_matrix) const noexcept;
+/*  void BuildHyperparameterHessianCovarianceMatrix(StateType * log_likelihood_state,
+                                                  double * hessian_hyperparameter_cov_matrix) const noexcept;*/
 
   // size information
   //! spatial dimension (e.g., entries per point of points_sampled)
@@ -409,13 +414,19 @@ class LogMarginalLikelihoodEvaluator final {
   //! number of points in points_sampled
   int num_sampled_;
 
+  //! number of derivatives' observations
+  int num_derivatives_;
+
+  // the index of the derivatives observed.
+  std::vector<int> derivatives_;
+
   // state variables
   //! coordinates of already-sampled points, X
   std::vector<double> points_sampled_;
   //! function values at points_sampled, y
   std::vector<double> points_sampled_value_;
   //! ``\sigma_n^2``, the noise variance
-  std::vector<double> noise_variance_;
+  //std::vector<double> noise_variance_;
 };
 
 /*!\rst
@@ -440,7 +451,8 @@ struct LogMarginalLikelihoodState final {
       :log_likelihood_eval: LogMarginalLikelihoodEvaluator object that this state is being used with
       :covariance_in: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
   \endrst*/
-  LogMarginalLikelihoodState(const EvaluatorType& log_likelihood_eval, const CovarianceInterface& covariance_in);
+  LogMarginalLikelihoodState(const EvaluatorType& log_likelihood_eval, const CovarianceInterface& covariance_in,
+                             const std::vector<double> noise_variance_in);
 
   LogMarginalLikelihoodState(LogMarginalLikelihoodState&& other);
 
@@ -465,6 +477,10 @@ struct LogMarginalLikelihoodState final {
   \endrst*/
   void GetHyperparameters(double * restrict hyperparameters) const noexcept OL_NONNULL_POINTERS {
     covariance_ptr->GetHyperparameters(hyperparameters);
+    hyperparameters += covariance_ptr->GetNumberOfHyperparameters();
+    for (int i=0 ; i<num_derivatives+1; ++i){
+        hyperparameters[i] = noise_variance[i];
+    }
   }
 
   /*!\rst
@@ -498,12 +514,19 @@ struct LogMarginalLikelihoodState final {
   const int dim;
   //! number of points in points_sampled
   int num_sampled;
+
+  //! number of derivatives' observations
+  int num_derivatives;
+
   //! number of hyperparameters of covariance; i.e., covariance_ptr->GetNumberOfHyperparameters()
+  // + the number of variances
   int num_hyperparameters;
 
   // state variables
   //! covariance class (for computing covariance and its gradients)
   std::unique_ptr<CovarianceInterface> covariance_ptr;
+
+  std::vector<double> noise_variance;
 
   // derived variables
   //! cholesky factorization of ``K``
@@ -549,249 +572,249 @@ struct LogMarginalLikelihoodState final {
 
   .. Note:: These class comments are duplicated in Python: cpp_wrappers.log_likelihood.LeaveOneOutLogLikelihood
 \endrst*/
-class LeaveOneOutLogLikelihoodEvaluator final {
- public:
-  //! string name of this log likelihood evaluator for logging
-  constexpr static char const * kName = "leave_one_out_log_likelihood";
-
-  using StateType = LeaveOneOutLogLikelihoodState;
-
-  /*!\rst
-    Constructs a LeaveOneOutLogLikelihoodEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
-
-    \param
-      :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
-      :points_sampled[dim][num_sampled]: points that have already been sampled
-      :points_sampled_value[num_sampled]: values of the already-sampled points
-      :noise_variance[num_sampled]: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
-      :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
-      :num_sampled: number of already-sampled points
-  \endrst*/
-  LeaveOneOutLogLikelihoodEvaluator(double const * restrict points_sampled_in,
-                                    double const * restrict points_sampled_value_in,
-                                    double const * restrict noise_variance_in,
-                                    int dim_in, int num_sampled_in) OL_NONNULL_POINTERS;
-
-  int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return dim_;
-  }
-
-  int num_sampled() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return num_sampled_;
-  }
-
-  /*!\rst
-    Wrapper for ComputeLogLikelihood(); see that function for details.
-  \endrst*/
-  double ComputeObjectiveFunction(StateType * log_likelihood_state) const noexcept OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
-    return ComputeLogLikelihood(*log_likelihood_state);
-  }
-
-  /*!\rst
-    Wrapper for ComputeGradLogLikelihood(); see that function for details.
-  \endrst*/
-  void ComputeGradObjectiveFunction(StateType * log_likelihood_state,
-                                    double * restrict grad_loo) const noexcept OL_NONNULL_POINTERS {
-    ComputeGradLogLikelihood(log_likelihood_state, grad_loo);
-  }
-
-  /*!\rst
-    Wrapper for ComputeHessianLogLikelihood(); see that function for details.
-  \endrst*/
-  void ComputeHessianObjectiveFunction(StateType * log_likelihood_state,
-                                       double * restrict hessian_loo) const OL_NONNULL_POINTERS {
-    ComputeHessianLogLikelihood(log_likelihood_state, hessian_loo);
-  }
-
-  /*!\rst
-    Sets up the LeaveOneOutLogLikelihoodState object so that it can be used to compute log marginal and its gradients.
-    ASSUMES all needed space is ALREADY ALLOCATED.
-
-    This function should not be called directly; instead use LeaveOneOutLogLikelihoodState::SetupState.
-
-    \param
-      :log_likelihood_state[1]: constructed state object with appropriate sized allocations
-    \output
-      :log_likelihood_state[1]: fully configured state object, ready for use by this class's member functions
-  \endrst*/
-  void FillLogLikelihoodState(StateType * log_likelihood_state) const OL_NONNULL_POINTERS;
-
-  /*!\rst
-    Computes the log LOO-CV pseudo-likelihood
-    That is, split the training data ``(X, y)`` into ``|y|`` training set groups, where in the i-th group, the validation set is
-    the ``i``-th point of ``(X, y)`` and the training set is ``(X, y)`` with the ``i``-th point removed.
-    Then this likelihood measures the aggregate performance of the ability of a model built on each "leave one out"
-    training set to predict the corresponding validation set.  So in some sense it is a measure of model consitency, ensuring
-    that we do not perform well on a few points while doing horribly on the others.
-
-    \param
-      :log_likelihood_state: properly configured state oboject
-    \return
-      natural log of the leave one out cross validation pseudo-likelihood of the GP model
-  \endrst*/
-  double ComputeLogLikelihood(const StateType& log_likelihood_state) const noexcept OL_WARN_UNUSED_RESULT;
-
-  /*!\rst
-    Computes the (partial) derivatives of the leave-one-out cross validation log pseudo-likelihood with respect to each hyperparameter of our covariance function.
-
-    Let ``n_hyper = covariance_ptr->GetNumberOfHyperparameters();``
-
-    \param
-      :log_likelihood_state[1]: properly configured state oboject
-    \output
-      :log_likelihood_state[1]: state with temporary storage modified
-      :grad_loo[n_hyper]: gradient of leave one out cross validation log likelihood wrt each hyperparameter of covariance
-  \endrst*/
-  void ComputeGradLogLikelihood(StateType * log_likelihood_state,
-                                double * restrict grad_loo) const noexcept OL_NONNULL_POINTERS;
-
-  /*!\rst
-    NOT IMPLEMENTED.
-    Kludge to make it so that I can instantiate MultistartNewtonOptimization<> with LeaveOneOutLogLikelihoodEvaluator in
-    gpp_python.cpp. It is an error to select NewtonOptimization with LeaveOneOutLogLikelihoodEvaluator, but I can't find a nicer
-    way to generate this error while still being able to treat MultistartNewtonOptimization<> generically.
-  \endrst*/
-  void ComputeHessianLogLikelihood(StateType * log_likelihood_state,
-                                   double * restrict hessian_loo) const OL_NONNULL_POINTERS;
-
-  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(LeaveOneOutLogLikelihoodEvaluator);
-
- private:
-  /*!\rst
-    Constructs the tensor of gradients (wrt hyperparameters) of the covariance function at all pairs of ``points_sampled_``.
-
-    The result is stored in ``state->grad_hyperparameter_cov_matrix``.  So we are computing ``\pderiv{cov(X_i, X_j)}{\theta_k``}.  These
-    data are ordered as: ``grad_hyperparameter_cov_matrix[i][j][k]`` (i.e., ``num_hyperparmeters`` matrices of size ``Square(num_sampled_)``).
-
-    .. Note:: ``grad_hyperparameter_cov_matrix[i][j][k] == grad_hyperparameter_cov_matrix[j][i][k]``
-
-    \param
-      :log_likelihood_state[1]: properly configured state object
-    \output
-      :log_likelihood_state[1]: state with grad_hyperparameter_cov_matrix filled
-  \endrst*/
-  void BuildHyperparameterGradCovarianceMatrix(StateType * log_likelihood_state) const noexcept;
-
-  // size information
-  //! spatial dimension (e.g., entries per point of points_sampled)
-  const int dim_;
-  //! number of points in points_sampled
-  int num_sampled_;
-
-  // state variables
-  //! coordinates of already-sampled points, ``X``
-  std::vector<double> points_sampled_;
-  //! function values at points_sampled, ``y``
-  std::vector<double> points_sampled_value_;
-  //! ``\sigma_n^2``, the noise variance
-  std::vector<double> noise_variance_;
-};
-
-/*!\rst
-  State object for LeaveOneOutLogLikelihoodEvaluator.  This object tracks the covariance object as well as derived quantities
-  that (along with the training points/values in the Evaluator class) fully specify the log marginal likelihood.  Since this
-  is used to optimize the log marginal likelihood, the covariance's hyperparameters are variable.
-
-  See general comments on State structs in gpp_common.hpp's header docs.
-\endrst*/
-struct LeaveOneOutLogLikelihoodState final {
-  using EvaluatorType = LeaveOneOutLogLikelihoodEvaluator;
-
-  /*!\rst
-    Constructs a LeaveOneOutLogLikelihoodState object with a specified covariance object (in particular, new hyperparameters).
-    Ensures all state variables & temporaries are properly sized.
-    Properly sets all state variables so that the Evaluator can be used to compute log marginal likelihood, gradients, etc.
-
-    .. WARNING:: This object's state is INVALIDATED if the log_likelihood_eval used in construction is mutated!
-      SetupState() should be called again in such a situation.
-
-    \param
-      :log_likelihood_eval: LogMarginalLikelihoodEvaluator object that this state is being used with
-      :covariance_in: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
-  \endrst*/
-  LeaveOneOutLogLikelihoodState(const EvaluatorType& log_likelihood_eval, const CovarianceInterface& covariance_in);
-
-  LeaveOneOutLogLikelihoodState(LeaveOneOutLogLikelihoodState&& other);
-
-  int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return num_hyperparameters;
-  }
-
-  void SetCurrentPoint(const EvaluatorType& log_likelihood_eval,
-                          double const * restrict hyperparameters) OL_NONNULL_POINTERS {
-    SetHyperparameters(log_likelihood_eval, hyperparameters);
-  }
-
-  void GetCurrentPoint(double * restrict hyperparameters) OL_NONNULL_POINTERS {
-    GetHyperparameters(hyperparameters);
-  }
-
-  /*!\rst
-    Get hyperparameters of underlying covariance function.
-
-    \output
-      :hyperparameters[num_hyperparameters]: covariance's hyperparameters
-  \endrst*/
-  void GetHyperparameters(double * restrict hyperparameters) const noexcept OL_NONNULL_POINTERS {
-    covariance_ptr->GetHyperparameters(hyperparameters);
-  }
-
-  /*!\rst
-    Change the hyperparameters of the underlying covariance function.
-    Update the state's derived quantities to be consistent with the new hyperparameters.
-
-    \param
-      :log_likelihood_eval: LeaveOneOutLogLikelihoodEvaluator object that this state is being used with
-      :hyperparameters[num_hyperparameters]: hyperparameters to change to
-  \endrst*/
-  void SetHyperparameters(const EvaluatorType& log_likelihood_eval,
-                             double const * restrict hyperparameters) OL_NONNULL_POINTERS;
-
-  /*!\rst
-    Configures this state object with new hyperparameters.
-    Ensures all state variables & temporaries are properly sized.
-    Properly sets all state variables for log likelihood (+ gradient) evaluation.
-
-    .. WARNING:: This object's state is INVALIDATED if the log_likelihood used in SetupState is mutated!
-      SetupState() should be called again in such a situation.
-
-    \param
-      :log_likelihood_eval: log likelihood evaluator object that describes the training/already-measured data
-      :hyperparameters[num_hyperparameters]: hyperparameters to change to
-  \endrst*/
-  void SetupState(const EvaluatorType& log_likelihood_eval,
-                  double const * restrict hyperparameters) OL_NONNULL_POINTERS;
-
-  // size information
-  //! spatial dimension (e.g., entries per point of points_sampled)
-  const int dim;
-  //! number of points in points_sampled
-  int num_sampled;
-  //! number of hyperparameters of covariance; i.e., covariance_ptr->GetNumberOfHyperparameters()
-  int num_hyperparameters;
-
-  // state variables
-  //! covariance class (for computing covariance and its gradients)
-  std::unique_ptr<CovarianceInterface> covariance_ptr;
-
-  // derived variables
-  //! cholesky factorization of ``K``
-  std::vector<double> K_chol;
-  //! ``K^-1``
-  std::vector<double> K_inv;
-  //! ``K^-1 * y``; computed WITHOUT forming ``K^-1``
-  std::vector<double> K_inv_y;
-
-  // temporary storage: preallocated space used by LeaveOneOutLogLikelihoodEvaluator's member functions
-  //! ``\pderiv{K_{ij}}{\theta_k}``; temporary b/c it is overwritten with each computation of GradLikelihood
-  std::vector<double> grad_hyperparameter_cov_matrix;
-  //! temporary: ``K^-1 * grad_hyperparameter_cov_matrix * K^-1 * y``
-  std::vector<double> Z_alpha;
-  //! temporary: ``K^-1 * grad_hyperparameter_cov_matrix * K^-1``
-  std::vector<double> Z_K_inv;
-
-  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(LeaveOneOutLogLikelihoodState);
-};
+//class LeaveOneOutLogLikelihoodEvaluator final {
+// public:
+//  //! string name of this log likelihood evaluator for logging
+//  constexpr static char const * kName = "leave_one_out_log_likelihood";
+//
+//  using StateType = LeaveOneOutLogLikelihoodState;
+//
+//  /*!\rst
+//    Constructs a LeaveOneOutLogLikelihoodEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
+//
+//    \param
+//      :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
+//      :points_sampled[dim][num_sampled]: points that have already been sampled
+//      :points_sampled_value[num_sampled]: values of the already-sampled points
+//      :noise_variance[num_sampled]: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
+//      :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
+//      :num_sampled: number of already-sampled points
+//  \endrst*/
+//  LeaveOneOutLogLikelihoodEvaluator(double const * restrict points_sampled_in,
+//                                    double const * restrict points_sampled_value_in,
+//                                    double const * restrict noise_variance_in,
+//                                    int dim_in, int num_sampled_in) OL_NONNULL_POINTERS;
+//
+//  int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+//    return dim_;
+//  }
+//
+//  int num_sampled() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+//    return num_sampled_;
+//  }
+//
+//  /*!\rst
+//    Wrapper for ComputeLogLikelihood(); see that function for details.
+//  \endrst*/
+//  double ComputeObjectiveFunction(StateType * log_likelihood_state) const noexcept OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
+//    return ComputeLogLikelihood(*log_likelihood_state);
+//  }
+//
+//  /*!\rst
+//    Wrapper for ComputeGradLogLikelihood(); see that function for details.
+//  \endrst*/
+//  void ComputeGradObjectiveFunction(StateType * log_likelihood_state,
+//                                    double * restrict grad_loo) const noexcept OL_NONNULL_POINTERS {
+//    ComputeGradLogLikelihood(log_likelihood_state, grad_loo);
+//  }
+//
+//  /*!\rst
+//    Wrapper for ComputeHessianLogLikelihood(); see that function for details.
+//  \endrst*/
+//  void ComputeHessianObjectiveFunction(StateType * log_likelihood_state,
+//                                       double * restrict hessian_loo) const OL_NONNULL_POINTERS {
+//    ComputeHessianLogLikelihood(log_likelihood_state, hessian_loo);
+//  }
+//
+//  /*!\rst
+//    Sets up the LeaveOneOutLogLikelihoodState object so that it can be used to compute log marginal and its gradients.
+//    ASSUMES all needed space is ALREADY ALLOCATED.
+//
+//    This function should not be called directly; instead use LeaveOneOutLogLikelihoodState::SetupState.
+//
+//    \param
+//      :log_likelihood_state[1]: constructed state object with appropriate sized allocations
+//    \output
+//      :log_likelihood_state[1]: fully configured state object, ready for use by this class's member functions
+//  \endrst*/
+//  void FillLogLikelihoodState(StateType * log_likelihood_state) const OL_NONNULL_POINTERS;
+//
+//  /*!\rst
+//    Computes the log LOO-CV pseudo-likelihood
+//    That is, split the training data ``(X, y)`` into ``|y|`` training set groups, where in the i-th group, the validation set is
+//    the ``i``-th point of ``(X, y)`` and the training set is ``(X, y)`` with the ``i``-th point removed.
+//    Then this likelihood measures the aggregate performance of the ability of a model built on each "leave one out"
+//    training set to predict the corresponding validation set.  So in some sense it is a measure of model consitency, ensuring
+//    that we do not perform well on a few points while doing horribly on the others.
+//
+//    \param
+//      :log_likelihood_state: properly configured state oboject
+//    \return
+//      natural log of the leave one out cross validation pseudo-likelihood of the GP model
+//  \endrst*/
+//  double ComputeLogLikelihood(const StateType& log_likelihood_state) const noexcept OL_WARN_UNUSED_RESULT;
+//
+//  /*!\rst
+//    Computes the (partial) derivatives of the leave-one-out cross validation log pseudo-likelihood with respect to each hyperparameter of our covariance function.
+//
+//    Let ``n_hyper = covariance_ptr->GetNumberOfHyperparameters();``
+//
+//    \param
+//      :log_likelihood_state[1]: properly configured state oboject
+//    \output
+//      :log_likelihood_state[1]: state with temporary storage modified
+//      :grad_loo[n_hyper]: gradient of leave one out cross validation log likelihood wrt each hyperparameter of covariance
+//  \endrst*/
+//  void ComputeGradLogLikelihood(StateType * log_likelihood_state,
+//                                double * restrict grad_loo) const noexcept OL_NONNULL_POINTERS;
+//
+//  /*!\rst
+//    NOT IMPLEMENTED.
+//    Kludge to make it so that I can instantiate MultistartNewtonOptimization<> with LeaveOneOutLogLikelihoodEvaluator in
+//    gpp_python.cpp. It is an error to select NewtonOptimization with LeaveOneOutLogLikelihoodEvaluator, but I can't find a nicer
+//    way to generate this error while still being able to treat MultistartNewtonOptimization<> generically.
+//  \endrst*/
+//  void ComputeHessianLogLikelihood(StateType * log_likelihood_state,
+//                                   double * restrict hessian_loo) const OL_NONNULL_POINTERS;
+//
+//  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(LeaveOneOutLogLikelihoodEvaluator);
+//
+// private:
+//  /*!\rst
+//    Constructs the tensor of gradients (wrt hyperparameters) of the covariance function at all pairs of ``points_sampled_``.
+//
+//    The result is stored in ``state->grad_hyperparameter_cov_matrix``.  So we are computing ``\pderiv{cov(X_i, X_j)}{\theta_k``}.  These
+//    data are ordered as: ``grad_hyperparameter_cov_matrix[i][j][k]`` (i.e., ``num_hyperparmeters`` matrices of size ``Square(num_sampled_)``).
+//
+//    .. Note:: ``grad_hyperparameter_cov_matrix[i][j][k] == grad_hyperparameter_cov_matrix[j][i][k]``
+//
+//    \param
+//      :log_likelihood_state[1]: properly configured state object
+//    \output
+//      :log_likelihood_state[1]: state with grad_hyperparameter_cov_matrix filled
+//  \endrst*/
+//  void BuildHyperparameterGradCovarianceMatrix(StateType * log_likelihood_state) const noexcept;
+//
+//  // size information
+//  //! spatial dimension (e.g., entries per point of points_sampled)
+//  const int dim_;
+//  //! number of points in points_sampled
+//  int num_sampled_;
+//
+//  // state variables
+//  //! coordinates of already-sampled points, ``X``
+//  std::vector<double> points_sampled_;
+//  //! function values at points_sampled, ``y``
+//  std::vector<double> points_sampled_value_;
+//  //! ``\sigma_n^2``, the noise variance
+//  std::vector<double> noise_variance_;
+//};
+//
+///*!\rst
+//  State object for LeaveOneOutLogLikelihoodEvaluator.  This object tracks the covariance object as well as derived quantities
+//  that (along with the training points/values in the Evaluator class) fully specify the log marginal likelihood.  Since this
+//  is used to optimize the log marginal likelihood, the covariance's hyperparameters are variable.
+//
+//  See general comments on State structs in gpp_common.hpp's header docs.
+//\endrst*/
+//struct LeaveOneOutLogLikelihoodState final {
+//  using EvaluatorType = LeaveOneOutLogLikelihoodEvaluator;
+//
+//  /*!\rst
+//    Constructs a LeaveOneOutLogLikelihoodState object with a specified covariance object (in particular, new hyperparameters).
+//    Ensures all state variables & temporaries are properly sized.
+//    Properly sets all state variables so that the Evaluator can be used to compute log marginal likelihood, gradients, etc.
+//
+//    .. WARNING:: This object's state is INVALIDATED if the log_likelihood_eval used in construction is mutated!
+//      SetupState() should be called again in such a situation.
+//
+//    \param
+//      :log_likelihood_eval: LogMarginalLikelihoodEvaluator object that this state is being used with
+//      :covariance_in: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
+//  \endrst*/
+//  LeaveOneOutLogLikelihoodState(const EvaluatorType& log_likelihood_eval, const CovarianceInterface& covariance_in);
+//
+//  LeaveOneOutLogLikelihoodState(LeaveOneOutLogLikelihoodState&& other);
+//
+//  int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+//    return num_hyperparameters;
+//  }
+//
+//  void SetCurrentPoint(const EvaluatorType& log_likelihood_eval,
+//                          double const * restrict hyperparameters) OL_NONNULL_POINTERS {
+//    SetHyperparameters(log_likelihood_eval, hyperparameters);
+//  }
+//
+//  void GetCurrentPoint(double * restrict hyperparameters) OL_NONNULL_POINTERS {
+//    GetHyperparameters(hyperparameters);
+//  }
+//
+//  /*!\rst
+//    Get hyperparameters of underlying covariance function.
+//
+//    \output
+//      :hyperparameters[num_hyperparameters]: covariance's hyperparameters
+//  \endrst*/
+//  void GetHyperparameters(double * restrict hyperparameters) const noexcept OL_NONNULL_POINTERS {
+//    covariance_ptr->GetHyperparameters(hyperparameters);
+//  }
+//
+//  /*!\rst
+//    Change the hyperparameters of the underlying covariance function.
+//    Update the state's derived quantities to be consistent with the new hyperparameters.
+//
+//    \param
+//      :log_likelihood_eval: LeaveOneOutLogLikelihoodEvaluator object that this state is being used with
+//      :hyperparameters[num_hyperparameters]: hyperparameters to change to
+//  \endrst*/
+//  void SetHyperparameters(const EvaluatorType& log_likelihood_eval,
+//                             double const * restrict hyperparameters) OL_NONNULL_POINTERS;
+//
+//  /*!\rst
+//    Configures this state object with new hyperparameters.
+//    Ensures all state variables & temporaries are properly sized.
+//    Properly sets all state variables for log likelihood (+ gradient) evaluation.
+//
+//    .. WARNING:: This object's state is INVALIDATED if the log_likelihood used in SetupState is mutated!
+//      SetupState() should be called again in such a situation.
+//
+//    \param
+//      :log_likelihood_eval: log likelihood evaluator object that describes the training/already-measured data
+//      :hyperparameters[num_hyperparameters]: hyperparameters to change to
+//  \endrst*/
+//  void SetupState(const EvaluatorType& log_likelihood_eval,
+//                  double const * restrict hyperparameters) OL_NONNULL_POINTERS;
+//
+//  // size information
+//  //! spatial dimension (e.g., entries per point of points_sampled)
+//  const int dim;
+//  //! number of points in points_sampled
+//  int num_sampled;
+//  //! number of hyperparameters of covariance; i.e., covariance_ptr->GetNumberOfHyperparameters()
+//  int num_hyperparameters;
+//
+//  // state variables
+//  //! covariance class (for computing covariance and its gradients)
+//  std::unique_ptr<CovarianceInterface> covariance_ptr;
+//
+//  // derived variables
+//  //! cholesky factorization of ``K``
+//  std::vector<double> K_chol;
+//  //! ``K^-1``
+//  std::vector<double> K_inv;
+//  //! ``K^-1 * y``; computed WITHOUT forming ``K^-1``
+//  std::vector<double> K_inv_y;
+//
+//  // temporary storage: preallocated space used by LeaveOneOutLogLikelihoodEvaluator's member functions
+//  //! ``\pderiv{K_{ij}}{\theta_k}``; temporary b/c it is overwritten with each computation of GradLikelihood
+//  std::vector<double> grad_hyperparameter_cov_matrix;
+//  //! temporary: ``K^-1 * grad_hyperparameter_cov_matrix * K^-1 * y``
+//  std::vector<double> Z_alpha;
+//  //! temporary: ``K^-1 * grad_hyperparameter_cov_matrix * K^-1``
+//  std::vector<double> Z_K_inv;
+//
+//  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(LeaveOneOutLogLikelihoodState);
+//};
 
 /*!\rst
   Converts ``domain_bounds`` input from ``log10``-space to linear-space.
@@ -849,11 +872,12 @@ inline OL_NONNULL_POINTERS void ConvertFromLogToLinearDomainAndBuildInitialGuess
 \endrst*/
 template <typename LogLikelihoodEvaluator>
 OL_NONNULL_POINTERS void SetupLogLikelihoodState(const LogLikelihoodEvaluator& log_likelihood_evaluator,
-                                                 const CovarianceInterface& covariance, int max_num_threads,
+                                                 const CovarianceInterface& covariance, const std::vector<double> noise_variance_in,
+                                                 int max_num_threads,
                                                  std::vector<typename LogLikelihoodEvaluator::StateType> * state_vector) {
   state_vector->reserve(max_num_threads);
   for (int i = 0; i < max_num_threads; ++i) {
-    state_vector->emplace_back(log_likelihood_evaluator, covariance);
+    state_vector->emplace_back(log_likelihood_evaluator, covariance, noise_variance_in);
   }
 }
 
@@ -933,6 +957,7 @@ template <typename LogLikelihoodEvaluator, typename DomainType>
 OL_NONNULL_POINTERS void RestartedGradientDescentHyperparameterOptimization(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
+    const std::vector<double> noise_variance,
     const GradientDescentParameters& gd_parameters,
     const DomainType& domain,
     double * restrict next_hyperparameters) {
@@ -941,7 +966,7 @@ OL_NONNULL_POINTERS void RestartedGradientDescentHyperparameterOptimization(
   }
 
   OL_VERBOSE_PRINTF("Hyperparameter Optimization via %s\n", OL_CURRENT_FUNCTION_NAME);
-  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_evaluator, covariance);
+  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_evaluator, covariance, noise_variance);
 
   GradientDescentOptimizer<LogLikelihoodEvaluator, DomainType> gd_opt;
   gd_opt.Optimize(log_likelihood_evaluator, gd_parameters, domain, &log_likelihood_state);
@@ -1000,6 +1025,7 @@ template <typename LogLikelihoodEvaluator>
 OL_NONNULL_POINTERS void MultistartGradientDescentHyperparameterOptimization(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
+    const std::vector<double> noise_variance,
     const GradientDescentParameters& gd_parameters,
     ClosedInterval const * restrict domain,
     const ThreadSchedule& thread_schedule,
@@ -1010,7 +1036,7 @@ OL_NONNULL_POINTERS void MultistartGradientDescentHyperparameterOptimization(
     OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", gd_parameters.num_multistarts, 1);
   }
 
-  const int num_hyperparameters = covariance.GetNumberOfHyperparameters();
+  const int num_hyperparameters = covariance.GetNumberOfHyperparameters() + noise_variance.size();
   std::vector<double> initial_guesses(num_hyperparameters*gd_parameters.num_multistarts);
   std::vector<ClosedInterval> domain_linearspace_bounds(domain, domain + num_hyperparameters);
   ConvertFromLogToLinearDomainAndBuildInitialGuesses(num_hyperparameters, gd_parameters.num_multistarts,
@@ -1020,7 +1046,7 @@ OL_NONNULL_POINTERS void MultistartGradientDescentHyperparameterOptimization(
 
   // we need 1 state object per thread
   std::vector<typename LogLikelihoodEvaluator::StateType> log_likelihood_state_vector;
-  SetupLogLikelihoodState(log_likelihood_evaluator, covariance, thread_schedule.max_num_threads,
+  SetupLogLikelihoodState(log_likelihood_evaluator, covariance, noise_variance, thread_schedule.max_num_threads,
                           &log_likelihood_state_vector);
 
   OptimizationIOContainer io_container(log_likelihood_state_vector[0].GetProblemSize());
@@ -1073,7 +1099,7 @@ OL_NONNULL_POINTERS void MultistartGradientDescentHyperparameterOptimization(
   \output
     :next_hyperparameters[n_hyper]: the new hyperparameters found by newton
 \endrst*/
-template <typename LogLikelihoodEvaluator, typename DomainType>
+/*template <typename LogLikelihoodEvaluator, typename DomainType>
 OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int NewtonHyperparameterOptimization(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
@@ -1091,7 +1117,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int NewtonHyperparameterOptimization(
   int errors = newton_opt.Optimize(log_likelihood_evaluator, newton_parameters, domain, &log_likelihood_state);
   log_likelihood_state.GetCurrentPoint(next_hyperparameters);
   return errors;
-}
+}*/
 
 /*!\rst
   Function to add multistarting on top of newton hyperparameter optimization.
@@ -1138,7 +1164,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int NewtonHyperparameterOptimization(
     :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
     :next_hyperparameters[n_hyper]: the new hyperparameters found by newton
 \endrst*/
-template <typename LogLikelihoodEvaluator>
+/*template <typename LogLikelihoodEvaluator>
 OL_NONNULL_POINTERS void MultistartNewtonHyperparameterOptimization(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
@@ -1179,7 +1205,7 @@ OL_NONNULL_POINTERS void MultistartNewtonHyperparameterOptimization(
 
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), next_hyperparameters);
-}
+}*/
 
 /*!\rst
   Function to evaluate various log likelihood measures over a specified list of num_multistarts hyperparameters.
@@ -1211,6 +1237,7 @@ template <typename LogLikelihoodEvaluator, typename DomainType>
 void EvaluateLogLikelihoodAtPointList(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
+    const std::vector<double> noise_variance,
     const DomainType& domain_linearspace,
     const ThreadSchedule& thread_schedule,
     double const * restrict initial_guesses,
@@ -1223,7 +1250,7 @@ void EvaluateLogLikelihoodAtPointList(
   }
 
   std::vector<typename LogLikelihoodEvaluator::StateType> log_likelihood_state_vector;
-  SetupLogLikelihoodState(log_likelihood_evaluator, covariance, thread_schedule.max_num_threads,
+  SetupLogLikelihoodState(log_likelihood_evaluator, covariance, noise_variance, thread_schedule.max_num_threads,
                           &log_likelihood_state_vector);
 
   // initialize io_container to the first point (arbitrary, but valid choice)
@@ -1278,13 +1305,14 @@ template <typename LogLikelihoodEvaluator>
 OL_NONNULL_POINTERS void LatinHypercubeSearchHyperparameterOptimization(
     const LogLikelihoodEvaluator& log_likelihood_evaluator,
     const CovarianceInterface& covariance,
+    const std::vector<double> noise_variance,
     ClosedInterval const * restrict domain,
     const ThreadSchedule& thread_schedule,
     int num_multistarts,
     bool * restrict found_flag,
     UniformRandomGenerator * uniform_generator,
     double * restrict next_hyperparameters) {
-  const int num_hyperparameters = covariance.GetNumberOfHyperparameters();
+  const int num_hyperparameters = covariance.GetNumberOfHyperparameters() + noise_variance.size();
   std::vector<double> initial_guesses(num_hyperparameters*num_multistarts);
   std::vector<ClosedInterval> domain_linearspace_bounds(domain, domain + num_hyperparameters);
   ConvertFromLogToLinearDomainAndBuildInitialGuesses(num_hyperparameters, num_multistarts, uniform_generator,
@@ -1292,7 +1320,7 @@ OL_NONNULL_POINTERS void LatinHypercubeSearchHyperparameterOptimization(
 
   TensorProductDomain domain_linearspace(domain_linearspace_bounds.data(), num_hyperparameters);
 
-  EvaluateLogLikelihoodAtPointList(log_likelihood_evaluator, covariance, domain_linearspace,
+  EvaluateLogLikelihoodAtPointList(log_likelihood_evaluator, covariance, noise_variance, domain_linearspace,
                                    thread_schedule, initial_guesses.data(), num_multistarts,
                                    found_flag, nullptr, next_hyperparameters);
 }
