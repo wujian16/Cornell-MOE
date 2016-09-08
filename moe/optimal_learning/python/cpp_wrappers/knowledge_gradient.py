@@ -148,6 +148,7 @@ class KnowledgeGradient(OptimizableInterface):
         # self._num_derivatives = gaussian_process._historical_data.num_derivatives
 
         self._discrete_pts = numpy.copy(discrete_pts)
+        print self._discrete_pts.shape
 
         self._mu_star = self._gaussian_process.compute_mean_of_additional_points(self._discrete_pts)
 

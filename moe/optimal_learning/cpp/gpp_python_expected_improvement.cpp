@@ -50,10 +50,11 @@ double ComputeExpectedImprovementWrapper(const GaussianProcess& gaussian_process
                                          int max_int_steps, double best_so_far,
                                          bool force_monte_carlo,
                                          RandomnessSourceContainer& randomness_source) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
 
   bool configure_for_gradients = false;
 /*  if ((num_to_sample == 1) && (num_being_sampled == 0) && (force_monte_carlo == false)) {
@@ -81,10 +82,11 @@ boost::python::list ComputeGradExpectedImprovementWrapper(const GaussianProcess&
                                                           int max_int_steps, double best_so_far,
                                                           bool force_monte_carlo,
                                                           RandomnessSourceContainer& randomness_source) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
 
   std::vector<double> grad_EI(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
@@ -200,6 +202,7 @@ void DispatchExpectedImprovementOptimization(const boost::python::object& optimi
         OL_THROW_EXCEPTION(OptimalLearningException, "GPU is not installed or enabled!");
 #endif
       } else {*/
+      printf("wrapper %d\n", 1);
         ComputeOptimalPointsToSample(gaussian_process, gradient_descent_parameters, domain, thread_schedule,
                                      input_container.points_being_sampled.data(), num_to_sample,
                                      input_container.num_being_sampled, best_so_far, max_int_steps,
@@ -234,17 +237,19 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
   if (unlikely(max_num_threads > static_cast<int>(randomness_source.normal_rng_vec.size()))) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
-
+  printf("wrapper %d\n", -3);
   int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
   const boost::python::list points_to_sample_dummy;
 
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample_input, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample_input, num_being_sampled, 0);
 
+  printf("wrapper %d\n", -2);
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
-
+  printf("wrapper %d\n", -1);
   std::vector<double> best_points_to_sample_C(input_container.dim*num_to_sample);
 
   DomainTypes domain_type = boost::python::extract<DomainTypes>(optimizer_parameters.attr("domain_type"));
@@ -252,7 +257,7 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
   switch (domain_type) {
     case DomainTypes::kTensorProduct: {
       TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
-
+      printf("wrapper %d\n", 0);
       DispatchExpectedImprovementOptimization(optimizer_parameters, gaussian_process, input_container,
                                               domain, optimizer_type, num_to_sample, best_so_far,
                                               max_int_steps, max_num_threads, use_gpu, which_gpu,
@@ -418,6 +423,8 @@ boost::python::list EvaluateEIAtPointListWrapper(const GaussianProcess& gaussian
   int num_to_sample_input = 0;  // No points to sample; we are generating these via EI optimization
   const boost::python::list points_to_sample_dummy;
 
+
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
                                                 num_to_sample_input, num_being_sampled, gaussian_process.num_derivatives());

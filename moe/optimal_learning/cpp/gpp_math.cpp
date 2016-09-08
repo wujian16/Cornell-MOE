@@ -1951,8 +1951,13 @@ void ComputeOptimalPointsToSample(const GaussianProcess& gaussian_process,
 
   std::vector<double> next_points_to_sample(gaussian_process.dim()*num_to_sample);
 
+  printf("step %d\n", 2);
+
   bool found_flag_local = false;
   if (lhc_search_only == false) {
+
+  printf("step %d\n", 3);
+
     ComputeOptimalPointsToSampleWithRandomStarts(gaussian_process, optimizer_parameters,
                                                  domain, thread_schedule, points_being_sampled,
                                                  num_to_sample, num_being_sampled,
@@ -1969,6 +1974,9 @@ void ComputeOptimalPointsToSample(const GaussianProcess& gaussian_process,
     }
 
     if (num_lhc_samples > 0) {
+
+    printf("step %d\n", 4);
+
       // Note: using a schedule different than "static" may lead to flakiness in monte-carlo EI optimization tests.
       // Besides, this is the fastest setting.
       ThreadSchedule thread_schedule_naive_search(thread_schedule);

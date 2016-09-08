@@ -47,13 +47,13 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
                                        const boost::python::list& points_being_sampled,
                                        int num_pts, int num_to_sample, int num_being_sampled,
                                        int max_int_steps, double best_so_far, RandomnessSourceContainer& randomness_source) {
-
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
 
   bool configure_for_gradients = false;
 
@@ -76,12 +76,13 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
                                                         const boost::python::list& points_being_sampled,
                                                         int num_pts, int num_to_sample, int num_being_sampled,
                                                         int max_int_steps, double best_so_far, RandomnessSourceContainer& randomness_source) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
 
   std::vector<double> grad_KG(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
@@ -199,18 +200,22 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   // the optimizer_parameters python object
 
   // abort if we do not have enough sources of randomness to run with max_num_threads
+
+  printf("discrete %d, %d, %d\n", num_pts, num_being_sampled, num_to_sample);
   if (unlikely(max_num_threads > static_cast<int>(randomness_source.normal_rng_vec.size()))) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
   int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
   const boost::python::list points_to_sample_dummy;
+
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
 
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample_input, num_being_sampled, num_derivatives_input);
 
 
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
@@ -264,12 +269,14 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
 
   int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
   const boost::python::list points_to_sample_dummy;
+
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, gaussian_process.num_derivatives());
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
 
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample, num_being_sampled, gaussian_process.num_derivatives());
+                                                num_to_sample_input, num_being_sampled, num_derivatives_input);
 
 
   std::vector<double> result_point_C(input_container.dim);  // not used

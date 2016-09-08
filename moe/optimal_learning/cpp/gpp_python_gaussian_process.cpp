@@ -62,10 +62,11 @@ GaussianProcess * make_gaussian_process(const boost::python::list& hyperparamete
 }
 
 boost::python::list GetMeanWrapper(const GaussianProcess& gaussian_process, const boost::python::list& points_to_sample, int num_to_sample) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> to_sample_mean(input_container.num_to_sample);
   int num_derivatives = 0;
@@ -80,10 +81,11 @@ boost::python::list GetMeanWrapper(const GaussianProcess& gaussian_process, cons
 boost::python::list GetAdditionalMeanWrapper(const GaussianProcess& gaussian_process,
                                              const boost::python::list& discrete_pts,
                                              int num_pts) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(discrete_pts, gradients, gaussian_process.dim(),
-                                                num_pts, gaussian_process.num_derivatives());
+                                                num_pts, num_derivatives_input);
 
   std::vector<double> to_sample_mean(input_container.num_to_sample);
 
@@ -96,10 +98,11 @@ boost::python::list GetAdditionalMeanWrapper(const GaussianProcess& gaussian_pro
 boost::python::list GetGradMeanWrapper(const GaussianProcess& gaussian_process,
                                        const boost::python::list& points_to_sample,
                                        int num_to_sample) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> to_sample_grad_mean(input_container.dim * input_container.num_to_sample * (1+gaussian_process.num_derivatives()));
   int num_derivatives = num_to_sample;
@@ -115,10 +118,11 @@ boost::python::list GetGradMeanWrapper(const GaussianProcess& gaussian_process,
 boost::python::list GetVarWrapper(const GaussianProcess& gaussian_process,
                                   const boost::python::list& points_to_sample,
                                   int num_to_sample) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> to_sample_var(Square(input_container.num_to_sample * (1+gaussian_process.num_derivatives())));
   int num_derivatives = 0;
@@ -152,9 +156,10 @@ boost::python::list GetVarWrapper(const GaussianProcess& gaussian_process,
 boost::python::list GetCholVarWrapper(const GaussianProcess& gaussian_process,
                                       const boost::python::list& points_to_sample,
                                       int num_to_sample) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> chol_var(Square(input_container.num_to_sample * (1+gaussian_process.num_derivatives())));
   int num_derivatives = 0;
@@ -184,10 +189,11 @@ boost::python::list GetCholVarWrapper(const GaussianProcess& gaussian_process,
 boost::python::list GetGradVarWrapper(const GaussianProcess& gaussian_process,
                                       const boost::python::list& points_to_sample,
                                       int num_to_sample, int num_derivatives) {
+  int num_derivatives_input =0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> to_sample_grad_var(input_container.dim*Square(input_container.num_to_sample * (1+gaussian_process.num_derivatives()))*num_derivatives);
 
@@ -204,10 +210,11 @@ boost::python::list GetGradVarWrapper(const GaussianProcess& gaussian_process,
 boost::python::list GetGradCholVarWrapper(const GaussianProcess& gaussian_process,
                                           const boost::python::list& points_to_sample,
                                           int num_to_sample, int num_derivatives) {
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(),
-                                                num_to_sample, gaussian_process.num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> to_sample_grad_var(input_container.dim*Square(input_container.num_to_sample * (1+gaussian_process.num_derivatives()))*num_derivatives);
   std::vector<double> chol_var(Square(input_container.num_to_sample * (1+gaussian_process.num_derivatives())));
@@ -251,10 +258,11 @@ boost::python::list SamplePointFromGPWrapper(GaussianProcess * gaussian_process,
                                              const boost::python::list& point_to_sample) {
   int num_to_sample = 1;  // we're only drawing 1 point at a time here
 
+  int num_derivatives_input = 0;
   const boost::python::list gradients;
 
   PythonInterfaceInputContainer input_container(point_to_sample, gradients, gaussian_process->dim(),
-                                                num_to_sample, gaussian_process->num_derivatives());
+                                                num_to_sample, num_derivatives_input);
 
   std::vector<double> results(input_container.num_to_sample * (1+gaussian_process->num_derivatives()));
 

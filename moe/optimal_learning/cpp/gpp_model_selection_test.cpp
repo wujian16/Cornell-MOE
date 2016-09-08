@@ -846,9 +846,229 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
   //   OL_PARTIAL_FAILURE_PRINTF("optimized hyperparameters are NOT close to true values!\n");
   // }
   // total_errors += current_errors;
+  return total_errors;
+}
+
+
+
+/*!\rst
+  Tests multistarted Gradient optimization for hyperparameters.
+  Compares result to Gradient optimization called from an initial guess very near the optimal solution.
+
+  Tests Gradient hyperparameter optimization.  Basic code flow:
+
+  **SETUP**
+
+    0. Pick a domain and specify hyperparameters (random) + covariance type (hyperparameters, CovarianceClass)
+    1. Generate N random points in the domain
+    2. Build a GP on the specified hyperparameters, incrementally generating function values for each of the N points
+
+  **OPTIMIZE**
+
+    3. Multistarted Gradient optimization with multithreading enabled
+
+  **CHECK**
+
+    4. Rerun optimization once more starting from the values in step 0; this should be very near the real solution.
+    5. Verify that these hyperparameters and the results of multistart Gradient are the same
+    6. Verify that the log marginal likelihood after multistart optimization is better than the likelihood at the
+       hyperparameters from step 0 (since these are not optimal)
+\endrst*/
+template <typename LogLikelihoodEvaluator, typename CovarianceClass>
+OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodGradientOptimizationTestCore(LogLikelihoodTypes OL_UNUSED(objective_mode)) {
+  using DomainType = TensorProductDomain;
+  using HyperparameterDomainType = TensorProductDomain;
+  const int num_sampled = 42;
+  const int dim = 2;
+
+
+  int * derivatives = new int[2]{0,1};
+  int num_derivatives = 2;
+  std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
+
+
+  double initial_likelihood;
+  double final_likelihood;
+
+  // gradient descent parameters
+  const double gamma = 0.5;
+  const double pre_mult = 0.5;
+  const double max_relative_change = 0.02;
+  double tolerance = 1.0e-10;
+  const int max_gradient_descent_steps = 1000;
+  const int max_num_restarts = 5;
+  const int num_steps_averaged = 0;
+  const int num_multistarts = 16;
+  GradientDescentParameters gd_parameters(num_multistarts, max_gradient_descent_steps, max_num_restarts, num_steps_averaged, gamma, pre_mult, max_relative_change, tolerance);
+
+
+
+  const int max_num_threads = 16;
+  ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
+
+  int total_errors = 0;
+  int current_errors = 0;
+
+  // seed randoms
+  UniformRandomGenerator uniform_generator(5762);
+  boost::uniform_real<double> uniform_double_hyperparameter(1.0, 2.5);
+  boost::uniform_real<double> uniform_double_lower_bound(-2.0, 0.5);
+  boost::uniform_real<double> uniform_double_upper_bound(2.0, 3.5);
+
+  //std::vector<double> noise_variance(num_sampled, 0.1);
+
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(CovarianceClass(dim, 1.0, 1.0), input_derivatives, num_derivatives, dim, num_sampled,
+                                                        uniform_double_lower_bound, uniform_double_upper_bound,
+                                                        uniform_double_hyperparameter, &uniform_generator);
+
+  int num_hyperparameters = mock_gp_data.covariance_ptr->GetNumberOfHyperparameters() + num_derivatives + 1;
+
+  std::vector<double> hyperparameters_truth(num_hyperparameters);  // truth hyperparameters
+  std::vector<double> hyperparameters_optimized(num_hyperparameters);  // optimized hyperparameters
+  std::vector<double> hyperparameters_temp(num_hyperparameters);  // temp hyperparameters
+
+
+  std::vector<double> noise_variance_truth(num_derivatives+1, 1.0);  // optimized hyperparameters
+  std::vector<double> noise_variance_optimizzed(num_derivatives+1, 1.0);  // temp hyperparameters
+  std::vector<double> noise_variance_temp(num_derivatives+1, 1.0);  // wrong hyperparameters to start gradient descent
+
+
+  // set up domain; allows initial guesses to range over [0.01, 10]
+  std::vector<ClosedInterval> hyperparameter_log_domain_bounds(num_hyperparameters, {-2.0, 1.0});
+  std::vector<ClosedInterval> hyperparameter_domain_bounds(hyperparameter_log_domain_bounds);
+  for (auto& interval : hyperparameter_domain_bounds) {
+    interval = {std::pow(10.0, interval.min), std::pow(10.0, interval.max)};
+  }
+
+  HyperparameterDomainType hyperparameter_domain(hyperparameter_domain_bounds.data(), num_hyperparameters);
+
+  LogLikelihoodEvaluator log_likelihood_eval(mock_gp_data.gaussian_process_ptr->points_sampled().data(),
+                                             mock_gp_data.gaussian_process_ptr->points_sampled_value().data(),
+                                             derivatives, num_derivatives, dim, num_sampled);
+
+  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance);
+
+  initial_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
+  OL_VERBOSE_PRINTF("initial likelihood: %.18E\n", initial_likelihood);
+
+  bool found_flag = false;
+  printf("step %d\n", 0);
+  MultistartGradientDescentHyperparameterOptimization(log_likelihood_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
+                                                      gd_parameters, hyperparameter_log_domain_bounds.data(),
+                                                      thread_schedule, &found_flag, &uniform_generator,
+                                                      hyperparameters_optimized.data());
+  if (!found_flag) {
+    ++total_errors;
+  }
+
+  log_likelihood_state.SetHyperparameters(log_likelihood_eval, hyperparameters_optimized.data());
+  final_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
+#ifdef OL_VERBOSE_PRINT
+  OL_VERBOSE_PRINTF("final likelihood: %.18E\n", final_likelihood);
+  PrintMatrix(hyperparameters_optimized.data(), 1, num_hyperparameters);
+#endif
+
+  // check that hyperparameter gradients are small
+  std::vector<double> grad_log_marginal(num_hyperparameters);
+  log_likelihood_eval.ComputeGradLogLikelihood(&log_likelihood_state, grad_log_marginal.data());
+
+#ifdef OL_VERBOSE_PRINT
+  OL_VERBOSE_PRINTF("grad log marginal: ");
+  PrintMatrix(grad_log_marginal.data(), 1, grad_log_marginal.size());
+#endif
+
+  current_errors = 0;
+  for (const auto& entry : grad_log_marginal) {
+    if (!CheckDoubleWithinRelative(entry, 0.0, 1.0e-13)) {
+      ++current_errors;
+    }
+  }
+  total_errors += current_errors;
+
+  // verify that convergence occurred, start from the hyperparameters used to generate data (real solution should be nearby)
+  RestartedGradientDescentHyperparameterOptimization(log_likelihood_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
+                                                     gd_parameters, hyperparameter_domain, hyperparameters_truth.data());
+#ifdef OL_VERBOSE_PRINT
+  PrintMatrix(hyperparameters_truth.data(), 1, num_hyperparameters);
+#endif
+
+  double norm_delta_hyperparameter;
+  current_errors = 0;
+  for (IdentifyType<decltype(hyperparameters_temp)>::type::size_type i = 0, size = hyperparameters_truth.size(); i < size; ++i) {
+    hyperparameters_temp[i] = hyperparameters_truth[i] - hyperparameters_optimized[i];
+  }
+  norm_delta_hyperparameter = VectorNorm(hyperparameters_temp.data(), hyperparameters_temp.size());
+  if (!CheckDoubleWithin(norm_delta_hyperparameter, 0.0, 1.0e-12)) {
+    ++current_errors;
+  }
+  if (current_errors != 0) {
+    OL_PARTIAL_FAILURE_PRINTF("multistart gradient decent did not find the optimal solution: hyperparameters differ by (RMS): %.18E\n", norm_delta_hyperparameter);
+  }
+  total_errors += current_errors;
+
+  current_errors = 0;
+  if (final_likelihood <= initial_likelihood) {
+    ++current_errors;  // expect improvement from optimization
+  }
+  if (final_likelihood >= 0.0) {
+    ++current_errors;  // must be negative
+  }
+  if (current_errors != 0) {
+    OL_PARTIAL_FAILURE_PRINTF("final likelihood = %.18E is worse than initial likelihood = %.18E\n", final_likelihood, initial_likelihood);
+  }
+  total_errors += current_errors;
+
+  // now check that if we call Newton again with the optimal solution, it will fail to find a new solution
+  // and found_flag will be FALSE
+  {
+    gd_parameters.num_multistarts = 8;
+    std::vector<double> initial_guesses(num_hyperparameters*gd_parameters.num_multistarts);
+    hyperparameter_domain.GenerateUniformPointsInDomain(gd_parameters.num_multistarts,
+                                                        &uniform_generator, initial_guesses.data());
+
+    // insert optimal solution into initial_guesses
+    std::copy(hyperparameters_optimized.begin(), hyperparameters_optimized.end(), initial_guesses.begin());
+
+    // build state vector
+    std::vector<typename LogLikelihoodEvaluator::StateType> log_likelihood_state_vector;
+    SetupLogLikelihoodState(log_likelihood_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
+                            thread_schedule.max_num_threads, &log_likelihood_state_vector);
+
+    OptimizationIOContainer io_container(log_likelihood_state_vector[0].GetProblemSize());
+    InitializeBestKnownPoint(log_likelihood_eval, initial_guesses.data(), num_hyperparameters,
+                             gd_parameters.num_multistarts, log_likelihood_state_vector.data(), &io_container);
+
+    io_container.found_flag = true;  // want to see that this flag is flipped to false
+
+    GradientDescentOptimizer<LogLikelihoodEvaluator, TensorProductDomain> gd_opt;
+    MultistartOptimizer<GradientDescentOptimizer<LogLikelihoodEvaluator, TensorProductDomain> > multistart_optimizer;
+    multistart_optimizer.MultistartOptimize(gd_opt, log_likelihood_eval, gd_parameters,
+                                            hyperparameter_domain, thread_schedule,
+                                            initial_guesses.data(), gd_parameters.num_multistarts,
+                                            log_likelihood_state_vector.data(),
+                                            nullptr, &io_container);
+
+    found_flag = io_container.found_flag;
+    std::copy(io_container.best_point.begin(), io_container.best_point.end(), hyperparameters_temp.begin());
+
+    // found_flag should be false b/c optimal solution is in the starting guesses
+    if (found_flag) {
+      ++total_errors;
+    }
+
+    // verify that the solution was not altered
+    for (IdentifyType<decltype(hyperparameters_temp)>::type::size_type i = 0, size = hyperparameters_truth.size(); i < size; ++i) {
+      if (!CheckDoubleWithin(hyperparameters_temp[i], hyperparameters_optimized[i], 0.0)) {
+        ++total_errors;
+      }
+    }
+  }
+
+  delete [] derivatives;
 
   return total_errors;
 }
+
 
 /*!\rst
   Tests Newton hyperparameter optimization.  Basic code flow:
@@ -1190,6 +1410,7 @@ OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodNewtonOptimizationTe
   return total_errors;
 }*/
 
+
 }  // end unnamed namespace
 
 /*
@@ -1239,7 +1460,14 @@ int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogL
 
 
 int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogLikelihoodTypes objective_mode) {
-    return HyperparameterLikelihoodOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+    int current_errors = 0;
+    int total_errors = 0;
+    current_errors = HyperparameterLikelihoodOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+    total_errors += current_errors;
+
+    current_errors = MultistartHyperparameterLikelihoodGradientOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+    total_errors += current_errors;
+    return total_errors;
 }
 
 int EvaluateLogLikelihoodAtPointListTest() {
@@ -1349,7 +1577,6 @@ int EvaluateLogLikelihoodAtPointListTest() {
       }
     }
   }
-
   return total_errors;
 }
 

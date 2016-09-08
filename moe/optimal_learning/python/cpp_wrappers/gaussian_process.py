@@ -156,6 +156,7 @@ class GaussianProcess(GaussianProcessInterface):
         :rtype: array of float64 with shape (num_to_sample)
 
         """
+        print discrete_pts.shape[0]
         mu = self._gaussian_process.compute_mean_of_additional_points(
                 cpp_utils.cppify(discrete_pts),
                 discrete_pts.shape[0],

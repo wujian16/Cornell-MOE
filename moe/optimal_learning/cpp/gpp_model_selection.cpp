@@ -505,7 +505,6 @@ OL_NONNULL_POINTERS void BuildHyperparameterHessianCovarianceMatrix(const Covari
   }
 }
 */
-
 }  // end unnamed namespace
 
 LogMarginalLikelihoodEvaluator::LogMarginalLikelihoodEvaluator(double const * restrict points_sampled_in,
