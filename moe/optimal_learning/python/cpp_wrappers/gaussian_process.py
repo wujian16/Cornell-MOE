@@ -109,9 +109,26 @@ class GaussianProcess(GaussianProcessInterface):
         return copy.deepcopy(self._covariance)
 
     @property
+    def derivatives(self):
+        return numpy.copy(self._derivatives)
+
+    @property
+    def noise_variance(self):
+        """
+        Return the noise variance of the observations
+        :return:
+        """
+        return numpy.copy(self._noise_variance)
+
+    @property
     def _points_sampled_value(self):
         """Return the function values measured at each of points_sampled; see :class:`moe.optimal_learning.python.data_containers.HistoricalData`."""
-        return self._historical_data.points_sampled_value
+        return numpy.copy(self._historical_data.points_sampled_value)
+
+    @property
+    def _points_sampled(self):
+        """return the points sampled"""
+        return numpy.copy(self._historical_data.points_sampled)
 
     def get_historical_data_copy(self):
         """Return the data (points, function values, noise) specifying the prior of the Gaussian Process.
@@ -156,7 +173,6 @@ class GaussianProcess(GaussianProcessInterface):
         :rtype: array of float64 with shape (num_to_sample)
 
         """
-        print discrete_pts.shape[0]
         mu = self._gaussian_process.compute_mean_of_additional_points(
                 cpp_utils.cppify(discrete_pts),
                 discrete_pts.shape[0],
@@ -350,3 +366,21 @@ class GaussianProcess(GaussianProcessInterface):
             cpp_utils.cppify(point_to_sample),
 #            noise_variance,
         )
+    def sample_global_optima(self,
+            num_optima,
+            inner_number,
+            domain,
+    ):
+        """
+        :param gaussian_process:
+        :param num_optima:
+        :param inner_number:
+        :param domain:
+        :return:
+        """
+        global_optima_points = self._gaussian_process.sample_global_optima(
+            num_optima,
+            inner_number,
+            cpp_utils.cppify(domain.domain_bounds),
+        )
+        return cpp_utils.uncppify(global_optima_points, (num_optima, self.dim))

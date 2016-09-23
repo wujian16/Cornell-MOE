@@ -1259,7 +1259,6 @@ class MultistartOptimizer final {
 
 #pragma omp for nowait schedule(runtime) reduction(+:total_errors)
       for (int i = 0; i < num_multistarts; ++i) {
-        printf("step starts %d\n", i);
         // It is illegal for exceptions to leave OpenMP blocks. Violating this condition leads to undefined behavior
         // (usually program termination). See:
         // http://www.thinkingparallel.com/2006/11/30/making-exceptions-work-with-openmp-some-tiny-workarounds/

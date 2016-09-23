@@ -857,6 +857,17 @@ inline OL_NONNULL_POINTERS void ConvertFromLogToLinearDomainAndBuildInitialGuess
   }
 }
 
+
+
+inline OL_NONNULL_POINTERS void ConvertFromLogToLinearDomain(
+    int num_hyperparameters,
+    std::vector<ClosedInterval> * restrict domain_bounds) {
+  // domain in linear-space
+  for (auto& interval : *domain_bounds) {
+    interval = {std::pow(10.0, interval.min), std::pow(10.0, interval.max)};
+  }
+}
+
 /*!\rst
   Set up state vector.
 
@@ -972,6 +983,34 @@ OL_NONNULL_POINTERS void RestartedGradientDescentHyperparameterOptimization(
   log_likelihood_state.GetCurrentPoint(next_hyperparameters);
 }
 
+
+
+template <typename LogLikelihoodEvaluator>
+OL_NONNULL_POINTERS void RestartedGradientDescentHyperparameterOptimizationTensor(
+    const LogLikelihoodEvaluator& log_likelihood_evaluator,
+    const CovarianceInterface& covariance,
+    const std::vector<double> noise_variance,
+    const GradientDescentParameters& gd_parameters,
+    ClosedInterval const * restrict domain,
+    double * restrict next_hyperparameters) {
+  if (unlikely(gd_parameters.max_num_restarts <= 0)) {
+    return;
+  }
+
+  OL_VERBOSE_PRINTF("Hyperparameter Optimization via %s\n", OL_CURRENT_FUNCTION_NAME);
+  typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_evaluator, covariance, noise_variance);
+
+  const int num_hyperparameters = covariance.GetNumberOfHyperparameters() + noise_variance.size();
+
+  std::vector<ClosedInterval> domain_linearspace_bounds(domain, domain + num_hyperparameters);
+  ConvertFromLogToLinearDomain(num_hyperparameters, &domain_linearspace_bounds);
+  TensorProductDomain domain_linearspace(domain_linearspace_bounds.data(), num_hyperparameters);
+
+  GradientDescentOptimizer<LogLikelihoodEvaluator, TensorProductDomain> gd_opt;
+  gd_opt.Optimize(log_likelihood_evaluator, gd_parameters, domain_linearspace, &log_likelihood_state);
+  log_likelihood_state.GetCurrentPoint(next_hyperparameters);
+}
+
 /*!\rst
   Function to add multistarting on top of (restarted) gradient descent hyperparameter optimization.
   Generates ``num_multistarts`` initial guesses (random sampling from domain), all within the specified domain, and kicks off
@@ -1036,34 +1075,29 @@ OL_NONNULL_POINTERS void MultistartGradientDescentHyperparameterOptimization(
   }
 
   const int num_hyperparameters = covariance.GetNumberOfHyperparameters() + noise_variance.size();
-  printf("size of hypers %d\n", num_hyperparameters, gd_parameters.num_multistarts);
 
   std::vector<double> initial_guesses(num_hyperparameters*gd_parameters.num_multistarts);
   std::vector<ClosedInterval> domain_linearspace_bounds(domain, domain + num_hyperparameters);
-  printf("step %d\n", -1);
   ConvertFromLogToLinearDomainAndBuildInitialGuesses(num_hyperparameters, gd_parameters.num_multistarts,
                                                      uniform_generator, &domain_linearspace_bounds, &initial_guesses);
-  printf("step %d\n", 0);
   TensorProductDomain domain_linearspace(domain_linearspace_bounds.data(), num_hyperparameters);
-  printf("step %d\n", 1);
+
   // we need 1 state object per thread
   std::vector<typename LogLikelihoodEvaluator::StateType> log_likelihood_state_vector;
   SetupLogLikelihoodState(log_likelihood_evaluator, covariance, noise_variance, thread_schedule.max_num_threads,
                           &log_likelihood_state_vector);
-  printf("step %d\n", 2);
   OptimizationIOContainer io_container(log_likelihood_state_vector[0].GetProblemSize());
   InitializeBestKnownPoint(log_likelihood_evaluator, initial_guesses.data(), num_hyperparameters,
                            gd_parameters.num_multistarts, log_likelihood_state_vector.data(), &io_container);
-  printf("step %d\n", 3);
+
   GradientDescentOptimizer<LogLikelihoodEvaluator, TensorProductDomain> gd_opt;
   MultistartOptimizer<GradientDescentOptimizer<LogLikelihoodEvaluator, TensorProductDomain> > multistart_optimizer;
-  printf("step %d\n", 4);
+
   multistart_optimizer.MultistartOptimize(gd_opt, log_likelihood_evaluator, gd_parameters,
                                           domain_linearspace, thread_schedule,
                                           initial_guesses.data(), gd_parameters.num_multistarts,
                                           log_likelihood_state_vector.data(),
                                           nullptr, &io_container);
-  printf("step %d\n", 5);
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), next_hyperparameters);
 }

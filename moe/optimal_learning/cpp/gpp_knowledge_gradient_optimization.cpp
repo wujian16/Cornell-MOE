@@ -10,6 +10,8 @@
 
 #include <memory>
 
+#include <stdlib.h>
+
 #include "gpp_common.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_logging.hpp"
@@ -28,8 +30,8 @@ KnowledgeGradientEvaluator::KnowledgeGradientEvaluator(const GaussianProcess& ga
       best_so_far_(best_so_far),
       gaussian_process_(&gaussian_process_in),
       discrete_pts_(discrete_points(discrete_pts, num_pts)),
-      num_pts_(num_pts) {
-      //to_sample_mean_(mean_value_discrete(discrete_pts, num_pts)){
+      num_pts_(num_pts),
+      to_sample_mean_(mean_value_discrete(discrete_pts, num_pts)){
 }
 
 /*!\rst
@@ -41,7 +43,7 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
     int num_union = kg_state->num_union;
     int num_gradients_to_sample = kg_state->num_gradients_to_sample;
 
-    gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts_.data(), num_pts_, nullptr, 0, kg_state->to_sample_mean_.data());
+    std::copy(to_sample_mean_.data(), to_sample_mean_.data() + num_pts_, kg_state->to_sample_mean_.data());
     gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, nullptr, 0,
                                                      kg_state->to_sample_mean_.data()+num_pts_);
 
@@ -85,6 +87,15 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
                                 num_union*(1+num_gradients_to_sample), num_pts_+num_union, num_union*(1+num_gradients_to_sample),
                                 kg_state->inverse_cholesky_covariance.data());
 
+
+    double best_posterior = best_so_far_;
+
+    for (int j = 0; j < num_union; ++j){
+        if (kg_state->to_sample_mean_[num_pts_+j] < best_posterior){
+            best_posterior = kg_state->to_sample_mean_[num_pts_+j];
+        }
+    }
+
     double aggregate = 0.0;
     for (int i = 0; i < num_mc_iterations_; ++i) {
         double improvement_this_step = -INFINITY;
@@ -106,7 +117,7 @@ double KnowledgeGradientEvaluator::ComputeKnowledgeGradient(StateType * kg_state
 
         delete[] norm;
         for (int j = 0; j < num_pts_+num_union; ++j) {
-          double KG_total = best_so_far_ - (kg_state->to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
+          double KG_total = best_posterior - (kg_state->to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
           if (KG_total > improvement_this_step) {
               improvement_this_step = KG_total;
           }
@@ -198,7 +209,25 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
                                 num_union*(1+num_gradients_to_sample), num_pts_+num_union, num_union*(1+num_gradients_to_sample),
                                 kg_state->inverse_cholesky_covariance.data());
 
+
+    int winner_so_far = -1;
+    double best_posterior = best_so_far_;
+
+    for (int j = 0; j < num_union; ++j){
+        if (kg_state->to_sample_mean_[num_pts_+j]<best_posterior){
+            winner_so_far = j;
+            best_posterior = kg_state->to_sample_mean_[num_pts_+j];
+        }
+    }
+
     std::fill(kg_state->aggregate.begin(), kg_state->aggregate.end(), 0.0);
+
+    if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
+        for (int k = 0; k < dim_; ++k) {
+            kg_state->aggregate[winner_so_far*dim_ + k] += num_mc_iterations_ * kg_state->grad_mu[winner_so_far*dim_ + k];
+        }
+    }
+
 
     for (int i = 0; i < num_mc_iterations_; ++i) {
         double *norm = new double[num_union*(1+num_gradients_to_sample)]();
@@ -221,14 +250,14 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
         double improvement_this_step = -INFINITY;
         int winner = num_pts_ + num_union + 1;  // an out of-bounds initial value
         for (int j = 0; j < num_pts_+num_union; ++j) {
-            double KG_total = best_so_far_ - (kg_state->to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
+            double KG_total = best_posterior - (kg_state->to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
             if (KG_total > improvement_this_step) {
                 improvement_this_step = KG_total;
                 winner = j;
             }
         }
 
-        if (winner >= num_pts_ && winner<num_pts_+kg_state->num_to_sample) {
+        if (winner >= num_pts_ && winner < num_pts_+kg_state->num_to_sample) {
             for (int k = 0; k < dim_; ++k) {
                 kg_state->aggregate[(winner-num_pts_)*dim_ + k] -= kg_state->grad_mu[(winner-num_pts_)*dim_ + k];
             }
@@ -250,6 +279,7 @@ void KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient(StateType * kg_sta
         grad_KG[k] = kg_state->aggregate[k]/static_cast<double>(num_mc_iterations_);
     }
 }
+
 
 void KnowledgeGradientState::SetCurrentPoint(const EvaluatorType& kg_evaluator,
                                              double const * restrict points_to_sample) {
@@ -296,6 +326,143 @@ void KnowledgeGradientState::SetupState(const EvaluatorType& kg_evaluator,
   // update quantities derived from points_to_sample
   SetCurrentPoint(kg_evaluator, points_to_sample);
 }
+
+
+
+
+PosteriorMeanEvaluator::PosteriorMeanEvaluator(
+    const GaussianProcess& gaussian_process_in)
+    : dim_(gaussian_process_in.dim()),
+      gaussian_process_(&gaussian_process_in) {
+}
+
+/*!\rst
+  Uses analytic formulas to compute EI when ``num_to_sample = 1`` and ``num_being_sampled = 0`` (occurs only in 1,0-EI).
+  In this case, the single-parameter (posterior) GP is just a Gaussian.  So the integral in EI (previously eval'd with MC)
+  can be computed 'exactly' using high-accuracy routines for the pdf & cdf of a Gaussian random variable.
+  See Ginsbourger, Le Riche, and Carraro.
+\endrst*/
+double PosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) const {
+  double to_sample_mean;
+  gaussian_process_->ComputeMeanOfPoints(ps_state->points_to_sample_state, &to_sample_mean);
+
+  return -to_sample_mean;
+}
+
+/*!\rst
+  Differentiates OnePotentialSampleExpectedImprovementEvaluator::ComputeExpectedImprovement wrt
+  ``points_to_sample`` (which is just ONE point; i.e., 1,0-EI).
+  Again, this uses analytic formulas in terms of the pdf & cdf of a Gaussian since the integral in EI (and grad EI)
+  can be evaluated exactly for this low dimensional case.
+  See Ginsbourger, Le Riche, and Carraro.
+\endrst*/
+void PosteriorMeanEvaluator::ComputeGradPosteriorMean(
+    StateType * ps_state,
+    double * restrict grad_PS) const {
+  double * restrict grad_mu = ps_state->grad_mu.data();
+
+  gaussian_process_->ComputeGradMeanOfPoints(ps_state->points_to_sample_state, grad_mu);
+
+  for (int i = 0; i < dim_; ++i) {
+    grad_PS[i] = -grad_mu[i];
+  }
+}
+
+void PosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator,
+                                         double const * restrict point_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
+
+  // evaluate derived quantities
+  points_to_sample_state.SetupState(*ps_evaluator.gaussian_process(), point_to_sample.data(),
+                                    num_to_sample, 0, num_derivatives);
+}
+
+PosteriorMeanState::PosteriorMeanState(
+    const EvaluatorType& ps_evaluator,
+    double const * restrict point_to_sample_in,
+    bool configure_for_gradients)
+    : dim(ps_evaluator.dim()),
+      num_derivatives(configure_for_gradients ? num_to_sample : 0),
+      point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+      points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample, nullptr, 0, num_derivatives),
+      grad_mu(dim*num_derivatives) {
+}
+
+
+PosteriorMeanState::PosteriorMeanState(PosteriorMeanState&& OL_UNUSED(other)) = default;
+
+void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
+                                    double const * restrict point_to_sample_in) {
+  if (unlikely(dim != ps_evaluator.dim())) {
+    OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, ps_evaluator.dim());
+  }
+
+  SetCurrentPoint(ps_evaluator, point_to_sample_in);
+}
+
+
+
+/*!\rst
+  Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
+  header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
+  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
+  generates a set of random starting points and is just here for convenience when better initial guesses are not
+  available.
+  See ComputeOptimalPointsToSampleViaMultistartGradientDescent() for more details.
+  \param
+    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+      that describes the underlying GP
+    :optimizer_parameters: GradientDescentParameters object that describes the parameters controlling EI optimization
+      (e.g., number of iterations, tolerances, learning rate)
+    :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
+    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
+      max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
+    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-EI)
+    :best_so_far: value of the best sample so far (must be ``min(points_sampled_value)``)
+    :max_int_steps: maximum number of MC iterations
+    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
+    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
+      the (pesudo)random source for MC integration
+  \output
+    :found_flag[1]: true if best_next_point corresponds to a nonzero EI
+    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
+    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
+\endrst*/
+template <typename DomainType>
+void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                 const GradientDescentParameters& optimizer_parameters,
+                                 const DomainType& domain, double const * restrict initial_guess,
+                                 bool * restrict found_flag, double * restrict best_next_point) {
+  if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
+    return;
+  }
+  bool configure_for_gradients = true;
+  OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
+
+  // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
+  PosteriorMeanEvaluator ps_evaluator(gaussian_process);
+
+  typename PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, initial_guess, configure_for_gradients);
+
+  GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
+  gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
+  ps_state.GetCurrentPoint(best_next_point);
+}
+
+// template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
+template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                          const GradientDescentParameters& optimizer_parameters,
+                                          const TensorProductDomain& domain, double const * restrict initial_guess,
+                                          bool * restrict found_flag, double * restrict best_next_point);
+template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                                          const GradientDescentParameters& optimizer_parameters,
+                                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
+                                                          bool * restrict found_flag, double * restrict best_next_point);
+
 
 
 /*!\rst
@@ -424,5 +591,4 @@ template void ComputeKGOptimalPointsToSample(
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
-
 }  // end namespace optimal_learning

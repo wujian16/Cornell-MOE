@@ -41,6 +41,38 @@ namespace optimal_learning {
 
 namespace {
 
+double ComputePosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+                                          const boost::python::list& points_to_sample) {
+  int num_derivatives_input = 0;
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+
+  bool configure_for_gradients = false;
+  PosteriorMeanEvaluator ps_evaluator(gaussian_process);
+  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, input_container.points_to_sample.data(), configure_for_gradients);
+
+  return ps_evaluator.ComputePosteriorMean(&ps_state);
+}
+
+boost::python::list ComputeGradPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+                                          const boost::python::list& points_to_sample) {
+  int num_derivatives_input = 0;
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+
+  std::vector<double> grad_PS(input_container.dim);
+  bool configure_for_gradients = true;
+
+  PosteriorMeanEvaluator ps_evaluator(gaussian_process);
+  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, input_container.points_to_sample.data(), configure_for_gradients);
+
+  ps_evaluator.ComputeGradPosteriorMean(&ps_state, grad_PS.data());
+  return VectorToPylist(grad_PS);
+}
+
+
 double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
                                        const boost::python::list& discrete_pts,
                                        const boost::python::list& points_to_sample,
@@ -200,8 +232,6 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   // the optimizer_parameters python object
 
   // abort if we do not have enough sources of randomness to run with max_num_threads
-
-  printf("discrete %d, %d, %d\n", num_pts, num_being_sampled, num_to_sample);
   if (unlikely(max_num_threads > static_cast<int>(randomness_source.normal_rng_vec.size()))) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
@@ -253,6 +283,52 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
 }
 
 
+
+boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+                                                       const boost::python::object& optimizer_parameters,
+                                                       const boost::python::list& domain_bounds,
+                                                       const boost::python::list& initial_guess,
+                                                       boost::python::dict& status) {
+    int dim = gaussian_process.dim();
+
+    int num_derivatives_input = 0;
+    const boost::python::list gradients;
+
+    PythonInterfaceInputContainer input_container(initial_guess, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+
+
+    std::vector<ClosedInterval> domain_bounds_C(dim);
+    CopyPylistToClosedIntervalVector(domain_bounds, dim, domain_bounds_C);
+
+    std::vector<double> best_points_to_sample_C(dim);
+
+    bool found_flag = false;
+    const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+
+    DomainTypes domain_type = boost::python::extract<DomainTypes>(optimizer_parameters.attr("domain_type"));
+    switch (domain_type) {
+      case DomainTypes::kTensorProduct: {
+        TensorProductDomain domain(domain_bounds_C.data(), dim);
+        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, domain, input_container.points_to_sample.data(),
+                                                    &found_flag, best_points_to_sample_C.data());
+        break;
+      }  // end case OptimizerTypes::kTensorProduct
+      case DomainTypes::kSimplex: {
+        SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), dim);
+
+        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, domain, input_container.points_to_sample.data(),
+                                                    &found_flag, best_points_to_sample_C.data());
+        break;
+      }  // end case OptimizerTypes::kSimplex
+      default: {
+        std::fill(best_points_to_sample_C.begin(), best_points_to_sample_C.end(), 0.0);
+        OL_THROW_EXCEPTION(OptimalLearningException, "ERROR: invalid domain choice. Setting all coordinates to 0.0.");
+        break;
+      }
+    }  // end switch over domain_type
+    return VectorToPylist(best_points_to_sample_C);
+}
+
 boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian_process,
                                                  const boost::python::list& discrete_pts,
                                                  const boost::python::list& initial_guesses,
@@ -303,6 +379,64 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
 
 
 void ExportKnowldegeGradientFunctions() {
+  boost::python::def("compute_posterior_mean", ComputePosteriorMeanWrapper, R"%%(
+    Compute knowledge gradient.
+    If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
+    use (fast/accurate) analytic evaluation.
+    Otherwise monte carlo-based KG computation is used.
+
+    :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
+    :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
+    :param points_to_sample: initial points to load into state (must be a valid point for the problem);
+      i.e., points at which to evaluate EI and/or its gradient
+    :type points_to_sample: list of float64 with shape (num_to_sample, dim)
+    :param points_being_sampled: points that are being sampled in concurrently experiments
+    :type points_being_sampled: list of float64 with shape (num_being_sampled, dim)
+    :param num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :type num_to_sample: int > 0
+    :param num_being_sampled: number of points being sampled concurrently (i.e., the p in q,p-EI)
+    :type num_being_sampled: int >= 0
+    :param max_int_steps: number of MC integration points in EI
+    :type max_int_steps: int >= 0
+    :param best_so_far: best known value of objective so far
+    :type best_so_far: float64
+    :param force_monte_carlo: true to force monte carlo evaluation of EI
+    :type force_monte_carlo: bool
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :return: computed EI
+    :rtype: float64 >= 0.0
+    )%%");
+
+  boost::python::def("compute_grad_posterior_mean", ComputeGradPosteriorMeanWrapper, R"%%(
+    Compute the gradient of knowledge gradient evaluated at points_to_sample.
+    If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
+    use (fast/accurate) analytic evaluation.
+    Otherwise monte carlo-based KG computation is used.
+
+    :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
+    :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
+    :param points_to_sample: initial points to load into state (must be a valid point for the problem);
+      i.e., points at which to evaluate EI and/or its gradient
+    :type points_to_sample: list of float64 with shape (num_to_sample, dim)
+    :param points_being_sampled: points that are being sampled in concurrently experiments
+    :type points_being_sampled: list of float64 with shape (num_being_sampled, dim)
+    :param num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :type num_to_sample: int > 0
+    :param num_being_sampled: number of points being sampled concurrently (i.e., the p in q,p-EI)
+    :type num_being_sampled: int >= 0
+    :param max_int_steps: number of MC integration points in EI
+    :type max_int_steps: int >= 0
+    :param best_so_far: best known value of objective so far
+    :type best_so_far: float64
+    :param force_monte_carlo: true to force monte carlo evaluation of EI
+    :type force_monte_carlo: bool
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :return: gradient of EI (computed at points_to_sample + points_being_sampled, wrt points_to_sample)
+    :rtype: list of float64 with shape (num_to_sample, dim)
+    )%%");
+
   boost::python::def("compute_knowledge_gradient", ComputeKnowledgeGradientWrapper, R"%%(
     Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
@@ -362,6 +496,61 @@ void ExportKnowldegeGradientFunctions() {
     )%%");
 
   boost::python::def("multistart_knowledge_gradient_optimization", MultistartKnowledgeGradientOptimizationWrapper, R"%%(
+    Optimize expected improvement (i.e., solve q,p-EI) over the specified domain using the specified optimization method.
+    Can optimize for num_to_sample new points to sample (i.e., aka "q", experiments to run) simultaneously.
+    Allows the user to specify num_being_sampled (aka "p") ongoing/concurrent experiments.
+
+    The _CppOptimizerParameters object is a python class defined in:
+    python/cpp_wrappers/optimization._CppOptimizerParameters
+    See that class definition for more details.
+
+    This function expects it to have the fields:
+
+    * domain_type (DomainTypes enum from this file)
+    * optimizer_type (OptimizerTypes enum from this file)
+    * num_random_samples (int, number of samples to 'dumb' search over, if 'dumb' search is being used.
+      e.g., if optimizer = kNull or if to_sample > 1)
+    * optimizer_parameters (*Parameters struct (gpp_optimizer_parameters.hpp) where * matches optimizer_type
+      unused if optimizer_type == kNull)
+
+    This function also has the option of using GPU to compute general q,p-EI via MC simulation. To enable it,
+    make sure you have installed GPU components of MOE, otherwise, it will throw Runtime excpetion.
+
+    .. WARNING:: this function FAILS and returns an EMPTY LIST if the number of random sources < max_num_threads
+
+    :param optimizer_parameters: python object containing the DomainTypes domain_type and
+      OptimizerTypes optimzer_type to use as well as
+      appropriate parameter structs e.g., NewtonParameters for type kNewton)
+    :type optimizer_parameters: _CppOptimizerParameters
+    :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
+    :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
+    :param domain: [lower, upper] bound pairs for each dimension
+    :type domain: list of float64 with shape (dim, 2)
+    :param points_being_sampled: points that are being sampled in concurrently experiments
+    :type points_being_sampled: list of float64 with shape (num_being_sampled, dim)
+    :param num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :type num_to_sample: int > 0
+    :param num_being_sampled: number of points being sampled concurrently (i.e., the p in q,p-EI)
+    :type num_being_sampled: int >= 0
+    :param best_so_far: best known value of objective so far
+    :type best_so_far: float64
+    :param max_int_steps: number of MC integration points in EI
+    :type max_int_steps: int >= 0
+    :param max_num_threads: max number of threads to use during EI optimization
+    :type max_num_threads: int >= 1
+    :param use_gpu: set to 1 if user wants to use GPU for MC computation
+    :type use_gpu: bool
+    :param which_gpu: GPU device ID
+    :type which_gpu: int >= 0
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :param status: pydict object (cannot be None!); modified on exit to describe whether convergence occurred
+    :type status: dict
+    :return: next set of points to eval
+    :rtype: list of float64 with shape (num_to_sample, dim)
+    )%%");
+
+  boost::python::def("posterior_mean_optimization", ComputeOptimalPosteriorMeanWrapper, R"%%(
     Optimize expected improvement (i.e., solve q,p-EI) over the specified domain using the specified optimization method.
     Can optimize for num_to_sample new points to sample (i.e., aka "q", experiments to run) simultaneously.
     Allows the user to specify num_being_sampled (aka "p") ongoing/concurrent experiments.

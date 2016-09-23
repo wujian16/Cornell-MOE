@@ -103,7 +103,6 @@ PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python
       derivatives(num_derivatives) {
   CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
   CopyPylistToVector(points_being_sampled_in, dim*num_being_sampled, points_being_sampled);
-  printf("convert %d, %d, %d\n", dim_in, num_to_sample_in, num_being_sampled_in);
   CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
 
 }

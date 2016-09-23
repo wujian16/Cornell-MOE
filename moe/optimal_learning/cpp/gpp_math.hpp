@@ -391,8 +391,27 @@ class GaussianProcess final {
       function value drawn from this GP
   \endrst*/
   void SamplePointFromGP(double const * restrict point_to_sample,
-//                           double noise_variance_this_point,
-                           double * results) noexcept OL_NONNULL_POINTERS;
+//                       double noise_variance_this_point,
+                         double * results) noexcept OL_NONNULL_POINTERS;
+
+
+  /*!\rst
+    Sample only function values for a list of points
+  \endrst*/
+  int SamplePointsFromGP(double const * restrict points_to_sample,
+                         const int num_sample,
+                         double * results) noexcept OL_NONNULL_POINTERS;
+
+
+
+  /*!\rst
+    Approximate the global optima of the GP.
+  \endrst*/
+  void SampleGlobalOptimaFromGP(int const num_optima,
+                                int const inner_number,
+                                const TensorProductDomain& domain,
+                                double * points_optima) noexcept OL_NONNULL_POINTERS;
+
 
   /*!\rst
     Computes the mean of this GP at each of ``Xs`` (``points_to_sample``).

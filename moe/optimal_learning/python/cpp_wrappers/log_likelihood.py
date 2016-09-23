@@ -145,6 +145,35 @@ def multistart_hyperparameter_optimization(
     return numpy.array(hyperparameters_opt)
 
 
+
+def restarted_hyperparameter_optimization(
+        log_likelihood_optimizer,
+        status=None,
+):
+    # status must be an initialized dict for the call to C++.
+    if status is None:
+        status = {}
+
+    # C++ expects the domain in log10 space and in list form
+    domain_bounds_log10 = numpy.log10(log_likelihood_optimizer.domain._domain_bounds)
+
+    hyperparameters_opt = C_GP.restarted_hyperparameter_optimization(
+            log_likelihood_optimizer.optimizer_parameters,
+            cpp_utils.cppify(domain_bounds_log10),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled_value),
+            log_likelihood_optimizer.objective_function.dim,
+            log_likelihood_optimizer.objective_function._num_sampled,
+            cpp_utils.cppify_hyperparameters(log_likelihood_optimizer.objective_function.cov_hyperparameters),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function.noise_variance),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function.derivatives),
+            log_likelihood_optimizer.objective_function.num_derivatives,
+            status,
+    )
+    return numpy.array(hyperparameters_opt)
+
+
+
 def evaluate_log_likelihood_at_hyperparameter_list(
         log_likelihood_evaluator,
         hyperparameters_to_evaluate,

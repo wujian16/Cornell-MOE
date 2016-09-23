@@ -340,6 +340,42 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
   return VectorToPylist(result_function_values_C);
 }
 
+boost::python::list RestartedGradientDescentHyperparameterOptimizationWrapper(const boost::python::object& optimizer_parameters,
+                                                                              const boost::python::list& hyperparameter_domain,
+                                                                              const boost::python::list& points_sampled,
+                                                                              const boost::python::list& points_sampled_value,
+                                                                              int dim, int num_sampled,
+                                                                              const boost::python::list& hyperparameters,
+                                                                              const boost::python::list& noise_variance,
+                                                                              const boost::python::list& derivatives,
+                                                                              int num_derivatives,
+                                                                              boost::python::dict& status){
+  // the optimizer_parameters python object
+  const int num_to_sample = 0;
+  const boost::python::list points_to_sample_dummy;
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+
+
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+
+  int num_hyperparameters = sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives;
+  std::vector<double> new_hyperparameters(num_hyperparameters);
+
+  std::vector<ClosedInterval> hyperparameter_domain_C(num_hyperparameters);
+  CopyPylistToClosedIntervalVector(hyperparameter_domain, num_hyperparameters, hyperparameter_domain_C);
+
+  LogMarginalLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
+                                                     input_container.points_sampled_value.data(),
+                                                     input_container.derivatives.data(), input_container.num_derivatives,
+                                                     input_container.dim, input_container.num_sampled);
+  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  RestartedGradientDescentHyperparameterOptimizationTensor(log_likelihood_eval, sqexp, input_container.noise_variance, gradient_descent_parameters,
+                                                           hyperparameter_domain_C.data(), new_hyperparameters.data());
+  return VectorToPylist(new_hyperparameters);
+}
+
+
 }  // end unnamed namespace
 
 void ExportModelSelectionFunctions() {
@@ -390,6 +426,52 @@ void ExportModelSelectionFunctions() {
     )%%");
 
   boost::python::def("multistart_hyperparameter_optimization", MultistartHyperparameterOptimizationWrapper, R"%%(
+    Optimize the specified log likelihood measure over the specified domain using the specified optimization method.
+
+    The _CppOptimizerParameters object is a python class defined in:
+    ``python/cpp_wrappers/optimization._CppOptimizerParameters``
+    See that class definition for more details.
+
+    This function expects it to have the fields:
+
+    * objective_type (LogLikelihoodTypes enum from this file)
+    * optimizer_type (OptimizerTypes enum from this file)
+    * num_random_samples (int, number of samples to 'dumb' search over, only used if optimizer_type == kNull)
+    * optimizer_parameters (*Parameters struct (gpp_optimizer_parameters.hpp) where * matches optimizer_type
+      unused if optimizer_type == kNull)
+
+    ``n_hyper`` denotes the number of hyperparameters.
+
+
+    :param optimizer_parameters: python object containing the LogLikelihoodTypes
+      objective to use, OptimizerTypes optimzer_type to use as well as appropriate
+      parameter structs e.g., NewtonParameters for type kNewton
+    :type optimizer_parameters:  _CppOptimizerParameters
+    :param hyperparameter_domain: [lower, upper] bound pairs for each hyperparameter dimension in LOG-10 SPACE
+    :type hyperparameter_domain: list of float64 with shape (num_hyperparameters, 2)
+    :param points_sampled: points that have already been sampled
+    :type points_sampled: list of float64 with shape (num_sampled, dim)
+    :param points_sampled_value: values of the already-sampled points
+    :type points_sampled_value: list of float64 with shape (num_sampled, )
+    :param dim: the spatial dimension of a point (i.e., number of independent params in experiment)
+    :type dim: int > 0
+    :param num_sampled: number of already-sampled points
+    :type num_sampled: int > 0
+    :param hyperparameters: covariance hyperparameters; see "Details on ..." section at the top of ``BOOST_PYTHON_MODULE``
+    :type hyperparameters: list of len 2; index 0 is a float64 ``\alpha`` (signal variance) and index 1 is the length scales (list of floa64 of length ``dim``)
+    :param noise_variance: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
+    :type noise_variance: list of float64 with shape (num_sampled, )
+    :param max_num_threads: max number of threads to use during EI optimization
+    :type max_num_threads: int >= 1
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :param status: pydict object (cannot be None!); modified on exit to describe whether convergence occurred
+    :type status: dict
+    :return: optimized hyperparameters
+    :rtype: list of float64 with shape (num_hyperparameters, )
+    )%%");
+
+  boost::python::def("restarted_hyperparameter_optimization", RestartedGradientDescentHyperparameterOptimizationWrapper, R"%%(
     Optimize the specified log likelihood measure over the specified domain using the specified optimization method.
 
     The _CppOptimizerParameters object is a python class defined in:

@@ -92,7 +92,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("GPU tests passed\n");
   }
   total_errors += error;
-*/
+
   error = RunLogLikelihoodPingTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("LogLikelihood ping tests failed\n");
@@ -100,7 +100,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("LogLikelihood ping tests\n");
   }
   total_errors += error;
-/*
+
   error = RunRandomPointGeneratorTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("various random sampling\n");
@@ -156,7 +156,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("basic optimization tests (simple objectives, exception handling)\n");
   }
   total_errors += error;
-*/
+
 
   error = HyperparameterLikelihoodOptimizationTest(OptimizerTypes::kGradientDescent, LogLikelihoodTypes::kLogMarginalLikelihood);
   if (error != 0) {
@@ -165,7 +165,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("log likelihood hyperparameter optimization\n");
   }
   total_errors += error;
-/*
+
   error = HyperparameterLikelihoodOptimizationTest(OptimizerTypes::kGradientDescent, LogLikelihoodTypes::kLeaveOneOutLogLikelihood);
   if (error != 0) {
     OL_FAILURE_PRINTF("LOO likelihood hyperparameter optimization\n");
@@ -181,7 +181,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("log likelihood hyperparameter newton optimization\n");
   }
   total_errors += error;
-*/
+
   error = EvaluateLogLikelihoodAtPointListTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("log likelihood evaluation at point list\n");
@@ -189,7 +189,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("log likelihood evaluation at point list\n");
   }
   total_errors += error;
-/*
+
   error = EvaluateEIAtPointListTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("EI evaluation at point list\n");
@@ -222,7 +222,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("EI single/multithreaded consistency check\n");
   }
   total_errors += error;
-/*
+
   error = MultithreadedKGOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");
@@ -230,7 +230,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG single/multithreaded consistency check\n");
   }
   total_errors += error;
-
+/*
   error = HeuristicExpectedImprovementOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("Heuristic EI Optimization\n");
@@ -278,7 +278,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo simplex EI optimization\n");
   }
   total_errors += error;
-/*
+
   error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG optimization\n");
@@ -302,7 +302,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
   }
   total_errors += error;
-*/
+
   return total_errors;
 
 }

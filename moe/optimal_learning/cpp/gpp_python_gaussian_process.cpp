@@ -270,6 +270,23 @@ boost::python::list SamplePointFromGPWrapper(GaussianProcess * gaussian_process,
   return VectorToPylist(results);
 }
 
+
+boost::python::list SampleGlobalOptimaFromGPWrapper(GaussianProcess * gaussian_process,
+                                                    int const num_optima,
+                                                    int const inner_number,
+                                                    const boost::python::list& domain_bounds){
+  int dim = gaussian_process->dim();
+  std::vector<ClosedInterval> gp_domain(dim);
+  CopyPylistToClosedIntervalVector(domain_bounds, dim, gp_domain);
+
+  TensorProductDomain tensor_domain(gp_domain.data(), dim);
+
+  std::vector<double> points_optima(num_optima * dim);
+  gaussian_process->SampleGlobalOptimaFromGP(num_optima, inner_number, tensor_domain, points_optima.data());
+  return VectorToPylist(points_optima);
+}
+
+
 void PrintHistoricalData(const GaussianProcess& gaussian_process) {
   PrintMatrixTrans(gaussian_process.points_sampled().data(), gaussian_process.num_sampled(), gaussian_process.dim());
   PrintMatrix(gaussian_process.points_sampled_value().data(), 1, gaussian_process.num_sampled());
@@ -413,6 +430,20 @@ void ExportGaussianProcessFunctions() {
         :type num_new_points: int
       )%%")
       .def("sample_point_from_gp", SamplePointFromGPWrapper, R"%%(
+        Sample a function value from a Gaussian Process prior, provided a point at which to sample.
+
+        Uses the formula ``function_value = gpp_mean + sqrt(gpp_variance) * w1 + sqrt(noise_variance) * w2``, where ``w1, w2``
+        are draws from \ms N(0,1)\me.
+
+        :param point_to_sample: coordinates of the point at which to generate a function value (from GP)
+        :type point_to_sample: list of float64 with shape (dim, )
+        :param noise_variance_this_point: if this point is to be added into the GP, it needs to be generated with
+          its associated noise var
+        :type noise_variance_this_point: float64 >= 0.0
+        :return: function value drawn from this GP
+        :rtype: float64
+      )%%")
+      .def("sample_global_optima", SampleGlobalOptimaFromGPWrapper, R"%%(
         Sample a function value from a Gaussian Process prior, provided a point at which to sample.
 
         Uses the formula ``function_value = gpp_mean + sqrt(gpp_variance) * w1 + sqrt(noise_variance) * w2``, where ``w1, w2``

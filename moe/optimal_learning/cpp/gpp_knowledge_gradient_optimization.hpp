@@ -181,12 +181,14 @@ class KnowledgeGradientEvaluator final {
     return result;
   }
 
-/*
+
   std::vector<double> mean_value_discrete(double const * discrete_pts,
                                           int num_pts) noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> sample_mean(num_pts+)
+    std::vector<double> sample_mean(num_pts);
+    gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, nullptr, 0, sample_mean.data());
+    return sample_mean;
   }
-*/
+
 
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return gaussian_process_;
@@ -249,6 +251,8 @@ class KnowledgeGradientEvaluator final {
   std::vector<double> discrete_pts_;
   //! number of points in discrete_pts
   const int num_pts_;
+  //! mean surface
+  std::vector<double> to_sample_mean_;
 };
 
 /*!\rst
@@ -429,6 +433,220 @@ struct KnowledgeGradientState final {
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(KnowledgeGradientState);
 };
 
+
+
+struct PosteriorMeanState;
+/*!\rst
+  This is a specialization of the ExpectedImprovementEvaluator class for when the number of potential samples is 1; i.e.,
+  ``num_to_sample == 1`` and the number of concurrent samples is 0; i.e. ``num_being_sampled == 0``.
+  In other words, this class only supports the computation of 1,0-EI.  In this case, we have analytic formulas
+  for computing EI and its gradient.
+  Thus this class does not perform any explicit numerical integration, nor do its EI functions require access to a
+  random number generator.
+  This class's methods have some parameters that are unused or redundant.  This is so that the interface matches that of
+  the more general ExpectedImprovementEvaluator.
+  For other details, see ExpectedImprovementEvaluator for more complete description of what EI is and the outputs of
+  EI and grad EI computations.
+\endrst*/
+class PosteriorMeanEvaluator final {
+ public:
+  using StateType = PosteriorMeanState;
+
+  /*!\rst
+    Constructs a OnePotentialSampleExpectedImprovementEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
+    \param
+      :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+        that describes the underlying GP
+      :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
+  \endrst*/
+  PosteriorMeanEvaluator(const GaussianProcess& gaussian_process_in);
+
+  int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim_;
+  }
+
+  const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return gaussian_process_;
+  }
+
+  /*!\rst
+    Wrapper for ComputeExpectedImprovement(); see that function for details.
+  \endrst*/
+  double ComputeObjectiveFunction(StateType * ps_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
+    return ComputePosteriorMean(ps_state);
+  }
+
+  /*!\rst
+    Wrapper for ComputeGradExpectedImprovement(); see that function for details.
+  \endrst*/
+  void ComputeGradObjectiveFunction(StateType * ps_state, double * restrict grad_PS) const OL_NONNULL_POINTERS {
+    ComputeGradPosteriorMean(ps_state, grad_PS);
+  }
+
+  /*!\rst
+    Computes the expected improvement ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``
+    Uses analytic formulas to evaluate the expected improvement.
+    \param
+      :ei_state[1]: properly configured state object
+    \output
+      :ei_state[1]: state with temporary storage modified
+    \return
+      the expected improvement from sampling ``point_to_sample``
+  \endrst*/
+  double ComputePosteriorMean(StateType * ps_state) const;
+
+  /*!\rst
+    Computes the (partial) derivatives of the expected improvement with respect to the point to sample.
+    Uses analytic formulas to evaluate the spatial gradient of the expected improvement.
+    \param
+      :ei_state[1]: properly configured state object
+    \output
+      :ei_state[1]: state with temporary storage modified
+      :grad_EI[dim]: gradient of EI, ``\pderiv{EI(x)}{x_d}``, where ``x`` is ``points_to_sample``
+  \endrst*/
+  void ComputeGradPosteriorMean(StateType * ps_state, double * restrict grad_PS) const;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PosteriorMeanEvaluator);
+
+ private:
+  //! spatial dimension (e.g., entries per point of ``points_sampled``)
+  const int dim_;
+
+  //! pointer to gaussian process used in EI computations
+  const GaussianProcess * gaussian_process_;
+};
+
+
+/*!\rst
+  State object for OnePotentialSampleExpectedImprovementEvaluator.  This tracks the *ONE* ``point_to_sample``
+  being evaluated via expected improvement.
+  This is just a special case of ExpectedImprovementState; see those class docs for more details.
+  See general comments on State structs in ``gpp_common.hpp``'s header docs.
+\endrst*/
+struct PosteriorMeanState final {
+  using EvaluatorType = PosteriorMeanEvaluator;
+
+  /*!\rst
+    Constructs an OnePotentialSampleExpectedImprovementState object for the purpose of computing EI
+    (and its gradient) over the specified point to sample.
+    This establishes properly sized/initialized temporaries for EI computation, including dependent state from the
+    associated Gaussian Process (which arrives as part of the ``ei_evaluator``).
+    .. WARNING::
+         This object is invalidated if the associated ei_evaluator is mutated.  SetupState() should be called to reset.
+    .. WARNING::
+         Using this object to compute gradients when ``configure_for_gradients`` := false results in UNDEFINED BEHAVIOR.
+    \param
+      :ei_evaluator: expected improvement evaluator object that specifies the parameters & GP for EI evaluation
+      :point_to_sample[dim]: point at which to evaluate EI and/or its gradient to check their value in future experiments (i.e., test point for GP predictions)
+      :configure_for_gradients: true if this object will be used to compute gradients, false otherwise
+  \endrst*/
+  PosteriorMeanState(const EvaluatorType& ps_evaluator, double const * restrict point_to_sample_in, bool configure_for_gradients);
+
+  PosteriorMeanState(PosteriorMeanState&& other);
+
+  int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim;
+  }
+
+  /*!\rst
+    Get ``point_to_sample``: the potential future sample whose EI (and/or gradients) is being evaluated
+    \output
+      :point_to_sample[dim]: potential sample whose EI is being evaluted
+  \endrst*/
+  void GetCurrentPoint(double * restrict point_to_sample_out) const noexcept OL_NONNULL_POINTERS {
+    std::copy(point_to_sample.begin(), point_to_sample.end(), point_to_sample_out);
+  }
+
+  /*!\rst
+    Change the potential sample whose EI (and/or gradient) is being evaluated.
+    Update the state's derived quantities to be consistent with the new point.
+    \param
+      :ei_evaluator: expected improvement evaluator object that specifies the parameters & GP for EI evaluation
+      :point_to_sample[dim]: potential future sample whose EI (and/or gradients) is being evaluated
+  \endrst*/
+  void SetCurrentPoint(const EvaluatorType& ei_evaluator,
+                          double const * restrict point_to_sample_in) OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Configures this state object with a new ``point_to_sample``, the location of the potential sample whose EI is to be evaluated.
+    Ensures all state variables & temporaries are properly sized.
+    Properly sets all dependent state variables (e.g., GaussianProcess's state) for EI evaluation.
+    .. WARNING::
+         This object's state is INVALIDATED if the ei_evaluator (including the GaussianProcess it depends on) used in
+         SetupState is mutated! SetupState() should be called again in such a situation.
+    \param
+      :ei_evaluator: expected improvement evaluator object that specifies the parameters & GP for EI evaluation
+      :point_to_sample[dim]: potential future sample whose EI (and/or gradients) is being evaluated
+  \endrst*/
+  void SetupState(const EvaluatorType& ps_evaluator,
+                  double const * restrict point_to_sample_in) OL_NONNULL_POINTERS;
+
+  // size information
+  //! spatial dimension (e.g., entries per point of ``points_sampled``)
+  const int dim;
+  //! number of points to sample (i.e., the "q" in q,p-EI); MUST be 1
+  const int num_to_sample = 1;
+  //! number of derivative terms desired (usually 0 for no derivatives or num_to_sample)
+  const int num_derivatives;
+
+  //! point at which to evaluate EI and/or its gradient (e.g., to check its value in future experiments)
+  std::vector<double> point_to_sample;
+
+  //! gaussian process state
+  GaussianProcess::StateType points_to_sample_state;
+
+  // temporary storage: preallocated space used by OnePotentialSampleExpectedImprovementEvaluator's member functions
+  //! the gradient of the GP mean evaluated at point_to_sample, wrt point_to_sample
+  std::vector<double> grad_mu;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PosteriorMeanState);
+};
+
+
+
+/*!\rst
+  Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
+  header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
+  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
+  generates a set of random starting points and is just here for convenience when better initial guesses are not
+  available.
+  See ComputeOptimalPointsToSampleViaMultistartGradientDescent() for more details.
+  \param
+    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+      that describes the underlying GP
+    :optimizer_parameters: GradientDescentParameters object that describes the parameters controlling EI optimization
+      (e.g., number of iterations, tolerances, learning rate)
+    :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
+    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
+      max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
+    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-EI)
+    :best_so_far: value of the best sample so far (must be ``min(points_sampled_value)``)
+    :max_int_steps: maximum number of MC iterations
+    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
+    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
+      the (pesudo)random source for MC integration
+  \output
+    :found_flag[1]: true if best_next_point corresponds to a nonzero EI
+    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
+    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
+\endrst*/
+template <typename DomainType>
+void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                 const GradientDescentParameters& optimizer_parameters,
+                                 const DomainType& domain, double const * restrict initial_guess,
+                                 bool * restrict found_flag, double * restrict best_next_point);
+// template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
+extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                                 const GradientDescentParameters& optimizer_parameters,
+                                                 const TensorProductDomain& domain, double const * restrict initial_guess,
+                                                 bool * restrict found_flag, double * restrict best_next_point);
+extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+                                                 const GradientDescentParameters& optimizer_parameters,
+                                                 const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
+                                                 bool * restrict found_flag, double * restrict best_next_point);
 
 /*!\rst
   Set up vector of KnowledgeGradientEvaluator::StateType.
@@ -633,73 +851,8 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
 
-/*!\rst
-  Perform multistart gradient descent (MGD) to solve the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
-  header docs), starting from ``num_multistarts`` points selected randomly from the within the domain.
 
-  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
-  generates a set of random starting points and is just here for convenience when better initial guesses are not
-  available.
 
-  See ComputeKGOptimalPointsToSampleViaMultistartGradientDescent() for more details.
-
-  \param
-    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
-      that describes the underlying GP
-    :optimizer_parameters: GradientDescentParameters object that describes the parameters controlling KG optimization
-      (e.g., number of iterations, tolerances, learning rate)
-    :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
-    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
-      max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
-    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
-    :discrete_pts[dim][num_pts]: points to approximate KG
-    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
-    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-KG)
-    :num_pts: number of points in discrete_pts
-    :best_so_far: value of the best mean value so far in discrete_pts
-    :max_int_steps: maximum number of MC iterations
-    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
-    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
-      the (pesudo)random source for MC integration
-    :noise: variance of measurement noise
-  \output
-    :found_flag[1]: true if best_next_point corresponds to a nonzero KG
-    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
-    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
-    :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
-\endrst*/
-template <typename DomainType>
-void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gaussian_process,
-                                                    const GradientDescentParameters& optimizer_parameters,
-                                                    const DomainType& domain, const ThreadSchedule& thread_schedule,
-                                                    double const * restrict points_being_sampled,
-                                                    double const * discrete_pts,
-                                                    int num_to_sample, int num_being_sampled, int num_pts,
-                                                    double best_so_far,
-                                                    int max_int_steps, bool * restrict found_flag,
-                                                    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
-                                                    double * restrict best_next_point) {
-  std::vector<double> starting_points(gaussian_process.dim()*optimizer_parameters.num_multistarts*num_to_sample);
-
-  // GenerateUniformPointsInDomain() is allowed to return fewer than the requested number of multistarts
-  RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
-  int num_multistarts = repeated_domain.GenerateUniformPointsInDomain(optimizer_parameters.num_multistarts,
-                                                                      uniform_generator, starting_points.data());
-
-  ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process, optimizer_parameters, domain,
-                                                             thread_schedule, starting_points.data(),
-                                                             points_being_sampled, discrete_pts, num_multistarts,
-                                                             num_to_sample, num_being_sampled, num_pts,
-                                                             best_so_far, max_int_steps,
-                                                             normal_rng, found_flag, best_next_point);
-#ifdef OL_WARNING_PRINT
-  if (false == *found_flag) {
-    OL_WARNING_PRINTF("WARNING: %s DID NOT CONVERGE\n", OL_CURRENT_FUNCTION_NAME);
-    OL_WARNING_PRINTF("First multistart point was returned:\n");
-    PrintMatrixTrans(starting_points.data(), num_to_sample, gaussian_process.dim());
-  }
-#endif
-}
 
 /*!\rst
   Function to evaluate Knowledge Gradient (q,p-KG) over a specified list of ``num_multistarts`` points.
@@ -747,6 +900,85 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
                            bool * restrict found_flag, NormalRNG * normal_rng,
                            double * restrict function_values,
                            double * restrict best_next_point);
+
+
+/*!\rst
+  Perform multistart gradient descent (MGD) to solve the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
+  header docs), starting from ``num_multistarts`` points selected randomly from the within the domain.
+
+  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
+  generates a set of random starting points and is just here for convenience when better initial guesses are not
+  available.
+
+  See ComputeKGOptimalPointsToSampleViaMultistartGradientDescent() for more details.
+
+  \param
+    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+      that describes the underlying GP
+    :optimizer_parameters: GradientDescentParameters object that describes the parameters controlling KG optimization
+      (e.g., number of iterations, tolerances, learning rate)
+    :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
+    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
+      max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
+    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :discrete_pts[dim][num_pts]: points to approximate KG
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
+    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-KG)
+    :num_pts: number of points in discrete_pts
+    :best_so_far: value of the best mean value so far in discrete_pts
+    :max_int_steps: maximum number of MC iterations
+    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
+    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
+      the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
+  \output
+    :found_flag[1]: true if best_next_point corresponds to a nonzero KG
+    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
+    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
+\endrst*/
+template <typename DomainType>
+void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gaussian_process,
+                                                    const GradientDescentParameters& optimizer_parameters,
+                                                    const DomainType& domain, const ThreadSchedule& thread_schedule,
+                                                    double const * restrict points_being_sampled,
+                                                    double const * discrete_pts,
+                                                    int num_to_sample, int num_being_sampled, int num_pts,
+                                                    double best_so_far,
+                                                    int max_int_steps, bool * restrict found_flag,
+                                                    UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
+                                                    double * restrict best_next_point) {
+  int grid_size = 100;
+  std::vector<double> starting_points(gaussian_process.dim()*optimizer_parameters.num_multistarts*num_to_sample);
+  std::vector<double> temp_points(gaussian_process.dim()*grid_size*num_to_sample);
+  std::vector<double> function_values(grid_size, 0.0);
+
+  // GenerateUniformPointsInDomain() is allowed to return fewer than the requested number of multistarts
+  RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
+  int num_multistarts = optimizer_parameters.num_multistarts;
+
+  for (int i = 0; i < num_multistarts; ++i){
+      repeated_domain.GenerateUniformPointsInDomain(grid_size, uniform_generator, temp_points.data());
+      EvaluateKGAtPointList(gaussian_process, thread_schedule, temp_points.data(),
+                            points_being_sampled, discrete_pts, grid_size, num_to_sample,
+                            num_being_sampled, num_pts, best_so_far, max_int_steps, found_flag, normal_rng,
+                            function_values.data(), starting_points.data() + i*num_to_sample*gaussian_process.dim());
+  }
+
+  ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process, optimizer_parameters, domain,
+                                                             thread_schedule, starting_points.data(),
+                                                             points_being_sampled, discrete_pts, num_multistarts,
+                                                             num_to_sample, num_being_sampled, num_pts,
+                                                             best_so_far, max_int_steps,
+                                                             normal_rng, found_flag, best_next_point);
+#ifdef OL_WARNING_PRINT
+  if (false == *found_flag) {
+    OL_WARNING_PRINTF("WARNING: %s DID NOT CONVERGE\n", OL_CURRENT_FUNCTION_NAME);
+    OL_WARNING_PRINTF("First multistart point was returned:\n");
+    PrintMatrixTrans(starting_points.data(), num_to_sample, gaussian_process.dim());
+  }
+#endif
+}
 
 /*!\rst
   Perform a random, naive search to "solve" the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
@@ -868,7 +1100,6 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                     int num_lhc_samples, bool * restrict found_flag,
                                     UniformRandomGenerator * uniform_generator,
                                     NormalRNG * normal_rng, double * restrict best_points_to_sample);
-
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
@@ -885,7 +1116,6 @@ extern template void ComputeKGOptimalPointsToSample(
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
-
 }  // end namespace optimal_learning
 
 #endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_HEURISTIC_EXPECTED_IMPROVEMENT_OPTIMIZATION_HPP_

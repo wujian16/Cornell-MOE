@@ -952,7 +952,7 @@ OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodGradientOptimization
   OL_VERBOSE_PRINTF("initial likelihood: %.18E\n", initial_likelihood);
 
   bool found_flag = false;
-  printf("step %d\n", 0);
+
   MultistartGradientDescentHyperparameterOptimization(log_likelihood_eval, *mock_gp_data.covariance_ptr, mock_gp_data.noise_variance,
                                                       gd_parameters, hyperparameter_log_domain_bounds.data(),
                                                       thread_schedule, &found_flag, &uniform_generator,

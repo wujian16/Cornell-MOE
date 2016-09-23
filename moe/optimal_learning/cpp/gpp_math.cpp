@@ -649,6 +649,7 @@ void GaussianProcess::ComputeMeanOfAdditionalPoints(double const * discrete_pts,
           }
       }
   }
+
   GeneralMatrixVectorMultiply(kt.data(), 'T', K_inv_y_.data(),
                               1.0, 1.0, num_sampled_*(num_derivatives_+1),
                               num_pts*(num_gradients_discrete_pts+1), num_sampled_*(num_derivatives_+1),
@@ -1447,15 +1448,15 @@ void GaussianProcess::AddPointsToGP(double const * restrict new_points,
   and a sample function value.
 \endrst*/
 void GaussianProcess::SamplePointFromGP(double const * restrict point_to_sample,
-//                                          double noise_variance_this_point,
-                                          double * results) noexcept {
+//                                      double noise_variance_this_point,
+                                        double * results) noexcept {
   double * gpp_variance = new double[Square(1+num_derivatives_)]();
   double * gpp_mean = new double[1+num_derivatives_]();
   const int num_to_sample = 1;  // we will only draw 1 point at a time from the GP
   double * random_sample = new double[1+num_derivatives_]();
   for (int i = 0; i < 1+num_derivatives_; ++i){
       random_sample[i] = normal_rng_();
-      results[i] = normal_rng_();
+      results[i] = 0;
   }
 
   if (unlikely(num_sampled_ == 0)) {
@@ -1473,17 +1474,90 @@ void GaussianProcess::SamplePointFromGP(double const * restrict point_to_sample,
 
     ComputeMeanOfPoints(points_to_sample_state, gpp_mean);
     ComputeVarianceOfPoints(&points_to_sample_state, derivatives_.data(), num_derivatives_, gpp_variance);
-
-    TriangularMatrixVectorMultiply(gpp_variance, 'N', num_derivatives_+1, random_sample);
+    ComputeCholeskyFactorL(1+num_derivatives_, gpp_variance);
+    TriangularMatrixVectorMultiply(gpp_variance, 'N', 1+num_derivatives_, random_sample);
     for (int i = 0; i < 1+num_derivatives_; ++i){
-        results[i] += random_sample[i]+gpp_mean[i];
+        results[i] += gpp_mean[i] + random_sample[i];
     }
-
     //return gpp_mean + std::sqrt(gpp_variance) * normal_rng_() + std::sqrt(noise_variance_this_point)*normal_rng_();
   }
   delete [] random_sample;
   delete [] gpp_mean;
   delete [] gpp_variance;
+}
+
+/*!\rst
+  Sample only function values for a list of points
+\endrst*/
+int GaussianProcess::SamplePointsFromGP(double const * restrict points_to_sample,
+                                        int const num_sample,
+                                        double * results) noexcept {
+  double * gpp_variance = new double[Square(num_sample)]();
+  double * gpp_mean = new double[num_sample]();
+
+  double * random_sample = new double[num_sample]();
+  for (int i = 0; i < num_sample; ++i){
+      random_sample[i] = normal_rng_();
+      results[i] = 0;
+  }
+
+  if (unlikely(num_sampled_ == 0)) {
+    BuildCovarianceMatrix(*covariance_ptr_, points_to_sample, dim_, num_sample,
+                          nullptr, 0, gpp_variance);
+    ComputeCholeskyFactorL(num_sample, gpp_variance);
+    TriangularMatrixVectorMultiply(gpp_variance, 'N', num_sample, random_sample);
+    for (int i = 0; i < num_sample; ++i){
+        results[i] += random_sample[i];
+    }
+    //return std::sqrt(gpp_variance) * normal_rng_() + std::sqrt(noise_variance_this_point)*normal_rng_();  // first draw has mean 0
+  } else {
+    int num_derivatives = 0;
+    StateType points_to_sample_state(*this, points_to_sample, num_sample, nullptr, 0, num_derivatives);
+
+    ComputeMeanOfPoints(points_to_sample_state, gpp_mean);
+    ComputeVarianceOfPoints(&points_to_sample_state, nullptr, 0, gpp_variance);
+    ComputeCholeskyFactorL(num_sample, gpp_variance);
+    TriangularMatrixVectorMultiply(gpp_variance, 'N', num_sample, random_sample);
+    for (int i = 0; i < num_sample; ++i){
+        results[i] += gpp_mean[i] + random_sample[i];
+    }
+    //return gpp_mean + std::sqrt(gpp_variance) * normal_rng_() + std::sqrt(noise_variance_this_point)*normal_rng_();
+  }
+  delete [] random_sample;
+  delete [] gpp_mean;
+  delete [] gpp_variance;
+
+  int best_point = -1;
+  double best = results[0];
+  for (int i = 0; i < num_sample; ++i){
+      if (results[i] < best){
+          best_point = i;
+          best = results[i];
+      }
+  }
+  return best_point;
+}
+
+
+/*!\rst
+  Approximate the global optima of the GP.
+\endrst*/
+void GaussianProcess::SampleGlobalOptimaFromGP(int const num_optima,
+                              int const inner_number,
+                              const TensorProductDomain& domain,
+                              double * points_optima) noexcept {
+  UniformRandomGenerator uniform_generator(rand()%10000);
+  std::vector<double> inner_points(inner_number*dim_, 0.0);
+  std::vector<double> inner_value(inner_number, 0.0);
+  int index = -1;
+
+  for (int i = 0; i < num_optima; ++i){
+    domain.GenerateUniformPointsInDomain(inner_number, &uniform_generator, inner_points.data());
+    index = SamplePointsFromGP(inner_points.data(), inner_number, inner_value.data());
+    for (int j = 0; j < dim_; ++j){
+        points_optima[i * dim_ + j] = inner_points[index * dim_ + j];
+    }
+  }
 }
 
 void GaussianProcess::SetExplicitSeed(EngineType::result_type seed) noexcept {
@@ -1593,6 +1667,11 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
                                              ei_state->points_to_sample_state.num_gradients_to_sample,
                                              ei_state->cholesky_to_sample_var.data());
 
+  //Adding the variance of measurement noise to the covariance matrix
+  for (int i = 0;i < num_union; i++){
+       ei_state->cholesky_to_sample_var[i + i*num_union] += 1.0e-6;
+  }
+
   int leading_minor_index = ComputeCholeskyFactorL(num_union, ei_state->cholesky_to_sample_var.data());
 
   if (unlikely(leading_minor_index != 0)) {
@@ -1648,6 +1727,12 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
                                                ei_state->points_to_sample_state.gradients.data(),
                                                ei_state->points_to_sample_state.num_gradients_to_sample,
                                                ei_state->cholesky_to_sample_var.data());
+
+  //Adding the variance of measurement noise to the covariance matrix
+  for (int i = 0;i < num_union; i++){
+       ei_state->cholesky_to_sample_var[i + i*num_union] += 1.0e-6;
+  }
+
   int leading_minor_index = ComputeCholeskyFactorL(num_union, ei_state->cholesky_to_sample_var.data());
   if (unlikely(leading_minor_index != 0)) {
     OL_THROW_EXCEPTION(SingularMatrixException, "GP-Variance matrix singular. Check for duplicate points_to_sample/being_sampled or points_to_sample/being_sampled duplicating points_sampled with 0 noise.", ei_state->cholesky_to_sample_var.data(), num_union, leading_minor_index);
@@ -1656,6 +1741,7 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
   gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(ei_state->points_to_sample_state),
                                                          ei_state->cholesky_to_sample_var.data(),
                                                          ei_state->grad_chol_decomp.data());
+
 
   std::fill(ei_state->aggregate.begin(), ei_state->aggregate.end(), 0.0);
   double aggregate_EI = 0.0;
@@ -1951,12 +2037,8 @@ void ComputeOptimalPointsToSample(const GaussianProcess& gaussian_process,
 
   std::vector<double> next_points_to_sample(gaussian_process.dim()*num_to_sample);
 
-  printf("step %d\n", 2);
-
   bool found_flag_local = false;
   if (lhc_search_only == false) {
-
-  printf("step %d\n", 3);
 
     ComputeOptimalPointsToSampleWithRandomStarts(gaussian_process, optimizer_parameters,
                                                  domain, thread_schedule, points_being_sampled,
@@ -1974,8 +2056,6 @@ void ComputeOptimalPointsToSample(const GaussianProcess& gaussian_process,
     }
 
     if (num_lhc_samples > 0) {
-
-    printf("step %d\n", 4);
 
       // Note: using a schedule different than "static" may lead to flakiness in monte-carlo EI optimization tests.
       // Besides, this is the fastest setting.
