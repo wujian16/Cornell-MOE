@@ -527,6 +527,7 @@ class GradientDescentOptimizer(OptimizerInterface):
         self.objective_function.current_point = x_hat
 
 
+
 class MultistartOptimizer(OptimizerInterface):
 
     r"""A general class for multistarting any class that implements interfaces.optimization_interface.OptimizerInterface (except itself).
@@ -589,6 +590,8 @@ class MultistartOptimizer(OptimizerInterface):
         best_point = random_starts[0, ...]  # any point will do
         function_value_list = numpy.empty(random_starts.shape[0])
 
+        results = []
+
         for i, point in enumerate(random_starts):
             self.optimizer.objective_function.current_point = point
             self.optimizer.optimize(**kwargs)
@@ -598,6 +601,7 @@ class MultistartOptimizer(OptimizerInterface):
             if function_value > best_function_value:
                 best_function_value = function_value
                 best_point = self.optimizer.objective_function.current_point
+
 
         return best_point, function_value_list
 
