@@ -1,25 +1,6 @@
-Useful links and reminders
-====
-1. The [workaround of "fork" public repo into private repo][22]
-2. Google code style:
-    - [Python][23]
-    - [C++][24]
-3. How to name a new branch: ``yourName_issueNumber_description``
-4. [How to contribute code][25]
+## How qKG is related to MOE 
 
-<p align="center">
-    <img src="https://github.com/yelp/MOE/raw/master/moe/static/img/MOE_full_logo.png" alt="MOE Logo">
-</p>
-
-`[![Build Status](https://travis-ci.org/Yelp/MOE.svg?branch=master)](https://travis-ci.org/Yelp/MOE)`
-Note: travis link temporarily disabled. The last major MOE commit built successfully but our travis flow appears to be broken (out of date packages perhaps?). Tests and docker still pass/build locally and MOE still works.
-
-Metric Optimization Engine. A global, black box optimization engine for real world metric optimization.
-
-  * [Full documentation][1]
-  * [REST documentation][2]
-
-Or, build the documentation locally with `make docs`.
+qKG is built upon MOE (open sourced by Yelp). We add the parallel knowledge gradient method to the package.
 
 ## What is MOE?
 
