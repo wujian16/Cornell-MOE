@@ -15,3 +15,6 @@ class TestCppUnitTestWrapper(object):
         """Call C++ function that runs all C++ unit tests and assert 0 errors."""
         number_of_cpp_test_errors = C_GP.run_cpp_tests()
         assert number_of_cpp_test_errors == 0
+
+t= TestCppUnitTestWrapper()
+t.test_run_cpp_unit_tests()

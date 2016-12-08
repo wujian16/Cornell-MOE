@@ -45,6 +45,15 @@ enum class ExpectedImprovementEvaluationMode {
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingGPMeanTest();
 
+
+/*!\rst
+  Checks that the gradients (spatial) of the GP additional mean are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int PingGPAdditionalMeanTest();
+
 /*!\rst
   Checks that the gradients (spatial) of the GP variance are computed correctly.
 
@@ -53,6 +62,15 @@ OL_WARN_UNUSED_RESULT int PingGPMeanTest();
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingGPVarianceTest();
 
+
+/*!\rst
+  Checks that the gradients (spatial) of the GP covariance are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int PingGPCovarianceTest();
+
 /*!\rst
   Checks that the gradients (spatial) of the cholesky factorization of GP variance are computed correctly.
 
@@ -60,6 +78,24 @@ OL_WARN_UNUSED_RESULT int PingGPVarianceTest();
     number of test failures: 0 if all is working well.
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceTest();
+
+
+/*!\rst
+  Checks that the gradients (spatial) of the cholesky factorization of GP variance with noise are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceNoiseTest();
+
+
+/*!\rst
+  Checks that the gradients (spatial) of the inver of the cholesky factorization of GP variance with noise are computed correctly.
+
+  \return
+    number of test failures: 0 if all is working well.
+\endrst*/
+OL_WARN_UNUSED_RESULT int PingGPInverseCholeskyVarianceNoiseTest();
 
 /*!\rst
   Checks that the gradients (spatial) of Expected Improvement are computed correctly.
@@ -76,6 +112,7 @@ OL_WARN_UNUSED_RESULT int PingEIGeneralTest();
     number of test failures: 0 if all is working well.
 \endrst*/
 OL_WARN_UNUSED_RESULT int PingEIOnePotentialSampleTest();
+
 
 /*!\rst
   Runs a battery of tests for the GP and EI functions, including ping tests for:

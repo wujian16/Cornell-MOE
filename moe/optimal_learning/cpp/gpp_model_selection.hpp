@@ -476,7 +476,7 @@ struct LogMarginalLikelihoodState final {
       :hyperparameters[num_hyperparameters]: hyperparameters to change to
   \endrst*/
   void SetHyperparameters(const EvaluatorType& log_likelihood_eval,
-                             double const * restrict hyperparameters) OL_NONNULL_POINTERS;
+                          double const * restrict hyperparameters) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new hyperparameters.
@@ -508,8 +508,10 @@ struct LogMarginalLikelihoodState final {
   // derived variables
   //! cholesky factorization of ``K``
   std::vector<double> K_chol;
-  //! ``K^-1 * y``; computed WITHOUT forming ``K^-1``
+  //! ``K^-1 * (y-mean)``; computed WITHOUT forming ``K^-1``
   std::vector<double> K_inv_y;
+  //! y-mean
+  std::vector<double> y;
 
   // temporary storage: preallocated space used by LogMarginalLikelihoodEvaluator's member functions
   //! ``\pderiv{K_{ij}}{\theta_k}``; temporary b/c it is overwritten with each computation of GradLikelihood

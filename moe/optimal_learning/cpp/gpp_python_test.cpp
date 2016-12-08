@@ -26,6 +26,7 @@
 #include "gpp_model_selection_test.hpp"
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
+#include "gpp_knowledge_gradient_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -68,6 +69,14 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = RunKGTests();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG tests\n");
+  }
+  total_errors += error;
+
   error = RunEIConsistencyTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic, MC EI do not match for 1 potential sample case\n");
@@ -75,7 +84,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic, MC EI match for 1 potential sample case\n");
   }
   total_errors += error;
-
+/*
   error = RunGPUTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("GPU tests failed\n");
@@ -83,7 +92,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("GPU tests passed\n");
   }
   total_errors += error;
-
+*/
   error = RunLogLikelihoodPingTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("LogLikelihood ping tests failed\n");
@@ -188,6 +197,14 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = EvaluateKGAtPointListTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG evaluation at point list\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG evaluation at point list\n");
+  }
+  total_errors += error;
+
   error = MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode::kAnalytic);
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic EI Optimization single/multithreaded consistency check\n");
@@ -204,7 +221,15 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error += HeuristicExpectedImprovementOptimizationTest();
+  error = MultithreadedKGOptimizationTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG single/multithreaded consistency check\n");
+  }
+  total_errors += error;
+
+  error = HeuristicExpectedImprovementOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("Heuristic EI Optimization\n");
   } else {
@@ -252,7 +277,32 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG optimization\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG optimization\n");
+  }
+  total_errors += error;
+
+  error = KnowledgeGradientOptimizationTest(DomainTypes::kSimplex);
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo simplex KG optimization\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo simplex KG optimization\n");
+  }
+  total_errors += error;
+
+  error = KnowledgeGradientOptimizationMultipleSamplesTest();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
+  } else {
+    OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
+  }
+  total_errors += error;
+
   return total_errors;
+
 }
 
 }  // end unnamed namespace

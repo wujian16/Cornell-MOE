@@ -398,6 +398,17 @@ class GaussianProcess final {
                            double * restrict mean_of_points) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
+    \param
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+    \output
+      :mean_of_points[num_pts]: mean of GP, one per GP dimension
+  \endrst*/
+  void ComputeMeanOfAdditionalPoints(double const * discrete_pts,
+                                     int num_pts,
+                                     double * restrict mean_of_points) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
     Computes the gradient of the mean of this GP at each of ``Xs`` (``points_to_sample``) wrt ``Xs``.
 
     .. Note:: ``points_to_sample`` should not contain duplicate points.
@@ -432,10 +443,33 @@ class GaussianProcess final {
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
-      :var_star[num_to_sample][num_to_sample]: variance of GP evaluated at ``points_to_sample``
+      :var_star[num_to_sample][num_to_sample]: variance of GP evaluated at ``points_to_sample``, LOWER TRIANGLE
   \endrst*/
   void ComputeVarianceOfPoints(StateType * points_to_sample_state,
                                double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Computes the covariance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) and each point of discrete points.
+
+    .. Note:: ``points_to_sample`` should not contain duplicate points.
+
+    .. Note:: comments are copied in Python: interfaces/gaussian_process_interface.py
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :var_star[num_to_sample][num_pts]: covariance of GP evaluated at ``points_to_sample`` and ``discrete_pts``
+  \endrst*/
+
+
+  void ComputeCovarianceOfPoints(StateType * points_to_sample_state,
+                                 double const * restrict discrete_pts,
+                                 int num_pts,
+                                 double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
+
 
   /*!\rst
     Similar to ComputeGradCholeskyVarianceOfPoints() except this does not include the gradient terms from
@@ -443,6 +477,23 @@ class GaussianProcess final {
   \endrst*/
   void ComputeGradVarianceOfPoints(StateType * points_to_sample_state,
                                    double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_var[dim][num_to_sample][num_pts][state->num_derivatives]: gradient of the
+        variance of the GP.  ``grad_var[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
+  \endrst*/
+
+  void ComputeGradCovarianceOfPoints(StateType * points_to_sample_state,
+                                     double const * restrict discrete_pts,
+                                     int num_pts,
+                                     double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Computes the gradient of the cholesky factorization of the variance of this GP with respect to ``points_to_sample``.
@@ -469,10 +520,42 @@ class GaussianProcess final {
       :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the cholesky-factored
         variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
+
+    ** store in UPPER triangle
   \endrst*/
   void ComputeGradCholeskyVarianceOfPoints(StateType * points_to_sample_state,
                                            double const * restrict chol_var,
                                            double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+
+
+  /*!\rst
+    Computes the gradient of the invers of the cholesky factorization of the variance of this GP with respect to ``points_to_sample``.
+
+    Note that ``grad_chol`` is nominally sized:
+
+    ``grad_chol[dim][num_to_sample][num_to_sample][num_to_sample]``.
+
+    Let this be indexed ``grad_chol[d][i][j][k]``, which is read the derivative of ``var[i][j]``
+    with respect to ``x_{d,k}`` (x = ``points_to_sample``)
+
+    .. Note:: comments are copied in Python: interfaces/gaussian_process_interface.py
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :chol_var[num_to_sample][num_to_sample]: the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``)
+        e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the invers of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
+  \endrst*/
+  void ComputeGradInverseCholeskyVarianceOfPoints(StateType * points_to_sample_state,
+                                                  double const * restrict chol_var,
+                                                  double const * restrict cov,
+                                                  double const * restrict discrete_pts,
+                                                  int num_pts,
+                                                  double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Seed the random number generator with the specified seed.
@@ -525,10 +608,53 @@ class GaussianProcess final {
                                            double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+      :diff_index: index of ``points_to_sample`` in {0, .. ``num_to_sample``-1} to be differentiated against
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_pts]: gradient of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
+        k = ``diff_index``
+  \endrst*/
+
+  void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
+                                             int diff_index,
+                                             double const * restrict discrete_pts,
+                                             int num_pts,
+                                             double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
     Computes the gradient of the cholesky factorization of the variance of this GP with respect to the
     ``diff_index``-th point in ``points_to_sample``.
 
     This internal method is meant to be used by ComputeGradCholeskyVarianceOfPoints() to construct the gradient wrt all
+    points of ``points_to_sample``. See that function for more details.
+
+    \param
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+      :diff_index: index of ``points_to_sample`` in {0, .. ``num_to_sample``-1} to be differentiated against
+      :chol_var[num_to_sample][num_to_sample]: the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``)
+        e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
+    \output
+      :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
+      :grad_chol[dim][num_to_sample][num_to_sample]: gradient of the inverse of the cholesky-factored
+        variance of the GP.  ``grad_chol[d][i][j]`` is actually the gradients of ``var_{i,j}`` with
+        respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
+        k = ``diff_index``
+  \endrst*/
+  void ComputeGradCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
+                                                   double const * restrict chol_var,
+                                                   double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Computes the gradient of the invers of the cholesky factorization of the variance of this GP with respect to the
+    ``diff_index``-th point in ``points_to_sample``.
+
+    This internal method is meant to be used by ComputeGradInverseCholeskyVarianceOfPoints() to construct the gradient wrt all
     points of ``points_to_sample``. See that function for more details.
 
     \param
@@ -543,9 +669,12 @@ class GaussianProcess final {
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``, where
         k = ``diff_index``
   \endrst*/
-  void ComputeGradCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
-                                                   double const * restrict chol_var,
-                                                   double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+  void ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
+                                                          double const * restrict chol_var,
+                                                          double const * restrict cov,
+                                                          double const * restrict discrete_pts,
+                                                          int num_pts,
+                                                          double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Recomputes (including resizing as needed) the derived quantities in this class.
@@ -559,6 +688,8 @@ class GaussianProcess final {
   int dim_;
   //! number of points in ``points_sampled``
   int num_sampled_;
+  //! the mean of the ``points_sampled_value_``
+  double mean_;
 
   // state variables for prior
   //! covariance class (for computing covariance and its gradients)
@@ -667,7 +798,7 @@ struct PointsToSampleState final {
   // derived variables for predictive component; these are all *temporary* quantities
   //! the "mixed" covariance matrix: ``Ks, Ks_{ij}, K(X,Xs) = covariance(X_i, Xs_j)``, covariance matrix between training and test inputs (``num_sampled x num_to_sample``)
   std::vector<double> K_star;
-  //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``
+  //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``, dimension: dim*num_sampled*num_derivatives
   std::vector<double> grad_K_star;
   //! the variance matrix (output from the GP)
   std::vector<double> V;
@@ -912,7 +1043,7 @@ struct ExpectedImprovementState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose EI (and/or gradients) are being evaluated
   \endrst*/
   void SetCurrentPoint(const EvaluatorType& ei_evaluator,
-                          double const * restrict points_to_sample) OL_NONNULL_POINTERS;
+                       double const * restrict points_to_sample) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new ``points_to_sample``, the location of the potential samples whose EI is to be evaluated.

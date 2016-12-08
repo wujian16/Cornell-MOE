@@ -110,7 +110,7 @@ SquareExponential::SquareExponential(int dim, double alpha, double length)
 SquareExponential::SquareExponential(const SquareExponential& OL_UNUSED(source)) = default;
 
 /*
-  Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
+  Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L^{-1} * (x_1 - x_2)) )``
 */
 double SquareExponential::Covariance(double const * restrict point_one, double const * restrict point_two) const noexcept {
   const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);

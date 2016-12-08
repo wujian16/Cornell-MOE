@@ -501,7 +501,10 @@ int PingDerivative(const PingableMatrixInputVectorOutputInterface& function_and_
         if (error[k*2+0]/function_value_norm < 1.0e-20 && error[k*2+1]/function_value_norm < 1.0e-20) {
           continue;
         }
-
+        //relative error<0.5%
+        if (error[k*2+0]/fabs_grad_function_a < 10.0e-2 || error[k*2+1]/fabs_grad_function_a < 10.0e-2) {
+          continue;
+        }
         // Like the previous check, but now comparing against magnitude of X[i_cols][i_rows], the value that was tweaked
         // by epsilon to produce X_p and X_m. The same logic applies about lacking sufficient precision to examine f(X_p) - f(X_m).
         if (error[k*2+0]/std::fabs(points[i_cols*num_rows + i_rows]) < input_output_ratio && error[k*2+1]/std::fabs(points[i_cols*num_rows + i_rows]) < input_output_ratio) {

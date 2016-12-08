@@ -20,6 +20,8 @@
 *.o
 *.pyc
 
+# IDE files
+*.idea
 # Compiled Dynamic libraries
 *.so
 *.dylib

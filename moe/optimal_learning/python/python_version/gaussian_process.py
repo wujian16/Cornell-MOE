@@ -229,6 +229,56 @@ class GaussianProcess(GaussianProcessInterface):
         var_star -= numpy.dot(V.T, V)
         return var_star
 
+    def compute_covariance_of_points(self, points1, points2):
+        r"""Compute the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
+
+        .. Warning:: ``points_to_sample`` should not contain duplicate points.
+
+        The variance matrix is symmetric although we currently return the full representation.
+
+        .. Note:: Comments are copied from
+          :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface.GaussianProcessInterface.compute_variance_of_points`
+
+        :param points_to_sample: num_to_sample points (in dim dimensions) being sampled from the GP
+        :type points_to_sample: array of float64 with shape (num_to_sample, dim)
+        :return: var_star: variance matrix of this GP
+        :rtype: array of float64 with shape (num_to_sample, num_to_sample)
+
+        """
+        var_star = python_utils.build_mix_covariance_matrix(self._covariance, points1, points2)  # this is K_star_star
+        if self.num_sampled == 0:
+            return numpy.diag(numpy.diag(var_star))
+
+        K_star1 = python_utils.build_mix_covariance_matrix(
+            self._covariance,
+            self._points_sampled,
+            points1,
+        )
+
+        K_star2 = python_utils.build_mix_covariance_matrix(
+            self._covariance,
+            self._points_sampled,
+            points2
+        )
+
+        V1 = scipy.linalg.solve_triangular(
+            self._K_chol[0],
+            K_star1,
+            lower=self._K_chol[1],
+            overwrite_b=True,
+        )
+         
+        V2 = scipy.linalg.solve_triangular(
+            self._K_chol[0],
+            K_star2,
+            lower=self._K_chol[1],
+            overwrite_b=True,
+        )
+
+        # cheaper to go through scipy.linalg.get_blas_funcs() which can compute A = alpha*B*C + beta*A in one pass
+        var_star -= numpy.dot(V1.T, V2)
+        return var_star
+    
     def compute_cholesky_variance_of_points(self, points_to_sample):
         r"""Compute the cholesky factorization of the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
 
@@ -287,6 +337,39 @@ class GaussianProcess(GaussianProcessInterface):
                         grad_var[i, j, ...] -= K_inv_times_K_star[idx_one, i] * self._covariance.grad_covariance(point_two, sampled_one)
         return grad_var
 
+    def _compute_grad_covariance_of_points_per_point(self, points_to_sample, discrete_pts, var_of_grad):
+        r"""Compute the gradient of the covariance (matrix) of this GP among ``Xs`` (``points_to_sample``) and discrete points wrt a single point of ``Xs``.
+        See :meth:`~moe.optimal_learning.python.python_version.gaussian_process.GaussianProcess.compute_grad_variance_of_points` for more details.
+        :param points_to_sample: num_to_sample points (in dim dimensions) being sampled from the GP
+        :type points_to_sample: array of float64 with shape (num_to_sample, dim)
+        :param discrete_pts: points to approximate KG
+        :type discrete_pts: array of float64 with shape (num_pts, dim)
+        :param var_of_grad: index of ``points_to_sample`` to be differentiated against
+        :type var_of_grad: int in {0, .. ``num_to_sample``-1}
+        :return: grad_var: gradient of the variance matrix of this GP
+        :rtype: array of float64 with shape (num_to_sample, num_to_sample, dim)
+        """
+        # TODO(GH-62): This can be improved/optimized. see: gpp_math.cpp, GaussianProcess::ComputeGradVarianceOfPoints
+        num_to_sample = points_to_sample.shape[0]
+        num_pts = discrete_pts.shape[0]
+
+        # Compute grad variance
+        grad_var = numpy.zeros((num_to_sample, num_pts, self.dim))
+
+        K_star = python_utils.build_mix_covariance_matrix(
+            self._covariance,
+            self._points_sampled,
+            discrete_pts,
+        )
+        K_inv_times_K_star = scipy.linalg.cho_solve(self._K_chol, K_star, overwrite_b=True)
+        for i, point_one in enumerate(points_to_sample):
+            for j, point_two in enumerate(discrete_pts):
+                if var_of_grad == i:
+                    grad_var[i, j, ...] = self._covariance.grad_covariance(point_one, point_two)
+                    for idx_two, sampled_two in enumerate(self._points_sampled):
+                        grad_var[i, j, ...] -= K_inv_times_K_star[idx_two, j] * self._covariance.grad_covariance(point_one, sampled_two)
+        return grad_var
+
     def compute_grad_variance_of_points(self, points_to_sample, num_derivatives=-1):
         r"""Compute the gradient of the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) wrt ``Xs``.
 
@@ -310,6 +393,28 @@ class GaussianProcess(GaussianProcessInterface):
         grad_var = numpy.empty((num_derivatives, points_to_sample.shape[0], points_to_sample.shape[0], self.dim))
         for i in xrange(num_derivatives):
             grad_var[i, ...] = self._compute_grad_variance_of_points_per_point(points_to_sample, i)
+        return grad_var
+
+    def compute_grad_covariance_of_points(self, points_to_sample, discrete_pts, num_derivatives=-1):
+        r"""Compute the gradient of the covariance (matrix) of this GP among ``Xs`` (``points_to_sample``) and discrete points wrt ``Xs``.
+        .. Warning:: ``points_to_sample`` should not contain duplicate points.
+        This function is similar to compute_grad_cholesky_variance_of_points() (below), except this does not include
+        gradient terms from the cholesky factorization. Description will not be duplicated here.
+        .. Note:: Comments are copied from
+          :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface.GaussianProcessInterface.compute_grad_variance_of_points`
+        :param points_to_sample: num_to_sample points (in dim dimensions) being sampled from the GP
+        :type points_to_sample: array of float64 with shape (num_to_sample, dim)
+        :param discrete_pts: points to approximate KG
+        :type discrete_pts: array of float64 with shape (num_pts, dim)
+        :param num_derivatives: return derivatives wrt points_to_sample[0:num_derivatives]; large or negative values are clamped
+        :type num_derivatives: int
+        :return: grad_var: gradient of the variance matrix of this GP
+        :rtype: array of float64 with shape (num_derivatives, num_to_sample, num_to_sample, dim)
+        """
+        num_derivatives = self._clamp_num_derivatives(points_to_sample.shape[0], num_derivatives)
+        grad_var = numpy.empty((num_derivatives, points_to_sample.shape[0], discrete_pts.shape[0], self.dim))
+        for i in xrange(num_derivatives):
+            grad_var[i, ...] = self._compute_grad_covariance_of_points_per_point(points_to_sample, discrete_pts, i)
         return grad_var
 
     def _compute_grad_cholesky_variance_of_points_per_point(self, points_to_sample, chol_var, var_of_grad):

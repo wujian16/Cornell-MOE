@@ -280,7 +280,7 @@ int RunLogLikelihoodPingTests() {
 
   {
     double epsilon_log_marginal[2] = {1.0e-2, 2.0e-3};
-    current_errors = PingLogLikelihoodTest<PingLogLikelihood<LogMarginalLikelihoodEvaluator, SquareExponential> >("Log Marginal Likelihood sqexp", 4, epsilon_log_marginal, 6.0e-3, 1.0e-3, 1.0e-18);
+    current_errors = PingLogLikelihoodTest<PingLogLikelihood<LogMarginalLikelihoodEvaluator, MaternNu2p5> >("Log Marginal Likelihood sqexp", 4, epsilon_log_marginal, 6.0e-3, 1.0e-3, 1.0e-18);
     if (current_errors != 0) {
       OL_PARTIAL_FAILURE_PRINTF("pinging log likelihood failed with %d errors\n", current_errors);
     }
@@ -298,7 +298,7 @@ int RunLogLikelihoodPingTests() {
 
   {
     double epsilon_leave_one_out[2] = {1.0e-2, 2.0e-3};
-    current_errors = PingLogLikelihoodTest<PingLogLikelihood<LeaveOneOutLogLikelihoodEvaluator, SquareExponential> >("Leave One Out Log Likelihood sqexp", 4, epsilon_leave_one_out, 4.0e-3, 8.0e-4, 1.0e-18);
+    current_errors = PingLogLikelihoodTest<PingLogLikelihood<LeaveOneOutLogLikelihoodEvaluator, MaternNu2p5> >("Leave One Out Log Likelihood sqexp", 4, epsilon_leave_one_out, 4.0e-3, 8.0e-4, 1.0e-18);
     if (current_errors != 0) {
       OL_PARTIAL_FAILURE_PRINTF("pinging leave one out failed with %d errors\n", current_errors);
     }
@@ -307,7 +307,7 @@ int RunLogLikelihoodPingTests() {
 
   {
     double epsilon_log_marginal[2] = {1.0e-2, 2.0e-3};
-    current_errors = PingLogLikelihoodTest<PingHessianLogLikelihood<LogMarginalLikelihoodEvaluator, SquareExponential> >("Log Marginal Likelihood Hessian sqexp", 4, epsilon_log_marginal, 3.0e-2, 3.0e-2, 1.0e-18);
+    current_errors = PingLogLikelihoodTest<PingHessianLogLikelihood<LogMarginalLikelihoodEvaluator, MaternNu2p5> >("Log Marginal Likelihood Hessian sqexp", 4, epsilon_log_marginal, 3.0e-2, 3.0e-2, 1.0e-18);
     if (current_errors != 0) {
       OL_PARTIAL_FAILURE_PRINTF("pinging log marginal hessian failed with %d errors\n", current_errors);
     }
@@ -830,10 +830,10 @@ int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogL
     case OptimizerTypes::kGradientDescent: {
       switch (objective_mode) {
         case LogLikelihoodTypes::kLogMarginalLikelihood: {
-          return HyperparameterLikelihoodOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+          return HyperparameterLikelihoodOptimizationTestCore<LogMarginalLikelihoodEvaluator, MaternNu2p5>(objective_mode);
         }
         case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
-          return HyperparameterLikelihoodOptimizationTestCore<LeaveOneOutLogLikelihoodEvaluator, SquareExponential>(objective_mode);
+          return HyperparameterLikelihoodOptimizationTestCore<LeaveOneOutLogLikelihoodEvaluator, MaternNu2p5>(objective_mode);
         }
         default: {
           OL_ERROR_PRINTF("%s: INVALID objective_mode choice: %d\n", OL_CURRENT_FUNCTION_NAME, objective_mode);
@@ -847,11 +847,11 @@ int HyperparameterLikelihoodOptimizationTest(OptimizerTypes optimizer_type, LogL
           // check base newton optimization
           int current_errors = 0;
           int total_errors = 0;
-          current_errors = HyperparameterLikelihoodNewtonOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+          current_errors = HyperparameterLikelihoodNewtonOptimizationTestCore<LogMarginalLikelihoodEvaluator, MaternNu2p5>(objective_mode);
           total_errors += current_errors;
 
           // check multistarted newton
-          current_errors = MultistartHyperparameterLikelihoodNewtonOptimizationTestCore<LogMarginalLikelihoodEvaluator, SquareExponential>(objective_mode);
+          current_errors = MultistartHyperparameterLikelihoodNewtonOptimizationTestCore<LogMarginalLikelihoodEvaluator, MaternNu2p5>(objective_mode);
           total_errors += current_errors;
           return total_errors;
         }
@@ -889,7 +889,7 @@ int EvaluateLogLikelihoodAtPointListTest() {
 
   int num_sampled = 11;  // arbitrary
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), noise_variance,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance,
                                                         dim, num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
