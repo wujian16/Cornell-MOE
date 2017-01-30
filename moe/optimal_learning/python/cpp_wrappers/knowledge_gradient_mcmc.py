@@ -170,6 +170,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
             self,
             gaussian_process_list,
             discrete_pts_list,
+            num_to_sample,
             points_to_sample=None,
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
@@ -194,15 +195,15 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         """
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process_list = gaussian_process_list
+        self._num_to_sample = num_to_sample
 
         # self._num_derivatives = gaussian_process._historical_data.num_derivatives
         self._discrete_pts_list = []
-        for discrete_pts in discrete_pts_list:
+        self._best_so_far_list = []
+        for discrete_pts, gaussian_process in zip(discrete_pts_list, self._gaussian_process_list):
             self._discrete_pts_list.append(numpy.copy(discrete_pts))
-
-        self._mu_star = self._gaussian_process.compute_mean_of_additional_points(self._discrete_pts)
-
-        self._best_so_far = numpy.amin(self._mu_star)
+            mu_star = gaussian_process.compute_mean_of_additional_points(discrete_pts)
+            self._best_so_far_list.append(numpy.amin(mu_star))
 
         if points_being_sampled is None:
             self._points_being_sampled = numpy.array([])
@@ -210,7 +211,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
             self._points_being_sampled = numpy.copy(points_being_sampled)
 
         if points_to_sample is None:
-            self._points_to_sample = numpy.zeros((1, self._gaussian_process.dim))
+            self._points_to_sample = numpy.zeros((self._num_to_sample, self._gaussian_process.dim))
         else:
             self._points_to_sample = points_to_sample
 
@@ -309,7 +310,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         num_to_evaluate, num_to_sample, _ = points_to_evaluate.shape
 
         kg_values_mcmc = numpy.zeros(num_to_evaluate)
-        for gp, discrete_pts in zip(self._gaussian_process_list, self._discrete_pts_list):
+        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             kg_values = C_GP.evaluate_KG_at_point_list(
                     gp._gaussian_process,
                     cpp_utils.cppify(discrete_pts),
@@ -319,7 +320,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     self.discrete,
                     num_to_sample,
                     self.num_being_sampled,
-                    self._best_so_far,
+                    best_so_far,
                     self._num_mc_iterations,
                     max_num_threads,
                     randomness,
@@ -366,7 +367,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
 
         """
         knowledge_gradient_mcmc = 0
-        for gp, discrete_pts in zip(self._gaussian_process_list, self._discrete_pts_list):
+        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             knowledge_gradient_mcmc += C_GP.compute_knowledge_gradient(
                     gp._gaussian_process,
                     cpp_utils.cppify(discrete_pts),
@@ -376,7 +377,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     self.num_to_sample,
                     self.num_being_sampled,
                     self._num_mc_iterations,
-                    self._best_so_far,
+                    best_so_far,
                     self._randomness,
             )
         return knowledge_gradient_mcmc/len(self._gaussian_process_list)
@@ -411,7 +412,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
 
         """
         grad_knowledge_gradient_mcmc = numpy.zeros((self.num_to_sample, self.dim))
-        for gp, discrete_pts in zip(self._gaussian_process_list, self._discrete_pts_list):
+        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             temp = C_GP.compute_grad_knowledge_gradient(
                     gp._gaussian_process,
                     cpp_utils.cppify(discrete_pts),
@@ -421,7 +422,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     self.num_to_sample,
                     self.num_being_sampled,
                     self._num_mc_iterations,
-                    self._best_so_far,
+                    best_so_far,
                     self._randomness,
             )
             grad_knowledge_gradient_mcmc += cpp_utils.uncppify(temp, (self.num_to_sample, self.dim))

@@ -57,7 +57,7 @@ class GaussianProcessLogLikelihoodMCMC:
         self.models = []
 
         if rng is None:
-            self.rng = numpy.random.RandomState(np.random.randint(0, 10000))
+            self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
         else:
             self.rng = rng
         self.n_hypers = n_hypers
@@ -124,7 +124,7 @@ class GaussianProcessLogLikelihoodMCMC:
         if do_optimize:
             # We have one walker for each hyperparameter configuration
             sampler = emcee.EnsembleSampler(self.n_hypers,
-                                            self.dim + self._num_derivatives + 1,
+                                            1 + self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
@@ -156,6 +156,8 @@ class GaussianProcessLogLikelihoodMCMC:
         self.is_trained = True
 
         for sample in self.hypers:
+            sample = numpy.exp(sample)
+            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             se = SquareExponential(cov_hyps)
@@ -164,7 +166,7 @@ class GaussianProcessLogLikelihoodMCMC:
                                     noise,
                                     self._historical_data,
                                     self.derivatives)
-            model.train(X, y, do_optimize=False)
+            #model.train(X, y, do_optimize=False)
             self.models.append(model)
 
     def compute_log_likelihood(self, hyps):
@@ -174,6 +176,12 @@ class GaussianProcessLogLikelihoodMCMC:
         :rtype: float64
 
         """
+        # Bound the hyperparameter space to keep things sane. Note all
+        # hyperparameters live on a log scale
+        if numpy.any((-10 > hyps) + (hyps > 10)):
+            return -numpy.inf
+
+        hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
         return C_GP.compute_log_likelihood(
