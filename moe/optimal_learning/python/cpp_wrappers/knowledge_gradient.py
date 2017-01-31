@@ -298,8 +298,6 @@ def multistart_knowledge_gradient_optimization(
     # reform output to be a list of dim-dimensional points, dim = len(self.domain)
     return cpp_utils.uncppify(best_points_to_sample, (num_to_sample, kg_optimizer.objective_function.dim))
 
-
-
 class KnowledgeGradient(OptimizableInterface):
 
     r"""Implementation of knowledge gradient computation via C++ wrappers: EI and its gradient at specified point(s) sampled from a GaussianProcess.

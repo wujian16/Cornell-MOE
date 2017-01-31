@@ -26,7 +26,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
         self._gaussian_process_list = gaussian_process_list
 
         if points_to_sample is None:
-            self._points_to_sample = numpy.zeros((1, self._gaussian_process.dim))
+            self._points_to_sample = numpy.zeros((1, self._gaussian_process_list[0].dim))
 
         if randomness is None:
             self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
@@ -41,7 +41,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
     @property
     def dim(self):
         """Return the number of spatial dimensions."""
-        return self._gaussian_process.dim
+        return self._gaussian_process_list[0].dim
 
     @property
     def problem_size(self):
@@ -211,7 +211,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
             self._points_being_sampled = numpy.copy(points_being_sampled)
 
         if points_to_sample is None:
-            self._points_to_sample = numpy.zeros((self._num_to_sample, self._gaussian_process.dim))
+            self._points_to_sample = numpy.zeros((self._num_to_sample, self._gaussian_process_list[0].dim))
         else:
             self._points_to_sample = points_to_sample
 
@@ -230,7 +230,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
     @property
     def dim(self):
         """Return the number of spatial dimensions."""
-        return self._gaussian_process.dim
+        return self._gaussian_process_list[0].dim
 
     @property
     def num_to_sample(self):
@@ -366,7 +366,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         :rtype: float64
 
         """
-        knowledge_gradient_mcmc = 0
+        knowledge_gradient_mcmc = 0.0
         for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             knowledge_gradient_mcmc += C_GP.compute_knowledge_gradient(
                     gp._gaussian_process,

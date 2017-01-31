@@ -95,6 +95,10 @@ class GaussianProcessLogLikelihoodMCMC:
     def num_derivatives(self):
         return self._num_derivatives
 
+    @property
+    def models(self):
+        return self.models
+
     def get_historical_data_copy(self):
         """Return the data (points, function values, noise) specifying the prior of the Gaussian Process.
 
@@ -131,7 +135,7 @@ class GaussianProcessLogLikelihoodMCMC:
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_hypers, 1 + self.dim + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_hypers)
                 # Run MCMC sampling
@@ -154,20 +158,19 @@ class GaussianProcessLogLikelihoodMCMC:
             self.hypers = sampler.chain[:, -1]
 
         self.is_trained = True
-
+        self.model = []
         for sample in self.hypers:
             sample = numpy.exp(sample)
-            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             se = SquareExponential(cov_hyps)
             noise = sample[(self.dim+1):]
-            model = GaussianProcess(se,
-                                    noise,
+            model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)
             #model.train(X, y, do_optimize=False)
             self.models.append(model)
+        print len(self.models)
 
     def compute_log_likelihood(self, hyps):
         r"""Compute the objective_type measure at the specified hyperparameters.
@@ -184,16 +187,30 @@ class GaussianProcessLogLikelihoodMCMC:
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
-        return C_GP.compute_log_likelihood(
-                cpp_utils.cppify(self._points_sampled),
-                cpp_utils.cppify(self._points_sampled_value),
-                self.dim,
-                self._num_sampled,
-                self.objective_type,
-                cpp_utils.cppify_hyperparameters(cov_hyps),
-                self._derivatives, self._num_derivatives,
-                cpp_utils.cppify(noise),
-        )
+
+        if self.prior is not None:
+            posterior = self.prior.lnprob(numpy.log(hyps))
+            return posterior + C_GP.compute_log_likelihood(
+                    cpp_utils.cppify(self._points_sampled),
+                    cpp_utils.cppify(self._points_sampled_value),
+                    self.dim,
+                    self._num_sampled,
+                    self.objective_type,
+                    cpp_utils.cppify_hyperparameters(cov_hyps),
+                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                    cpp_utils.cppify(noise),
+            )
+        else:
+            return C_GP.compute_log_likelihood(
+                    cpp_utils.cppify(self._points_sampled),
+                    cpp_utils.cppify(self._points_sampled_value),
+                    self.dim,
+                    self._num_sampled,
+                    self.objective_type,
+                    cpp_utils.cppify_hyperparameters(cov_hyps),
+                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                    cpp_utils.cppify(noise),
+            )
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.
@@ -207,3 +224,6 @@ class GaussianProcessLogLikelihoodMCMC:
         """
         # TODO(GH-159): When C++ can pass back numpy arrays, we can stop keeping a duplicate in self._historical_data.
         self._historical_data.append_sample_points(sampled_points)
+        if len(self.models) > 0:
+            for model in self.models:
+                model.add_sampled_points(sampled_points)

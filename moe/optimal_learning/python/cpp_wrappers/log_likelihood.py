@@ -370,7 +370,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self._num_sampled,
             self.objective_type,
             cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
-            self._derivatives, self._num_derivatives,
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
             cpp_utils.cppify(self.noise_variance),
         )
 
@@ -390,7 +390,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self._num_sampled,
             self.objective_type,
             cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
-            self._derivatives, self._num_derivatives,
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
             cpp_utils.cppify(self.noise_variance),
         )
         return numpy.array(grad_log_marginal)
