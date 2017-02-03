@@ -158,7 +158,7 @@ class GaussianProcessLogLikelihoodMCMC:
             self.hypers = sampler.chain[:, -1]
 
         self.is_trained = True
-        self.model = []
+        self.models = []
         for sample in self.hypers:
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
@@ -168,9 +168,7 @@ class GaussianProcessLogLikelihoodMCMC:
             model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)
-            #model.train(X, y, do_optimize=False)
             self.models.append(model)
-        print len(self.models)
 
     def compute_log_likelihood(self, hyps):
         r"""Compute the objective_type measure at the specified hyperparameters.

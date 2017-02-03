@@ -366,6 +366,7 @@ class GaussianProcess(GaussianProcessInterface):
             cpp_utils.cppify(point_to_sample),
 #            noise_variance,
         )
+
     def sample_global_optima(self,
             num_optima,
             inner_number,

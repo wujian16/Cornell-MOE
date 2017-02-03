@@ -104,7 +104,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
                                         gp._gaussian_process,
                                         cpp_utils.cppify(self._points_to_sample),
                                        )
-        return posterior_mean_mcmc/len(self._gaussian_process_list)
+        return - posterior_mean_mcmc/len(self._gaussian_process_list)
 
     compute_objective_function = compute_posterior_mean_mcmc
 
@@ -142,7 +142,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
                     cpp_utils.cppify(self._points_to_sample),
             )
             grad_posterior_mean_mcmc += cpp_utils.uncppify(temp, (1, self.dim))
-        return grad_posterior_mean_mcmc/len(self._gaussian_process_list)
+        return - grad_posterior_mean_mcmc/len(self._gaussian_process_list)
 
     compute_grad_objective_function = compute_grad_posterior_mean_mcmc
 
