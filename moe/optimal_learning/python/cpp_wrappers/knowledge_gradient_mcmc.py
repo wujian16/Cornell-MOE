@@ -327,7 +327,8 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     status,
             )
             kg_values_mcmc += numpy.array(kg_values)
-        kg_values_mcmc /= num_to_evaluate
+        kg_values_mcmc /= len(self._gaussian_process_list)
+        return kg_values_mcmc
 
     def compute_knowledge_gradient_mcmc(self, force_monte_carlo=False):
         r"""Compute the knowledge gradient at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
@@ -380,7 +381,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     best_so_far,
                     self._randomness,
             )
-        return knowledge_gradient_mcmc/len(self._gaussian_process_list)
+        return (knowledge_gradient_mcmc/len(self._gaussian_process_list))
 
     compute_objective_function = compute_knowledge_gradient_mcmc
 
@@ -426,7 +427,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
                     self._randomness,
             )
             grad_knowledge_gradient_mcmc += cpp_utils.uncppify(temp, (self.num_to_sample, self.dim))
-        return grad_knowledge_gradient_mcmc/len(self._gaussian_process_list)
+        return (grad_knowledge_gradient_mcmc/len(self._gaussian_process_list))
 
     compute_grad_objective_function = compute_grad_knowledge_gradient_mcmc
 
