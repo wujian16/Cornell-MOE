@@ -91,7 +91,7 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
     @property
     def dim(self):
         """Return the number of spatial dimensions."""
-        return self._gaussian_process.dim
+        return self._gaussian_process_list[0].dim
 
     @property
     def num_to_sample(self):
