@@ -24,14 +24,12 @@ import bgo_methods
 import obj_functions
 
 # arguments for calling this script:
-# python synthetic.test.functions.py [obj_func_name] [num_to_sample] [num_lhc] [job_id] [method]
-# example: python bayesian.test.functions.py BraninNoNoise 8 1000 1
+# python synthetic.test.functions.py [num_to_sample] [num_lhc] [job_id]
+# example: python bayesian.test.functions.py 8 1000 1
 argv = sys.argv[1:]
-obj_func_name = argv[0]
-num_to_sample = int(argv[1])
-lhc_search_itr = int(argv[2])
-job_id = int(argv[3])
-method = argv[4]
+num_to_sample = int(argv[0])
+lhc_search_itr = int(argv[1])
+job_id = int(argv[2])
 
 num_func_eval = 150
 num_iteration = int(num_func_eval / num_to_sample) + 1
@@ -66,8 +64,8 @@ py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=50, max_num_restart
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restarts=2,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.05,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
+                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
                                                max_relative_change=0.02, tolerance=1.0e-5)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
@@ -92,8 +90,8 @@ report_point = report_point.ravel()
 
 print "best so far in the initial data {0}".format(true_value_init[np.argmin(true_value_init[:,0])][0])
 for n in xrange(num_iteration):
-    print method+", {0}th job, {1}th iteration, func={2}, q={3}".format(
-            job_id, n, obj_func_name, num_to_sample
+    print "KG, {0}th job, {1}th iteration, func=Branin, q={2}".format(
+            job_id, n, num_to_sample
     )
     time1 = time.time()
     discrete_pts_list = []
@@ -153,4 +151,4 @@ for n in xrange(num_iteration):
     report_point = report_point.ravel()
 
     print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
-    print method+", best so far {0}".format(objective_func.evaluate_true(report_point)[0])
+    print "KG, best so far {0}".format(objective_func.evaluate_true(report_point)[0])
