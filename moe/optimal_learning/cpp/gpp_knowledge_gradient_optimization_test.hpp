@@ -52,7 +52,7 @@ OL_WARN_UNUSED_RESULT int RunKGTests();
   \return
     number of test failures: 0 if KG multi/single threaded optimization are consistent
 \endrst*/
- OL_WARN_UNUSED_RESULT int MultithreadedKGOptimizationTest();
+ //OL_WARN_UNUSED_RESULT int MultithreadedKGOptimizationTest();
 
 /*!\rst
   Checks that KG optimization is working on tensor product or simplex domain using
@@ -63,7 +63,7 @@ OL_WARN_UNUSED_RESULT int RunKGTests();
   \return
     number of test failures: 0 if KG optimization is working properly
 \endrst*/
- OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTest(DomainTypes domain_type);
+ //OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTest(DomainTypes domain_type);
 
 /*!\rst
   Checks that ComputeKGOptimalPointsToSample works on a tensor product domain.
@@ -76,7 +76,7 @@ OL_WARN_UNUSED_RESULT int RunKGTests();
   \return
     number of test failures: 0 if KG optimization is working properly
 \endrst*/
- OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationMultipleSamplesTest();
+ //OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationMultipleSamplesTest();
 
 /*!\rst
   Tests EvaluateKGAtPointList (computes KG at a specified list of points, multithreaded).
@@ -86,7 +86,7 @@ OL_WARN_UNUSED_RESULT int RunKGTests();
   \return
     number of test failures: 0 if function evaluation is working properly
 \endrst*/
- OL_WARN_UNUSED_RESULT int EvaluateKGAtPointListTest();
+ //OL_WARN_UNUSED_RESULT int EvaluateKGAtPointListTest();
 
 /*!\rst
   Class to conveniently hold and generate random data that are commonly needed for testing functions in gpp_math.cpp.  In
@@ -190,7 +190,6 @@ class MockKnowledgeGradientEnvironment {
   //! distribution over ``[min, max]`` that coordinate values lie in
   boost::uniform_real<double> uniform_double_;
 };
-
 
 }  // end namespace optimal_learning
 

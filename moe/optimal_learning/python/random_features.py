@@ -161,7 +161,7 @@ def global_optimization_of_GP_approximation(funs, domain_bounds, num_dims, grid)
     if f(opt_x) < best_guess_value:
         return opt_x[None]
     else:
-        print('SLSQP failed when optimizing x*')
+        #print('SLSQP failed when optimizing x*')
         return x_initial[None]
 
 

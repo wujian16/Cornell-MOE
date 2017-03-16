@@ -157,7 +157,6 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-
   error = HyperparameterLikelihoodOptimizationTest(OptimizerTypes::kGradientDescent, LogLikelihoodTypes::kLogMarginalLikelihood);
   if (error != 0) {
     OL_FAILURE_PRINTF("log likelihood hyperparameter optimization\n");
@@ -222,7 +221,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("EI single/multithreaded consistency check\n");
   }
   total_errors += error;
-
+/*
   error = MultithreadedKGOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");
@@ -230,7 +229,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG single/multithreaded consistency check\n");
   }
   total_errors += error;
-/*
+
   error = HeuristicExpectedImprovementOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("Heuristic EI Optimization\n");
@@ -278,7 +277,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo simplex EI optimization\n");
   }
   total_errors += error;
-
+/*
   error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG optimization\n");
@@ -302,9 +301,8 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
   }
   total_errors += error;
-
+*/
   return total_errors;
-
 }
 
 }  // end unnamed namespace

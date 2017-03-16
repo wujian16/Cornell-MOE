@@ -53,12 +53,14 @@ Again, we can maximize this quanitity over hyperparameters to help us choose the
 import copy
 
 import numpy
+import emcee
 
 import moe.build.GPP as C_GP
 from moe.optimal_learning.python.constant import DEFAULT_MAX_NUM_THREADS
 from moe.optimal_learning.python.cpp_wrappers import cpp_utils
 from moe.optimal_learning.python.interfaces.log_likelihood_interface import GaussianProcessLogLikelihoodInterface
 from moe.optimal_learning.python.interfaces.optimization_interface import OptimizableInterface
+
 
 
 def multistart_hyperparameter_optimization(
@@ -368,7 +370,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self._num_sampled,
             self.objective_type,
             cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
-            self._derivatives, self._num_derivatives,
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
             cpp_utils.cppify(self.noise_variance),
         )
 
@@ -388,7 +390,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self._num_sampled,
             self.objective_type,
             cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
-            self._derivatives, self._num_derivatives,
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
             cpp_utils.cppify(self.noise_variance),
         )
         return numpy.array(grad_log_marginal)

@@ -554,8 +554,6 @@ class PingGPPVariance final : public PingableMatrixInputVectorOutputInterface {
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGPPVariance);
 };
 
-
-
 /*!\rst
   Supports evaluating the GP covariance, ComputeCovarianceOfPoints() and its gradient, ComputeGradCovarianceOfPoints.
 
@@ -618,9 +616,8 @@ class PingGPPCovariance final : public PingableMatrixInputVectorOutputInterface 
 
     GaussianProcess::StateType points_to_sample_state(gaussian_process_, points_to_sample, num_to_sample_,
                                                       gradients_.data(), num_gradients_, num_derivatives);
-    gaussian_process_.ComputeGradCovarianceOfPoints(&points_to_sample_state,
-                                                    discrete_pts_.data(),
-                                                    num_pts_, gradients_.data(), num_gradients_,
+    gaussian_process_.ComputeGradCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(),
+                                                    num_pts_, gradients_.data(), num_gradients_, false, nullptr,
                                                     grad_variance_.data());
 
     if (gradients != nullptr) {
@@ -640,9 +637,8 @@ class PingGPPCovariance final : public PingableMatrixInputVectorOutputInterface 
     int num_derivatives = 1;
     GaussianProcess::StateType points_to_sample_state(gaussian_process_, points_to_sample, num_to_sample_,
                                                       gradients_.data(), num_gradients_, num_derivatives);
-    gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state,
-                                                discrete_pts_.data(),
-                                                num_pts_, gradients_.data(), num_gradients_,
+    gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(),
+                                                num_pts_, gradients_.data(), num_gradients_, false, nullptr,
                                                 function_values);
   }
 
@@ -917,9 +913,6 @@ class PingGPPCholeskyVarianceNoise final : public PingableMatrixInputVectorOutpu
     OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGPPCholeskyVarianceNoise);
 };
 
-
-
-
 /*!\rst
   Supports evaluating the Inverse cholesky of the GP variance with noise (Times) the covariance.
 
@@ -992,7 +985,7 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
 
     std::vector<double> covariance_of_points(num_to_sample_*(1+num_gradients_)*num_pts_);
     gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(), num_pts_,
-                                                nullptr, 0, covariance_of_points.data());
+                                                nullptr, 0, false, nullptr, covariance_of_points.data());
 
     std::vector<double> var(Square(num_to_sample_)*(1+num_gradients_));
     gaussian_process_.ComputeVarianceOfPoints(&points_to_sample_state, nullptr, 0, var.data());
@@ -1000,7 +993,7 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
 
     gaussian_process_.ComputeGradInverseCholeskyVarianceOfPoints(&points_to_sample_state, variance_of_points.data(),
                                                                  var.data(), covariance_of_points.data(),
-                                                                 discrete_pts_.data(), num_pts_, grad_variance_.data());
+                                                                 discrete_pts_.data(), num_pts_, false, nullptr, grad_variance_.data());
 
     if (gradients != nullptr) {
       OL_THROW_EXCEPTION(OptimalLearningException, "PingGPPInverseCholeskyVarianceNoise::EvaluateAndStoreAnalyticGradient() does not support direct gradient output.");
@@ -1029,7 +1022,8 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
     int OL_UNUSED(chol_info) = ComputeCholeskyFactorL(num_to_sample_*(1+num_gradients_), chol_temp.data());
     ZeroUpperTriangle(num_to_sample_*(1+num_gradients_), chol_temp.data());
 
-    gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(), num_pts_, nullptr, 0, function_values);
+    gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(), num_pts_,
+                                                nullptr, 0, false, nullptr, function_values);
     gaussian_process_.ComputeVarianceOfPoints(&points_to_sample_state, nullptr, 0, function_values + num_to_sample_*(1+num_gradients_)*num_pts_);
 
     TriangularMatrixMatrixSolve(chol_temp.data(), 'N', num_to_sample_*(1+num_gradients_), num_pts_+num_to_sample_, num_to_sample_*(1+num_gradients_), function_values);
@@ -1070,8 +1064,6 @@ class PingGPPInverseCholeskyVarianceNoise final : public PingableMatrixInputVect
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGPPInverseCholeskyVarianceNoise);
 };
-
-
 
 /*!\rst
   Supports evaluating the expected improvement, ExpectedImprovementEvaluator::ComputeExpectedImprovement() and
