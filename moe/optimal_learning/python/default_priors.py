@@ -12,13 +12,10 @@ from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, \
 class DefaultPrior(BasePrior):
 
     def __init__(self, n_dims, num_noise, noisy=True):
-
         # The number of hyperparameters
         self.n_dims = n_dims
-
         # The number of noises
         self.num_noise = num_noise
-
         # Prior for the Matern52 lengthscales
         self.tophat = TophatPrior(-2, 2)
 
