@@ -1,9 +1,9 @@
 How qKG is related to MOE?
 ====
 1. qKG is built upon MOE, which was open sourced by Yelp
-2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [28]
-3. We implement knowledge gradient (KG) in [26] and [27] with and without derivative information
-4. We implement Bayesian/MCMC version of EI and KG, which is more robust
+2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu and Frazier, 2016][27]
+3. We implement knowledge gradient (KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] with and without derivative information
+4. We implement the Bayesian/MCMC versions of EI and KG, which is more robust
 5. We provide one example of optimizing Branin function using KG in the folder kg_example
 6. The project is under active development. We are revising all the comments in the code, which will be ready soon.
 
