@@ -97,7 +97,6 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
                                 num_union*(1+num_gradients_to_sample), num_pts_+num_union, num_union*(1+num_gradients_to_sample),
                                 kg_state->inverse_cholesky_covariance.data());
 
-
     double best_posterior = best_so_far_;
     for (int j = 0; j < num_union; ++j){
         if (kg_state->to_sample_mean_[num_pts_+j] < best_posterior){

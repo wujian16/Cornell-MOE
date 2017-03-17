@@ -1572,7 +1572,7 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPoints(StateType * p
       CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts, kt);
 
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
-        double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1)*dim_);
+        double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1))*dim_;
         ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, cov,
                                                            discrete_pts, num_pts, kt, grad_inverse_chol);
         grad_inverse_chol += block_size;
@@ -1581,7 +1581,7 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPoints(StateType * p
   }
   else{
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
-        double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1)*dim_);
+        double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1))*dim_;
         ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, cov,
                                                            discrete_pts, num_pts, ktd, grad_inverse_chol);
         grad_inverse_chol += block_size;
