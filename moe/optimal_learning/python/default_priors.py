@@ -24,7 +24,7 @@ class DefaultPrior(BasePrior):
 
         # Prior for the noise
         if noisy == False:
-            self.horseshoe = HorseshoePrior(scale=1e-20)
+            self.horseshoe = HorseshoePrior(scale=1e-10)
         else:
             self.horseshoe = HorseshoePrior(scale=0.1)
 

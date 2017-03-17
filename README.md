@@ -1,17 +1,15 @@
-Useful links and reminders
+How qKG is related to MOE?
 ====
-1. The [workaround of "fork" public repo into private repo][22]
-2. Google code style:
-    - [Python][23]
-    - [C++][24]
-3. How to name a new branch: ``yourName_issueNumber_description``
-4. [How to contribute code][25]
+1. qKG is built upon MOE, which was open sourced by Yelp
+2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [28]
+3. We implement knowledge gradient (KG) in [26] and [27] with and without derivative information
+4. We implement Bayesian/MCMC version of EI and KG, which is more robust
+5. We provide one example of optimizing Branin function using KG in the folder kg_example
+6. The project is under active development. We are revising all the comments in the code, which will be ready soon.
 
 <p align="center">
     <img src="https://github.com/yelp/MOE/raw/master/moe/static/img/MOE_full_logo.png" alt="MOE Logo">
 </p>
-
-[![Build Status](https://travis-ci.org/Yelp/MOE.svg?branch=master)](https://travis-ci.org/Yelp/MOE)
 
 Metric Optimization Engine. A global, black box optimization engine for real world metric optimization.
 
@@ -202,3 +200,5 @@ MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/lic
 [23]: http://google.github.io/styleguide/pyguide.html
 [24]: https://google.github.io/styleguide/cppguide.html
 [25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request
+[26]: https://papers.nips.cc/paper/6307-the-parallel-knowledge-gradient-method-for-batch-bayesian-optimization
+[27]: https://arxiv.org/abs/1703.04389

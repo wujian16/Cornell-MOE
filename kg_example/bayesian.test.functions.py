@@ -60,7 +60,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            chain_length = 50, burnin_steps = 50, n_hypers = 40)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=50, max_num_restarts=2,
+py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=10, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 

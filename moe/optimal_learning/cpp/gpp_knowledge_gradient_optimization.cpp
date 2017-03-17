@@ -219,6 +219,20 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         }
     }
 
+    for (int d = 0; d<dim_; ++d){
+        for (int index=0; index < num_union*(1+num_gradients_to_sample); ++index){
+            printf("point, dim %d, index %d, %f", d, index, kg_state->union_of_points[d+dim_*index]);
+        }
+        printf("\n");
+    }
+
+    for (int row =0 ; row < num_union*(1+num_gradients_to_sample); ++row){
+        for (int col =0; col<num_union*(1+num_gradients_to_sample); ++col){
+            printf("var, row %d, col %d, %f", row, col, kg_state->cholesky_to_sample_var[row+col*num_union*(1+num_gradients_to_sample)]);
+        }
+        printf("\n");
+    }
+
     // compute the D_q: the cholesky factor of the variance of the "points to sample" with noise.
     int leading_minor_index = ComputeCholeskyFactorL(num_union*(1+num_gradients_to_sample), kg_state->cholesky_to_sample_var.data());
     if (unlikely(leading_minor_index != 0)) {
@@ -253,7 +267,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
     }
 
     std::fill(kg_state->aggregate.begin(), kg_state->aggregate.end(), 0.0);
-
     /*
     if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
         for (int k = 0; k < dim_; ++k) {
@@ -309,6 +322,10 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                                kg_state->union_of_points.data() + (winner-num_pts_)*dim_,
                                                &found_flag, kg_state->best_point.data());
         }
+        for (int d=0; d<dim_; ++d){
+            printf("best point, dim %d, %f", d, kg_state->best_point[d]);
+        }
+        printf("\n");
         //double best_mean = 0;
         //gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->best_point.data(), 1, nullptr, 0, &best_mean);
         gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), 1,
@@ -320,6 +337,12 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                                                       kg_state->chol_inverse_cov.data(),
                                                                       kg_state->best_point.data(), 1, false, nullptr,
                                                                       kg_state->grad_chol_inverse_cov.data());
+        for (int d =0; d<dim_; ++d){
+            for (int index=0; index<num_union*(1+num_gradients_to_sample);++index){
+                printf("grad_inverse_cov, dim %d, index %d, %f", d, index, kg_state->grad_chol_inverse_cov[d+index*dim_]);
+            }
+            printf("\n");
+        }
         /*
         TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N', num_union*(1+num_gradients_to_sample), 1,
                                     num_union*(1+num_gradients_to_sample), kg_state->chol_inverse_cov.data());
