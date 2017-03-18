@@ -207,7 +207,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         }
     }
     printf("2\n");
-
     gaussian_process_->ComputeVarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->gradients.data(),
                                                kg_state->num_gradients_to_sample, kg_state->cholesky_to_sample_var.data());
 
@@ -223,7 +222,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         }
     }
     printf("3\n");
-
     //Adding the variance of measurement noise to the covariance matrix
     for (int i = 0;i < num_union; i++){
         for (int j = 0; j < 1+num_gradients_to_sample; ++j){
@@ -260,10 +258,11 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
     gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state),
                                                  discrete_pts_.data(), num_pts_, nullptr, 0, true, train_discrete_.data(),
                                                  kg_state->inverse_cholesky_covariance.data());
+
     // compute the grad of chol among points to sample.
     gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(kg_state->points_to_sample_state),
-                                                            kg_state->cholesky_to_sample_var.data(),
-                                                            kg_state->grad_chol_decomp.data());
+                                                           kg_state->cholesky_to_sample_var.data(),
+                                                           kg_state->grad_chol_decomp.data());
 
     TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N',
                                 num_union*(1+num_gradients_to_sample), num_pts_+num_union, num_union*(1+num_gradients_to_sample),
@@ -341,6 +340,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         printf("\n");
         double best_mean = 0;
         gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->best_point.data(), 1, nullptr, 0, &best_mean);
+
         gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), 1,
                                                      nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
 
@@ -354,6 +354,12 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
             printf("normal, index %d, %f", index, kg_state->normals[index]);
         }
         printf("\n");
+        for (int d =0; d<dim_; ++d){
+            for (int index=0; index<num_union*(1+num_gradients_to_sample);++index){
+                printf("grad_inverse_cov, dim %d, index %d, %f", d, index, kg_state->grad_chol_inverse_cov[d+index*dim_]);
+            }
+            printf("\n");
+        }
 
         TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N', num_union*(1+num_gradients_to_sample), 1,
                                     num_union*(1+num_gradients_to_sample), kg_state->chol_inverse_cov.data());

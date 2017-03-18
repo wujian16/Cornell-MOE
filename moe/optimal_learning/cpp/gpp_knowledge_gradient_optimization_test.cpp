@@ -179,10 +179,9 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     bool configure_for_gradients = true;
 
     printf("test1\n");
-
     KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                                        num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
-                                                                        num_gradients_, configure_for_gradients, &normal_rng);
+                                                                       num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                       num_gradients_, configure_for_gradients, &normal_rng);
     printf("test2\n");
 
     kg_evaluator_.ComputeGradKnowledgeGradient(&kg_state, grad_KG_.data());

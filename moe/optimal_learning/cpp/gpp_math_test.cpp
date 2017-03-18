@@ -1216,7 +1216,6 @@ class PingGPPInverseCholeskyCovarianceNoise final : public PingableMatrixInputVe
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGPPInverseCholeskyCovarianceNoise);
 };
 
-
 /*!\rst
   Supports evaluating the expected improvement, ExpectedImprovementEvaluator::ComputeExpectedImprovement() and
   its gradient, ExpectedImprovementEvaluator::ComputeGradExpectedImprovement()

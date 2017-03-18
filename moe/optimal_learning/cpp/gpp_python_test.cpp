@@ -229,7 +229,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("EI single/multithreaded consistency check\n");
   }
   total_errors += error;
-
+/*
   error = MultithreadedKGOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");

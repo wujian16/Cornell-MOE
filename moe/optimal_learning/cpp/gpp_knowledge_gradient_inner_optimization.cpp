@@ -50,7 +50,7 @@ double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) 
 
   double * var_star = new double[num_to_sample_*(1+num_derivatives_)]();
   gaussian_process_->ComputeCovarianceOfPoints(&(ps_state->points_to_sample_state), to_sample_.data(), num_to_sample_,
-                                               to_sample_derivatives_.data(), num_derivatives_, false, nullptr, var_star);
+                                               to_sample_derivatives_.data(), num_derivatives_, true, train_sample_.data(), var_star);
 
   TriangularMatrixVectorSolve(chol_.data(), 'N', num_to_sample_*(1+num_derivatives_), num_to_sample_*(1+num_derivatives_), var_star);
   to_sample_mean += DotProduct(var_star, coeff_.data(), num_to_sample_*(1+num_derivatives_));
