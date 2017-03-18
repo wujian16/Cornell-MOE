@@ -169,6 +169,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
     def __init__(
             self,
             gaussian_process_list,
+            inner_optimizer,
             discrete_pts_list,
             num_to_sample,
             points_to_sample=None,
@@ -196,6 +197,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process_list = gaussian_process_list
         self._num_to_sample = num_to_sample
+        self._inner_optimizer = inner_optimizer
 
         # self._num_derivatives = gaussian_process._historical_data.num_derivatives
         self._discrete_pts_list = []
@@ -313,6 +315,8 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             kg_values = C_GP.evaluate_KG_at_point_list(
                     gp._gaussian_process,
+                    self._inner_optimizer.optimizer_parameters,
+                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                     cpp_utils.cppify(discrete_pts),
                     cpp_utils.cppify(points_to_evaluate),
                     cpp_utils.cppify(self._points_being_sampled),
@@ -371,6 +375,8 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             knowledge_gradient_mcmc += C_GP.compute_knowledge_gradient(
                     gp._gaussian_process,
+                    self._inner_optimizer.optimizer_parameters,
+                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                     cpp_utils.cppify(discrete_pts),
                     cpp_utils.cppify(self._points_to_sample),
                     cpp_utils.cppify(self._points_being_sampled),
@@ -416,6 +422,8 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
             temp = C_GP.compute_grad_knowledge_gradient(
                     gp._gaussian_process,
+                    self._inner_optimizer.optimizer_parameters,
+                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                     cpp_utils.cppify(discrete_pts),
                     cpp_utils.cppify(self._points_to_sample),
                     cpp_utils.cppify(self._points_being_sampled),

@@ -218,6 +218,7 @@ class PosteriorMean(OptimizableInterface):
 
 def multistart_knowledge_gradient_optimization(
         kg_optimizer,
+        inner_optimizer,
         num_multistarts,
         discrete_pts,
         num_to_sample,
@@ -282,6 +283,7 @@ def multistart_knowledge_gradient_optimization(
 
     best_points_to_sample = C_GP.multistart_knowledge_gradient_optimization(
             kg_optimizer.optimizer_parameters,
+            inner_optimizer.optimizer_parameters,
             kg_optimizer.objective_function._gaussian_process._gaussian_process,
             cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
             cpp_utils.cppify(discrete_pts),
@@ -316,6 +318,7 @@ class KnowledgeGradient(OptimizableInterface):
     def __init__(
             self,
             gaussian_process,
+            inner_optimizer,
             discrete_pts,
             points_to_sample=None,
             points_being_sampled=None,
@@ -341,6 +344,7 @@ class KnowledgeGradient(OptimizableInterface):
         """
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process = gaussian_process
+        self._inner_optimizer = inner_optimizer
 
         # self._num_derivatives = gaussian_process._historical_data.num_derivatives
 
@@ -456,6 +460,8 @@ class KnowledgeGradient(OptimizableInterface):
 
         kg_values = C_GP.evaluate_KG_at_point_list(
                 self._gaussian_process._gaussian_process,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(self._discrete_pts),
                 cpp_utils.cppify(points_to_evaluate),
                 cpp_utils.cppify(self._points_being_sampled),
@@ -510,6 +516,8 @@ class KnowledgeGradient(OptimizableInterface):
         """
         return C_GP.compute_knowledge_gradient(
                 self._gaussian_process._gaussian_process,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(self._discrete_pts),
                 cpp_utils.cppify(self._points_to_sample),
                 cpp_utils.cppify(self._points_being_sampled),
@@ -552,6 +560,8 @@ class KnowledgeGradient(OptimizableInterface):
         """
         grad_kg = C_GP.compute_grad_knowledge_gradient(
                 self._gaussian_process._gaussian_process,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(self._discrete_pts),
                 cpp_utils.cppify(self._points_to_sample),
                 cpp_utils.cppify(self._points_being_sampled),

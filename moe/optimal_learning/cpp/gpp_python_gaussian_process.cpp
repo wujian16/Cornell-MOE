@@ -206,7 +206,6 @@ boost::python::list GetGradVarWrapper(const GaussianProcess& gaussian_process,
   return VectorToPylist(to_sample_grad_var);
 }
 
-
 boost::python::list GetGradCholVarWrapper(const GaussianProcess& gaussian_process,
                                           const boost::python::list& points_to_sample,
                                           int num_to_sample, int num_derivatives) {
@@ -235,7 +234,6 @@ boost::python::list GetGradCholVarWrapper(const GaussianProcess& gaussian_proces
 
   return VectorToPylist(to_sample_grad_var);
 }
-
 
 void AddPointsToGPWrapper(GaussianProcess * gaussian_process,
                           const boost::python::list& new_points,
@@ -270,7 +268,6 @@ boost::python::list SamplePointFromGPWrapper(GaussianProcess * gaussian_process,
   return VectorToPylist(results);
 }
 
-
 boost::python::list SampleGlobalOptimaFromGPWrapper(GaussianProcess * gaussian_process,
                                                     int const num_optima,
                                                     int const inner_number,
@@ -285,7 +282,6 @@ boost::python::list SampleGlobalOptimaFromGPWrapper(GaussianProcess * gaussian_p
   gaussian_process->SampleGlobalOptimaFromGP(num_optima, inner_number, tensor_domain, points_optima.data());
   return VectorToPylist(points_optima);
 }
-
 
 void PrintHistoricalData(const GaussianProcess& gaussian_process) {
   PrintMatrixTrans(gaussian_process.points_sampled().data(), gaussian_process.num_sampled(), gaussian_process.dim());

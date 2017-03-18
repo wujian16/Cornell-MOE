@@ -27,6 +27,7 @@
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
 #include "gpp_knowledge_gradient_optimization_test.hpp"
+#include "gpp_knowledge_gradient_inner_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -66,6 +67,14 @@ int RunCppTestsWrapper() {
     OL_FAILURE_PRINTF("GP (mean, var, EI) tests failed\n");
   } else {
     OL_SUCCESS_PRINTF("GP (mean, var, EI) tests\n");
+  }
+  total_errors += error;
+
+  error = RunKGInnerTests();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG tests\n");
   }
   total_errors += error;
 
@@ -157,7 +166,6 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-
   error = HyperparameterLikelihoodOptimizationTest(OptimizerTypes::kGradientDescent, LogLikelihoodTypes::kLogMarginalLikelihood);
   if (error != 0) {
     OL_FAILURE_PRINTF("log likelihood hyperparameter optimization\n");
@@ -213,7 +221,6 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic EI single/multithreaded consistency check\n");
   }
   total_errors += error;
-*/
 
   error = MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode::kMonteCarlo);
   if (error != 0) {
@@ -230,7 +237,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG single/multithreaded consistency check\n");
   }
   total_errors += error;
-/*
+
   error = HeuristicExpectedImprovementOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("Heuristic EI Optimization\n");
@@ -278,7 +285,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo simplex EI optimization\n");
   }
   total_errors += error;
-
+/*
   error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG optimization\n");
@@ -302,9 +309,8 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
   }
   total_errors += error;
-
+*/
   return total_errors;
-
 }
 
 }  // end unnamed namespace

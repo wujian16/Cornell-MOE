@@ -42,7 +42,7 @@
 #include "gpp_random.hpp"
 #include "gpp_test_utils.hpp"
 #include "gpp_knowledge_gradient_optimization.hpp"
-
+#include "gpp_optimizer_parameters.hpp"
 
 namespace optimal_learning {
 
@@ -116,11 +116,17 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
  public:
   constexpr static char const * const kName = "KG with MC integration";
 
-  PingKnowledgeGradient(double const * restrict lengths, double const * restrict points_being_sampled,
+  PingKnowledgeGradient(TensorProductDomain domain, GradientDescentParameters& optimizer_parameters,
+                        double const * restrict lengths, double const * restrict points_being_sampled,
                         double const * restrict points_sampled, double const * restrict points_sampled_value,
                         int const * restrict gradients, double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
                         int num_sampled, int num_mc_iter, int num_pts, int num_gradients) OL_NONNULL_POINTERS
       : dim_(dim),
+        domain_(domain),
+        gdp_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
+             optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
+             optimizer_parameters.gamma, optimizer_parameters.pre_mult,
+             optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
         num_to_sample_(num_to_sample),
         num_being_sampled_(num_being_sampled),
         num_sampled_(num_sampled),
@@ -137,7 +143,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
         sqexp_covariance_(dim_, alpha, lengths),
         gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
                           gradients_.data(), num_gradients_, dim_, num_sampled_),
-        kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, best_so_far){
+        kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far) {
   }
 
   std::vector<double> random_discrete(int dim, int num_pts){
@@ -149,7 +155,6 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
      }
      return randomDiscrete;
   }
-
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
     *num_rows = dim_;
@@ -173,12 +178,15 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = true;
 
-    KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                   num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
-                                                   num_gradients_, configure_for_gradients, &normal_rng);
+    printf("test1\n");
+
+    KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
+                                                                        num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                        num_gradients_, configure_for_gradients, &normal_rng);
+    printf("test2\n");
 
     kg_evaluator_.ComputeGradKnowledgeGradient(&kg_state, grad_KG_.data());
-
+    printf("test3\n");
 
     if (gradients != nullptr) {
       std::copy(grad_KG_.begin(), grad_KG_.end(), gradients);
@@ -197,15 +205,19 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = false;
 
-    KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                   num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
-                                                   num_gradients_, configure_for_gradients, &normal_rng);
+    KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
+                                                                       num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                       num_gradients_, configure_for_gradients, &normal_rng);
     *function_values = kg_evaluator_.ComputeKnowledgeGradient(&kg_state);
   }
 
  private:
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
   int dim_;
+  //! domain
+  TensorProductDomain domain_;
+  //! gradient decent para
+  GradientDescentParameters gdp_;
   //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
   int num_to_sample_;
   //! number of points being sampled concurrently (i.e., the "p" in q,p-EI)
@@ -221,7 +233,6 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   bool gradients_already_computed_;
   // indices of the derivatives' observations.
   std::vector<int> gradients_;
-
 
   //! ``\sigma_n^2``, the noise variance
   std::vector<double> noise_variance_;
@@ -241,11 +252,10 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
   //! expected improvement evaluator object that specifies the parameters & GP for KG evaluation
-  KnowledgeGradientEvaluator kg_evaluator_;
+  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator_;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingKnowledgeGradient);
 };
-
 
 /*!\rst
   Supports evaluating the knowledge gradient, KnowledgeGradientEvaluator::ComputeKnowledgeGradient() and
@@ -277,7 +287,6 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
                           gradients_.data(), num_gradients_, dim_, num_sampled_),
         ps_evaluator_(gaussian_process_){
   }
-
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
     *num_rows = dim_;
@@ -378,6 +387,7 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
 template <typename KGEvaluator>
 OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, double epsilon[2],
                                      double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
+  using DomainType = TensorProductDomain;
   int total_errors = 0;
   int errors_this_iteration;
   const int dim = 3;
@@ -396,16 +406,41 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
 
   MockExpectedImprovementEnvironment KG_environment;
 
-  UniformRandomGenerator uniform_generator(2718);
+  // gradient descent parameters
+  const double gamma = 0.7;
+  const double pre_mult = 1.0;
+  const double max_relative_change = 0.7;
+  const double tolerance = 1.0e-1;
+
+  const int max_gradient_descent_steps = 250;
+  const int max_num_restarts = 3;
+  const int num_steps_averaged = 15;
+
+  GradientDescentParameters gd_params(0, max_gradient_descent_steps, max_num_restarts,
+                                      num_steps_averaged, gamma, pre_mult,
+                                      max_relative_change, tolerance);
+
+  // seed randoms
+  UniformRandomGenerator uniform_generator(314);
+  boost::uniform_real<double> uniform_double_hyperparameter(1.0, 2.5);
+  boost::uniform_real<double> uniform_double_lower_bound(-2.0, 0.5);
+  boost::uniform_real<double> uniform_double_upper_bound(2.5, 5.5);
+
+  //UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
 
   for (int i = 0; i < 1; ++i) {
     KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_gradients);
+    //std::vector<double> noise_variance(num_sampled, 0.0003);
+    MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                          num_gradients, dim, num_sampled, uniform_double_lower_bound,
+                                                          uniform_double_upper_bound, uniform_double_hyperparameter,
+                                                          &uniform_generator);
     for (int j = 0; j < dim; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+    KGEvaluator KG_evaluator(*mock_gp_data.domain_ptr, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);
@@ -428,7 +463,6 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   }
 
   delete [] gradients;
-
   return total_errors;
 };
 
@@ -447,7 +481,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   \return
     number of ping/test failures
 \endrst*/
-template <typename KGEvaluator>
+template <typename PSEvaluator>
 OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
   int total_errors = 0;
   int errors_this_iteration;
@@ -472,14 +506,14 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_sampled(),
+    PSEvaluator PS_evaluator(lengths.data(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_sampled, num_gradients);
 
     //KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_sampled(), KG_environment.points_sampled_value(), alpha, KG_environment.dim, KG_environment.num_to_sample, KG_environment.num_sampled);
-    KG_evaluator.EvaluateAndStoreAnalyticGradient(KG_environment.points_to_sample(), nullptr);
+    PS_evaluator.EvaluateAndStoreAnalyticGradient(KG_environment.points_to_sample(), nullptr);
 
-    errors_this_iteration = PingDerivative(KG_evaluator, KG_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+    errors_this_iteration = PingDerivative(PS_evaluator, KG_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
 
     if (errors_this_iteration != 0) {
       OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
@@ -488,9 +522,9 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
   }
 
   if (total_errors != 0) {
-    OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-PS) gradient pings failed with %d errors\n", KGEvaluator::kName, num_to_sample, 0, total_errors);
+    OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-PS) gradient pings failed with %d errors\n", PSEvaluator::kName, num_to_sample, 0, total_errors);
   } else {
-    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-PS) gradient pings passed\n", KGEvaluator::kName, num_to_sample, 0);
+    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-PS) gradient pings passed\n", PSEvaluator::kName, num_to_sample, 0);
   }
   delete [] gradients;
 
@@ -564,6 +598,7 @@ int RunKGTests() {
   error).
 \endrst*/
 
+/*
 int MultithreadedKGOptimizationTest() {
   using DomainType = TensorProductDomain;
   const int num_sampled = 17;
@@ -785,7 +820,6 @@ int MultithreadedKGOptimizationTest() {
 }
 
 
-
 int EvaluateKGAtPointListTest() {
   using DomainType = TensorProductDomain;
   const int dim = 3;
@@ -900,7 +934,7 @@ int EvaluateKGAtPointListTest() {
 
 
 namespace {  // contains tests of KG optimization
-
+*/
 /*!\rst
   Test that KG optimization works as expected for the monte-carlo evaluator types on a TensorProductDomain.
 
@@ -908,7 +942,7 @@ namespace {  // contains tests of KG optimization
     number of test failures (invalid results, unconverged results, etc.)
 \endrst*/
 
-
+/*
 OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
   using DomainType = TensorProductDomain;
   const int dim = 3;
@@ -1086,7 +1120,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
 
   return total_errors;
 }
-
+*/
 /*!\rst
   Test that KG optimization works as expected for the monte-carlo evaluator types on a SimplexIntersectTensorProductDomain.
 
@@ -1094,7 +1128,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
     number of test failures (invalid results, unconverged results, etc.)
 \endrst*/
 
-
+/*
 OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   using DomainType = SimplexIntersectTensorProductDomain;
   const int dim = 3;
@@ -1293,7 +1327,7 @@ int KnowledgeGradientOptimizationTest(DomainTypes domain_type) {
     }
   }  // end switch over domain_type
 }
-
+*/
 /*!\rst
   At the moment, this test is very bare-bones.  It checks:
 
@@ -1307,6 +1341,7 @@ int KnowledgeGradientOptimizationTest(DomainTypes domain_type) {
   Then it runs KG optimization, attempting to sample 3 points simultaneously.
 \endrst*/
 
+/*
 int KnowledgeGradientOptimizationMultipleSamplesTest() {
   using DomainType = TensorProductDomain;
   const int dim = 3;
@@ -1473,5 +1508,6 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
 
   return total_errors;
 }
+*/
 
 }  // end namespace optimal_learning

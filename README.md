@@ -1,17 +1,15 @@
-Useful links and reminders
+How qKG is related to MOE?
 ====
-1. The [workaround of "fork" public repo into private repo][22]
-2. Google code style:
-    - [Python][23]
-    - [C++][24]
-3. How to name a new branch: ``yourName_issueNumber_description``
-4. [How to contribute code][25]
+1. qKG is built upon MOE, which was open sourced by Yelp.
+2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
+3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] with and without derivative information.
+4. We implement the Bayesian/MCMC versions of qEI and qKG, which are more robust.
+5. We provide one example of optimizing Branin function using qKG in the folder kg_example.
+6. The project is under active development. We are revising all the comments in the code, which will be ready soon.
 
 <p align="center">
     <img src="https://github.com/yelp/MOE/raw/master/moe/static/img/MOE_full_logo.png" alt="MOE Logo">
 </p>
-
-[![Build Status](https://travis-ci.org/Yelp/MOE.svg?branch=master)](https://travis-ci.org/Yelp/MOE)
 
 Metric Optimization Engine. A global, black box optimization engine for real world metric optimization.
 
@@ -90,83 +88,10 @@ The webserver and REST interface is now running on port 6543 from within the con
 
 See [Install Documentation][7]
 
-# Running MOE
-
-## REST/web server and interactive demo
-
-from the directory MOE is installed:
-
-```bash
-$ pserve --reload development.ini # MOE server is now running at http://localhost:6543
-```
-
-[The REST interface documentation][2]
-
-Or, from the command line,
-
-```bash
-$ curl -X POST -H "Content-Type: application/json" -d '{"domain_info": {"dim": 1}, "points_to_evaluate": [[0.1], [0.5], [0.9]], "gp_historical_info": {"points_sampled": [{"value_var": 0.01, "value": 0.1, "point": [0.0]}, {"value_var": 0.01, "value": 0.2, "point": [1.0]}]}}' http://127.0.0.1:6543/gp/ei
-```
-[`gp_ei` endpoint documentation.][4]
-
-## From ipython
-
-```bash
-$ ipython
-> from moe.easy_interface.experiment import Experiment
-> from moe.easy_interface.simple_endpoint import gp_next_points
-> exp = Experiment([[0, 2], [0, 4]])
-> exp.historical_data.append_sample_points([[[0, 0], 1.0, 0.01]])
-> next_point_to_sample = gp_next_points(exp)
-> print next_point_to_sample
-```
-[`easy_interface` documentation.][5]
-
+# Running MOE/qKG
 ## Within Python
 
-See ``examples/next_point_via_simple_endpoint.py`` for this code or http://yelp.github.io/MOE/examples.html for more examples.
-
-```python
-import math
-import random
-
-from moe.easy_interface.experiment import Experiment
-from moe.easy_interface.simple_endpoint import gp_next_points
-from moe.optimal_learning.python.data_containers import SamplePoint
-
-
-# Note: this function can be anything, the output of a batch, results of an A/B experiment, the value of a physical experiment etc.
-def function_to_minimize(x):
-    """Calculate an aribitrary 2-d function with some noise with minimum near [1, 2.6]."""
-    return math.sin(x[0]) * math.cos(x[1]) + math.cos(x[0] + x[1]) + random.uniform(-0.02, 0.02)
-
-if __name__ == '__main__':
-    exp = Experiment([[0, 2], [0, 4]])  # 2D experiment, we build a tensor product domain
-    # Bootstrap with some known or already sampled point(s)
-    exp.historical_data.append_sample_points([
-        SamplePoint([0, 0], function_to_minimize([0, 0]), 0.05),  # Iterables of the form [point, f_val, f_var] are also allowed
-        ])
-
-    # Sample 20 points
-    for i in range(20):
-        # Use MOE to determine what is the point with highest Expected Improvement to use next
-        next_point_to_sample = gp_next_points(exp)[0]  # By default we only ask for one point
-        # Sample the point from our objective function, we can replace this with any function
-        value_of_next_point = function_to_minimize(next_point_to_sample)
-
-        print "Sampled f({0:s}) = {1:.18E}".format(str(next_point_to_sample), value_of_next_point)
-
-        # Add the information about the point to the experiment historical data to inform the GP
-        exp.historical_data.append_sample_points([SamplePoint(next_point_to_sample, value_of_next_point, 0.01)])  # We can add some noise
-```
-
-More examples can be found in the `<MOE_DIR>/examples` directory.
-
-## Within C++
-
-Expected Improvement Demo - http://yelp.github.io/MOE/gpp_expected_improvement_demo.html
-Gaussian Process Hyperparameter Optimization Demo - http://yelp.github.io/MOE/gpp_hyperparameter_optimization_demo.html
-Combined Demo - http://yelp.github.io/MOE/gpp_hyper_and_EI_demo.html
+See the example in kg_example.
 
 # Contributing
 
@@ -202,3 +127,5 @@ MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/lic
 [23]: http://google.github.io/styleguide/pyguide.html
 [24]: https://google.github.io/styleguide/cppguide.html
 [25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request
+[26]: https://papers.nips.cc/paper/6307-the-parallel-knowledge-gradient-method-for-batch-bayesian-optimization
+[27]: https://arxiv.org/abs/1703.04389

@@ -25,6 +25,7 @@
 # Compiled Dynamic libraries
 *.so
 *.dylib
+*.iml
 
 # Compiled Static libraries
 *.lai

@@ -54,7 +54,7 @@ class GaussianProcessLogLikelihoodMCMC:
         self.chain_length = chain_length
         self.burned = False
         self.burnin_steps = burnin_steps
-        self.models = []
+        self._models = []
 
         if rng is None:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
@@ -97,7 +97,7 @@ class GaussianProcessLogLikelihoodMCMC:
 
     @property
     def models(self):
-        return self.models
+        return self._models
 
     def get_historical_data_copy(self):
         """Return the data (points, function values, noise) specifying the prior of the Gaussian Process.
@@ -158,7 +158,7 @@ class GaussianProcessLogLikelihoodMCMC:
             self.hypers = sampler.chain[:, -1]
 
         self.is_trained = True
-        self.models = []
+        self._models = []
         for sample in self.hypers:
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
@@ -168,7 +168,7 @@ class GaussianProcessLogLikelihoodMCMC:
             model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)
-            self.models.append(model)
+            self._models.append(model)
 
     def compute_log_likelihood(self, hyps):
         r"""Compute the objective_type measure at the specified hyperparameters.
@@ -223,5 +223,5 @@ class GaussianProcessLogLikelihoodMCMC:
         # TODO(GH-159): When C++ can pass back numpy arrays, we can stop keeping a duplicate in self._historical_data.
         self._historical_data.append_sample_points(sampled_points)
         if len(self.models) > 0:
-            for model in self.models:
+            for model in self._models:
                 model.add_sampled_points(sampled_points)
