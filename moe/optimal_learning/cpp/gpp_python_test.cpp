@@ -229,7 +229,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("EI single/multithreaded consistency check\n");
   }
   total_errors += error;
-/*
+
   error = MultithreadedKGOptimizationTest();
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG Optimization single/multithreaded consistency check\n");
@@ -253,7 +253,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic EI optimization\n");
   }
   total_errors += error;
-*/
+
   error = ExpectedImprovementOptimizationTest(DomainTypes::kTensorProduct, ExpectedImprovementEvaluationMode::kMonteCarlo);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo tensor EI optimization\n");
@@ -269,7 +269,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo EI optimization for multiple simultaneous experiments\n");
   }
   total_errors += error;
-/*
+
   error = ExpectedImprovementOptimizationTest(DomainTypes::kSimplex, ExpectedImprovementEvaluationMode::kAnalytic);
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic simplex EI optimization\n");
@@ -277,7 +277,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic simplex EI optimization\n");
   }
   total_errors += error;
-*/
+
   error = ExpectedImprovementOptimizationTest(DomainTypes::kSimplex, ExpectedImprovementEvaluationMode::kMonteCarlo);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo simplex EI optimization\n");
@@ -285,7 +285,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo simplex EI optimization\n");
   }
   total_errors += error;
-/*
+
   error = KnowledgeGradientOptimizationTest(DomainTypes::kTensorProduct);
   if (error != 0) {
     OL_FAILURE_PRINTF("monte-carlo KG optimization\n");

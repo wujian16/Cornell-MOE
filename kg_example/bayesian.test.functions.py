@@ -26,6 +26,8 @@ import obj_functions
 # arguments for calling this script:
 # python synthetic.test.functions.py [num_to_sample] [num_lhc] [job_id]
 # example: python bayesian.test.functions.py 10 1000 1
+
+# we can define your own obj_function and then just change the objective_func object below, and run this script.
 argv = sys.argv[1:]
 num_to_sample = int(argv[0])
 lhc_search_itr = int(argv[1])
@@ -57,18 +59,18 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 # initialize the model
 prior = DefaultPrior(1+dim+len(observations), len(observations), noisy = False)
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 50, burnin_steps = 50, n_hypers = 40)
+                                                           chain_length = 50, burnin_steps = 50, n_hypers = 100)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=10, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=50, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.01, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
                                                  num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                  max_relative_change=0.01, tolerance=1.0e-5)
 
@@ -141,12 +143,14 @@ for n in xrange(num_iteration):
     for cpp_gp in cpp_gp_loglikelihood.models:
         test += cpp_gp.compute_mean_of_points(eval_pts)
     test /= len(cpp_gp_loglikelihood.models)
-    report_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim))
+    initial_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim))
 
     ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models)
     py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = python_search_domain)
     ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
-    report_point = multistart_optimize(ps_mean_opt, report_point, num_multistarts = 1)[0]
+    report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
+    if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
+        report_point = initial_point
     report_point = report_point.ravel()
 
     print "recommending the point takes "+str((time.time()-time1)/60)+" mins"

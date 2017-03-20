@@ -249,13 +249,12 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
     }
 
     std::fill(kg_state->aggregate.begin(), kg_state->aggregate.end(), 0.0);
-    /*
+
     if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
         for (int k = 0; k < dim_; ++k) {
             kg_state->aggregate[winner_so_far*dim_ + k] += num_mc_iterations_ * kg_state->grad_mu[winner_so_far*dim_ + k];
         }
     }
-    */
 
     for (int i = 0; i < num_mc_iterations_; ++i) {
         //double *norm = new double[num_union*(1+num_gradients_to_sample)]();
@@ -288,7 +287,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
             }
         }
         */
-
         bool found_flag = false;
         if (winner < num_pts_) {
              ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
