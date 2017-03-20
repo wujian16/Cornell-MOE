@@ -55,7 +55,6 @@ MOE does this internally by:
 
 Externally you can use MOE through:
 
-1. [The REST interface][2]
 2. [The Python interface][9]
 3. [The C++ interface][12]
 
@@ -63,32 +62,12 @@ You can be up and optimizing in a matter of minutes. [Examples of using MOE][13]
 
 # Install
 
-## Install in docker:
-
-This is the recommended way to run the MOE REST server. All dependencies and building is done automatically and in an isolated container.
-
-[Docker (http://docs.docker.io/)][6] is a container based virtualization framework. Unlike traditional virtualization Docker is fast, lightweight and easy to use. Docker allows you to create containers holding all the dependencies for an application. Each container is kept isolated from any other, and nothing gets shared.
-
-```bash
-$ docker pull yelpmoe/latest # You can also pull specific versions like yelpmoe/v0.1.0
-$ docker run -p 6543:6543 yelpmoe/latest
-```
-If you are on OSX, or want a build based on the current master branch you may need to build this manually.
-
-```bash
-$ git clone https://github.com/Yelp/MOE.git
-$ cd MOE
-$ docker build -t moe_container .
-$ docker run -p 6543:6543 moe_container
-```
-
-The webserver and REST interface is now running on port 6543 from within the container. http://localhost:6543
-
 ## Install from source:
 
 See [Install Documentation][7]
 
 # Running MOE/qKG
+
 ## Within Python
 
 See the example in kg_example.
