@@ -35,6 +35,7 @@
 
 #include "gpp_common.hpp"
 #include "gpp_covariance.hpp"
+#include "gpp_domain.hpp"
 #include "gpp_geometry.hpp"
 #include "gpp_linear_algebra.hpp"
 #include "gpp_logging.hpp"
@@ -178,14 +179,11 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = true;
 
-    printf("test1\n");
     KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                                       num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
-                                                                       num_gradients_, configure_for_gradients, &normal_rng);
-    printf("test2\n");
+                                                                        num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                        num_gradients_, configure_for_gradients, &normal_rng);
 
     kg_evaluator_.ComputeGradKnowledgeGradient(&kg_state, grad_KG_.data());
-    printf("test3\n");
 
     if (gradients != nullptr) {
       std::copy(grad_KG_.begin(), grad_KG_.end(), gradients);
@@ -415,15 +413,16 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   const int max_num_restarts = 3;
   const int num_steps_averaged = 15;
 
-  GradientDescentParameters gd_params(0, max_gradient_descent_steps, max_num_restarts,
+  GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
                                       num_steps_averaged, gamma, pre_mult,
                                       max_relative_change, tolerance);
-
+  ClosedInterval * domain_bounds = new ClosedInterval[dim];
+  for (int i=0; i<dim; ++i){
+      domain_bounds[i] = ClosedInterval(-5.0, 5.0);
+  }
+  TensorProductDomain domain(domain_bounds, dim);
   // seed randoms
   UniformRandomGenerator uniform_generator(314);
-  boost::uniform_real<double> uniform_double_hyperparameter(1.0, 2.5);
-  boost::uniform_real<double> uniform_double_lower_bound(-2.0, 0.5);
-  boost::uniform_real<double> uniform_double_upper_bound(2.5, 5.5);
 
   //UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
@@ -431,15 +430,11 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   for (int i = 0; i < 1; ++i) {
     KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_gradients);
     //std::vector<double> noise_variance(num_sampled, 0.0003);
-    MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
-                                                          num_gradients, dim, num_sampled, uniform_double_lower_bound,
-                                                          uniform_double_upper_bound, uniform_double_hyperparameter,
-                                                          &uniform_generator);
     for (int j = 0; j < dim; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(*mock_gp_data.domain_ptr, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+    KGEvaluator KG_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);
@@ -458,7 +453,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   if (total_errors != 0) {
     OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-KG) gradient pings failed with %d errors\n", KGEvaluator::kName, num_to_sample, num_being_sampled, total_errors);
   } else {
-    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-KG) gradient pings passed\n", KGEvaluator::kName, num_being_sampled);
+    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-KG) gradient pings passed\n", KGEvaluator::kName, num_to_sample, num_being_sampled);
   }
 
   delete [] gradients;

@@ -193,7 +193,7 @@ class KnowledgeGradientEvaluator final {
   std::vector<double> train_sample(double const * discrete_pts,
                                    int num_pts, int const * restrict gradients_discrete_pts,
                                    int num_gradients_discrete_pts) const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    std::vector<double> train_discrete(num_pts*(gaussian_process_->num_sampled())*(1+gaussian_process_->num_derivatives()));
+    std::vector<double> train_discrete(num_pts*(1+num_gradients_discrete_pts)*(gaussian_process_->num_sampled())*(1+gaussian_process_->num_derivatives()));
     gaussian_process_->ComputeTrain(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, train_discrete.data());
     return train_discrete;
   }

@@ -102,22 +102,21 @@ for n in xrange(num_iteration):
         eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
         test = cpp_gp.compute_mean_of_points(eval_pts)
-        report_point = eval_pts[np.argmin(test)]
-        print cpp_gp.compute_mean_of_points(report_point.reshape(1, dim))
+        initial_point = eval_pts[np.argmin(test)]
+
         ps_evaluator = PosteriorMean(cpp_gp)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
-        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = report_point, max_num_threads = 4)
-        print cpp_gp.compute_mean_of_points(report_point.reshape(1, dim))
-
+        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
+        if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
+            report_point = initial_point
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
-                                  (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
+                                         (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
         discrete_pts_list.append(discrete_pts_optima)
 
     ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0])
     ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood.models, ps_sgd_optimizer, python_search_domain, discrete_pts_list,
                                                             py_sgd_params_kg, num_to_sample, num_mc=200, lhc_itr=lhc_search_itr)
-
     print "KG takes "+str((time.time()-time1)/60)+" mins"
     time1 = time.time()
 
