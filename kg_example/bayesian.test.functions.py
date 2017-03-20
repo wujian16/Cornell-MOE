@@ -26,8 +26,8 @@ import obj_functions
 # arguments for calling this script:
 # python synthetic.test.functions.py [num_to_sample] [num_lhc] [job_id]
 # example: python bayesian.test.functions.py 10 1000 1
+# you can define your own obj_function and then just change the objective_func object below, and run this script.
 
-# we can define your own obj_function and then just change the objective_func object below, and run this script.
 argv = sys.argv[1:]
 num_to_sample = int(argv[0])
 lhc_search_itr = int(argv[1])
@@ -66,11 +66,11 @@ py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=10, max_num_restart
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=50, max_num_restarts=2,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.01, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
                                                  num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                  max_relative_change=0.01, tolerance=1.0e-5)
 
@@ -99,7 +99,7 @@ for n in xrange(num_iteration):
     discrete_pts_list = []
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
-        discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 20)
+        discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 10)
 
         eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
@@ -149,9 +149,11 @@ for n in xrange(num_iteration):
     py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = python_search_domain)
     ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
     report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
-    if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
+    if ps.compute_posterior_mean_mcmc(report_point.reshape(1, dim)) < ps.compute_posterior_mean_mcmc(initial_point.reshape(1, dim)):
         report_point = initial_point
     report_point = report_point.ravel()
 
+    print "recommended points:"
+    print report_point
     print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
     print "KG, best so far {0}".format(objective_func.evaluate_true(report_point)[0])
