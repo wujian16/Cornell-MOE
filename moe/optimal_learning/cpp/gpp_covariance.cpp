@@ -109,24 +109,99 @@ SquareExponential::SquareExponential(int dim, double alpha, double length)
 
 SquareExponential::SquareExponential(const SquareExponential& OL_UNUSED(source)) = default;
 
+
+
 /*
   Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L^{-1} * (x_1 - x_2)) )``
+  plus the Jessian vector
+  plus the Hessian matrix
 */
-double SquareExponential::Covariance(double const * restrict point_one, double const * restrict point_two) const noexcept {
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  return alpha_*std::exp(-0.5*norm_val);
+void SquareExponential::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                                   double * restrict cov) const noexcept {
+    const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+
+    cov[0] = alpha_*std::exp(-0.5*norm_val);
+    int index = 0;
+    int index1 = 0;
+    int index2 = 0;
+
+    for (int i = 0; i < num_derivatives_one; ++i) {
+        index = derivatives_one[i];
+        cov[i+1] = ((point_two[index] - point_one[index])/lengths_sq_[index]) * cov[0];
+    }
+    for (int i = 0; i < num_derivatives_two; ++i) {
+        index = derivatives_two[i];
+        cov[(i+1)*(1+num_derivatives_one)] = ((point_one[index] - point_two[index])/lengths_sq_[index]) * cov[0];
+    }
+
+    for (int i = 0; i < num_derivatives_one; ++i) {
+        for (int j = 0; j < num_derivatives_two; ++j) {
+            index1 = derivatives_one[i];
+            index2 = derivatives_two[j];
+            cov[(i+1)+(j+1)*(1+num_derivatives_one)] = ((point_two[index1] - point_one[index1])/lengths_sq_[index1]) *
+                                                       ((point_one[index2] - point_two[index2])/lengths_sq_[index2]) * cov[0];
+            if(index1 == index2){
+                cov[(i+1)+(j+1)*(1+num_derivatives_one)] += cov[0]/lengths_sq_[index2];
+            }
+        }
+    }
 }
 
 /*
   Gradient of Square Exponential (wrt ``x_1``):
   ``\pderiv{cov(x_1, x_2)}{x_{1,i}} = (x_{2,i} - x_{1,i}) / L_{i}^2 * cov(x_1, x_2)``
+  the gradient of the above matrix Cov wrt to the first point x1.
 */
-void SquareExponential::GradCovariance(double const * restrict point_one, double const * restrict point_two,
+void SquareExponential::GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                       double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                        double * restrict grad_cov) const noexcept {
-  const double cov = Covariance(point_one, point_two);
+
+  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+  const double cov = alpha_*std::exp(-0.5*norm_val);
+
+  int index1 = 0;
+  int index2 = 0;
 
   for (int i = 0; i < dim_; ++i) {
-    grad_cov[i] = (point_two[i] - point_one[i])/lengths_sq_[i]*cov;
+      grad_cov[i] = (point_two[i] - point_one[i])/lengths_sq_[i]*cov;
+      for (int m = 0; m < num_derivatives_one; ++m){
+          index1 = derivatives_one[m];
+          grad_cov[i + (m+1)*dim_] = (point_two[i] - point_one[i])/lengths_sq_[i] *
+                                     (point_two[index1] - point_one[index1])/lengths_sq_[index1]*cov;
+          if (i == index1){
+              grad_cov[i + (m+1)*dim_] -= cov/lengths_sq_[index1];
+          }
+      }
+      for (int n =0; n < num_derivatives_two; ++n){
+          index2 = derivatives_two[n];
+          grad_cov[i + (n+1)*dim_*(num_derivatives_one+1)] = (point_two[i] - point_one[i])/lengths_sq_[i] *
+                                                             (point_one[index2] - point_two[index2])/lengths_sq_[index2]*cov;
+          if (i == index2){
+              grad_cov[i + (n+1)*dim_*(num_derivatives_one+1)] += cov/lengths_sq_[index2];
+          }
+      }
+      for (int m = 0; m < num_derivatives_one; ++m){
+          index1 = derivatives_one[m];
+          for (int n = 0; n < num_derivatives_two; ++n){
+              index2 = derivatives_two[n];
+              grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] = (point_two[index1] - point_one[index1])/lengths_sq_[index1] *
+                                                                             (point_one[index2] - point_two[index2])/lengths_sq_[index2];
+              if (index1 == index2){
+                  grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] += 1/lengths_sq_[index1];
+              }
+              grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] *= (point_two[i] - point_one[i])/lengths_sq_[i];
+              if (index1 == i){
+                  grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] -= (point_one[index2] - point_two[index2])/
+                                                                                  (lengths_sq_[index1] * lengths_sq_[index2]);
+              }
+              if (index2 == i){
+                  grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] += (point_two[index1] - point_one[index1])/
+                                                                                  (lengths_sq_[index1] * lengths_sq_[index2]);
+              }
+              grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] *= cov;
+          }
+      }
   }
 }
 
@@ -135,19 +210,83 @@ void SquareExponential::GradCovariance(double const * restrict point_one, double
   ``\pderiv{cov(x_1, x_2)}{\theta_0} = cov(x_1, x_2) / \theta_0``
   ``\pderiv{cov(x_1, x_2)}{\theta_0} = [(x_{1,i} - x_{2,i}) / L_i]^2 / L_i * cov(x_1, x_2)``
   Note: ``\theta_0 = \alpha`` and ``\theta_{1:d} = L_{0:d-1}``
+
+  output:
+  double: (dim+1) * (num_derivatives_+1) * (num_derivatives_+1)
 */
-void SquareExponential::HyperparameterGradCovariance(double const * restrict point_one, double const * restrict point_two,
+void SquareExponential::HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                                     double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                                      double * restrict grad_hyperparameter_cov) const noexcept {
-  const double cov = Covariance(point_one, point_two);
+  double * cov_matrix = new double[(num_derivatives_one+1)*(num_derivatives_two+1)]();
+  Covariance(point_one, derivatives_one, num_derivatives_one,
+             point_two, derivatives_two, num_derivatives_two, cov_matrix);
+
+  int index1 = 0;
+  int index2 = 0;
 
   // deriv wrt alpha does not have the same form as the length terms, special case it
-  grad_hyperparameter_cov[0] = cov/alpha_;
+  grad_hyperparameter_cov[0] = cov_matrix[0]/alpha_;
   for (int i = 0; i < dim_; ++i) {
-    grad_hyperparameter_cov[i+1] = cov*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+      grad_hyperparameter_cov[i+1] = cov_matrix[0]*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
   }
+
+  for (int m = 0; m < num_derivatives_one; ++m){
+      grad_hyperparameter_cov[(m+1)*(dim_+1)] = cov_matrix[m+1]/alpha_;
+      index1 = derivatives_one[m];
+      for (int i = 0; i < dim_; ++i) {
+          grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] = cov_matrix[m+1]*
+                                                        Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+          if (index1 == i){
+              grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] -= (2*cov_matrix[0]*(point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
+          }
+      }
+  }
+
+  for (int n = 0; n < num_derivatives_two; ++n){
+      grad_hyperparameter_cov[(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]/alpha_;
+      index2 = derivatives_two[n];
+      for (int i = 0; i < dim_; ++i){
+          grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]*
+                                                                             Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+          if (index2 == i){
+              grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]*(point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
+          }
+      }
+  }
+
+  for (int m = 0; m < num_derivatives_one; ++m){
+      index1 = derivatives_one[m];
+      for (int n = 0; n < num_derivatives_two; ++n){
+          index2 = derivatives_two[n];
+          grad_hyperparameter_cov[(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]/alpha_;
+          for (int i = 0; i < dim_; ++i){
+              grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]*
+                                                                                          Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+              if (index1 == index2){
+                  if (index1 == i){
+                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] += ((4*cov_matrix[0]*Square(point_one[i]-point_two[i])/
+                                                                                                   lengths_sq_[i])/lengths_sq_[i])/lengths_[i];
+                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]/lengths_sq_[i])/lengths_[i];
+                  }
+              }
+              else{
+                  if (index1 == i){
+                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[(n+1)*(num_derivatives_one+1)]*
+                                                                                                   (point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
+                  }
+                  if (index2 == i){
+                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[m+1]*
+                                                                                                   (point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
+                  }
+              }
+          }
+      }
+  }
+
+  delete [] cov_matrix;
 }
 
-void SquareExponential::HyperparameterHessianCovariance(double const * restrict point_one, double const * restrict point_two,
+/*void SquareExponential::HyperparameterHessianCovariance(double const * restrict point_one, double const * restrict point_two,
                                                         double * restrict hessian_hyperparameter_cov) const noexcept {
   const double cov = Covariance(point_one, point_two);
   const int num_hyperparameters = GetNumberOfHyperparameters();
@@ -193,13 +332,13 @@ void SquareExponential::HyperparameterHessianCovariance(double const * restrict 
     hessian_hyperparameter_cov += num_hyperparameters;
     hessian_hyperparameter_cov_row += 1;
   }
-}
+}*/
 
 CovarianceInterface * SquareExponential::Clone() const {
   return new SquareExponential(*this);
 }
 
-namespace {
+/*namespace {
 
 // computes ||p1 - p2||_2 if all entries of L == 1
 OL_PURE_FUNCTION OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT double
@@ -531,6 +670,6 @@ void MaternNu2p5::HyperparameterHessianCovariance(double const * restrict point_
 
 CovarianceInterface * MaternNu2p5::Clone() const {
   return new MaternNu2p5(*this);
-}
+}*/
 
 }  // end namespace optimal_learning

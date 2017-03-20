@@ -47,7 +47,7 @@ class SamplePoint(_BaseSamplePoint):
         """Convert the sample_point into a dict to be consumed by json for a REST request."""
         return {
                 'point': list(self.point),  # json needs a list (e.g., this may be a ndarray)
-                'value': self.value,
+                'value': list(self.value),
                 'value_var': self.noise_variance,
                 }
 
@@ -67,7 +67,7 @@ class SamplePoint(_BaseSamplePoint):
         # check that all values are finite
         if not numpy.isfinite(self.point).all():
             raise ValueError('point = {0} contains non-finite values!'.format(self.point))
-        if not numpy.isfinite(self.value):
+        if not numpy.isfinite(self.value).all():
             raise ValueError('value = {0} is non-finite!'.format(self.value))
         if not numpy.isfinite(self.noise_variance) or self.noise_variance < 0.0:
             raise ValueError('value = {0} is non-finite or negative!'.format(self.noise_variance))
@@ -101,9 +101,9 @@ class HistoricalData(object):
 
     """
 
-    __slots__ = ('_dim', '_points_sampled', '_points_sampled_value', '_points_sampled_noise_variance')
+    __slots__ = ('_dim', '_num_derivatives', '_points_sampled', '_points_sampled_value', '_points_sampled_noise_variance')
 
-    def __init__(self, dim, sample_points=None, validate=False):
+    def __init__(self, dim, num_derivatives, sample_points=None, validate=False):
         """Create a HistoricalData object tracking the state of an experiment (already-sampled points, values, and noise).
 
         :param dim: number of spatial dimensions; must line up with len(sample_points[0]) if sample_points is empty
@@ -117,13 +117,14 @@ class HistoricalData(object):
         if sample_points is None:
             sample_points = []
 
+        self._num_derivatives = num_derivatives
         num_sampled = len(sample_points)
         self._dim = dim
         if validate:
             self.validate_sample_points(dim, sample_points)
 
         self._points_sampled = numpy.empty((num_sampled, self.dim))
-        self._points_sampled_value = numpy.empty(num_sampled)
+        self._points_sampled_value = numpy.empty((num_sampled, 1+self.num_derivatives))
         self._points_sampled_noise_variance = numpy.empty(num_sampled)
 
         self._update_historical_data(0, sample_points)
@@ -195,7 +196,7 @@ class HistoricalData(object):
             raise ValueError('Input dim = {0:d} is non-positive.'.format(dim))
 
         # Check that all array leading dimensions are the same
-        if points_sampled.shape[0] != points_sampled_value.size or points_sampled.shape[0] != points_sampled_noise_variance.size:
+        if points_sampled.shape[0] != points_sampled_value.shape[0] or points_sampled.shape[0] != points_sampled_noise_variance.size:
             raise ValueError('Input arrays do not have the same leading dimension: (points_sampled, value, noise) = ({0:d}, {1:d}, {2:d})'.format(points_sampled.shape[0], points_sampled_value.size, points_sampled_noise_variance.size))
 
         if points_sampled.shape[0] > 0:
@@ -221,7 +222,7 @@ class HistoricalData(object):
         offset = self.num_sampled
         num_sampled = self.num_sampled + len(sample_points)
         self._points_sampled.resize((num_sampled, self.dim))
-        self._points_sampled_value.resize(num_sampled)
+        self._points_sampled_value.resize((num_sampled, self.num_derivatives+1))
         self._points_sampled_noise_variance.resize(num_sampled)
 
         self._update_historical_data(offset, sample_points)
@@ -249,7 +250,7 @@ class HistoricalData(object):
             self.validate_historical_data(self.dim, points_sampled, points_sampled_value, points_sampled_noise_variance)
 
         self._points_sampled = numpy.append(self._points_sampled, points_sampled, axis=0)
-        self._points_sampled_value = numpy.append(self._points_sampled_value, points_sampled_value)
+        self._points_sampled_value = numpy.append(self._points_sampled_value, points_sampled_value, axis=0)
         self._points_sampled_noise_variance = numpy.append(self._points_sampled_noise_variance, points_sampled_noise_variance)
 
     def to_list_of_sample_points(self):
@@ -261,7 +262,7 @@ class HistoricalData(object):
         :rtype: list of :class:`moe.optimal_learning.python.SamplePoint`
 
         """
-        return [SamplePoint(numpy.copy(self._points_sampled[i]), self._points_sampled_value[i], noise_variance=self._points_sampled_noise_variance[i])
+        return [SamplePoint(numpy.copy(self._points_sampled[i]), numpy.copy(self._points_sampled_value[i]), noise_variance=self._points_sampled_noise_variance[i])
                 for i in xrange(self.num_sampled)]
 
     def _update_historical_data(self, offset, sample_points):
@@ -276,13 +277,19 @@ class HistoricalData(object):
         for i, sample_point in enumerate(sample_points):
             point, value, noise_variance = sample_point
             numpy.copyto(self._points_sampled[offset + i], point)
-            self._points_sampled_value[offset + i] = value
+            numpy.copyto(self._points_sampled_value[offset + i], value)
+            #self._points_sampled_value[offset + i] = value
             self._points_sampled_noise_variance[offset + i] = noise_variance
 
     @property
     def dim(self):
         """Return the number of spatial dimensions of a point in ``self.points_sampled``."""
         return self._dim
+
+    @property
+    def num_derivatives(self):
+        """Return the number of derivatives' observationsof a point in ``self.points_sampled``."""
+        return self._num_derivatives
 
     @property
     def num_sampled(self):
@@ -303,3 +310,7 @@ class HistoricalData(object):
     def points_sampled_noise_variance(self):
         """Return the noise variances associated with function values measured at each of ``self.points_sampled``, array of floa664 with shape (self.num_sampled)."""
         return self._points_sampled_noise_variance
+
+    @property
+    def num_derivatives(self):
+        return self._num_derivatives

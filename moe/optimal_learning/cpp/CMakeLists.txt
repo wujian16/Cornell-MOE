@@ -87,14 +87,15 @@ set(OPTIMAL_LEARNING_CORE_SOURCES
   gpp_covariance.cpp
   gpp_domain.cpp
   gpp_exception.cpp
-  gpp_heuristic_expected_improvement_optimization.cpp
+  #gpp_heuristic_expected_improvement_optimization.cpp
   gpp_linear_algebra.cpp
   gpp_logging.cpp
   gpp_math.cpp
   gpp_model_selection.cpp
   gpp_random.cpp
-  gpp_expected_improvement_gpu.cpp
+  #gpp_expected_improvement_gpu.cpp
   gpp_knowledge_gradient_optimization.cpp
+  gpp_knowledge_gradient_inner_optimization.cpp
   )
 
 # readonly
@@ -102,16 +103,17 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_covariance_test.cpp
   gpp_domain_test.cpp
   gpp_geometry_test.cpp
-  gpp_heuristic_expected_improvement_optimization_test.cpp
+  #gpp_heuristic_expected_improvement_optimization_test.cpp
   gpp_linear_algebra_test.cpp
   gpp_math_test.cpp
   gpp_knowledge_gradient_optimization_test.cpp
+  gpp_knowledge_gradient_inner_optimization_test.cpp
   gpp_model_selection_test.cpp
   gpp_optimization_test.cpp
   gpp_random_test.cpp
   gpp_test_utils.cpp
   gpp_test_utils_test.cpp
-  gpp_expected_improvement_gpu_test.cpp
+  #gpp_expected_improvement_gpu_test.cpp
   )
 
 # readonly
@@ -133,11 +135,11 @@ set(DEMO_NAMES
   )
 
 # readonly
-set(DEMO_SOURCES
-  gpp_hyperparameter_optimization_demo.cpp
-  gpp_expected_improvement_demo.cpp
-  gpp_hyper_and_EI_demo.cpp
-  )
+#set(DEMO_SOURCES
+#  gpp_hyperparameter_optimization_demo.cpp
+#  gpp_expected_improvement_demo.cpp
+#  gpp_hyper_and_EI_demo.cpp
+#  )
 
 #### Extra flags and definitions
 # These are meant to be reasonable defaults. Users should feel free to alter the definitions (changing
@@ -409,15 +411,15 @@ set_target_properties(
   )
 
 #### Demo executables
-set(dependencies $<TARGET_OBJECTS:OPTIMAL_LEARNING_CORE_BUNDLE> gpp_test_utils.cpp)
-configure_exec_targets(
-  "${DEMO_NAMES}"
-  "${DEMO_SOURCES}"
-  "${dependencies}"
-  "${EXTRA_COMPILE_FLAGS}"
-  "${EXTRA_COMPILE_DEFINITIONS}"
-  )
+#set(dependencies $<TARGET_OBJECTS:OPTIMAL_LEARNING_CORE_BUNDLE> gpp_test_utils.cpp)
+#configure_exec_targets(
+#  "${DEMO_NAMES}"
+#  "${DEMO_SOURCES}"
+#  "${dependencies}"
+#  "${EXTRA_COMPILE_FLAGS}"
+#  "${EXTRA_COMPILE_DEFINITIONS}"
+#  )
 
 # Dummy target named "demos" that builds all demos
-add_custom_target(demos)
-add_dependencies(demos ${DEMO_NAMES})
+#add_custom_target(demos)
+#add_dependencies(demos ${DEMO_NAMES})

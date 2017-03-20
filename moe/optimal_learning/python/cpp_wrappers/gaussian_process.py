@@ -53,7 +53,7 @@ class GaussianProcess(GaussianProcessInterface):
 
     """
 
-    def __init__(self, covariance_function, historical_data):
+    def __init__(self, covariance_function, noise_variance, historical_data, derivatives):
         """Construct a GaussianProcess object that knows how to call C++ for evaluation of member functions.
 
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
@@ -67,12 +67,20 @@ class GaussianProcess(GaussianProcessInterface):
 
         self._historical_data = copy.deepcopy(historical_data)
 
+        self._noise_variance = copy.deepcopy(noise_variance)
+
+        self._derivatives = copy.deepcopy(derivatives)
+
+        self._num_derivatives = len(cpp_utils.cppify(self._derivatives))
+
         # C++ will maintain its own copy of the contents of hyperparameters and historical_data
         self._gaussian_process = C_GP.GaussianProcess(
             cpp_utils.cppify_hyperparameters(self._covariance.hyperparameters),
-            cpp_utils.cppify(historical_data.points_sampled),
-            cpp_utils.cppify(historical_data.points_sampled_value),
-            cpp_utils.cppify(historical_data.points_sampled_noise_variance),
+            cpp_utils.cppify(self._historical_data.points_sampled),
+            cpp_utils.cppify(self._historical_data.points_sampled_value),
+            cpp_utils.cppify(self._noise_variance),
+            cpp_utils.cppify(self._derivatives),
+            self._num_derivatives,
             self._historical_data.dim,
             self._historical_data.num_sampled,
         )
@@ -87,6 +95,10 @@ class GaussianProcess(GaussianProcessInterface):
         """Return the number of sampled points."""
         return self._gaussian_process.num_sampled
 
+    @property
+    def num_derivatives(self):
+        return self._num_derivatives
+
     def get_covariance_copy(self):
         """Return a copy of the covariance object specifying the Gaussian Process.
 
@@ -97,9 +109,26 @@ class GaussianProcess(GaussianProcessInterface):
         return copy.deepcopy(self._covariance)
 
     @property
+    def derivatives(self):
+        return numpy.copy(self._derivatives)
+
+    @property
+    def noise_variance(self):
+        """
+        Return the noise variance of the observations
+        :return:
+        """
+        return numpy.copy(self._noise_variance)
+
+    @property
     def _points_sampled_value(self):
         """Return the function values measured at each of points_sampled; see :class:`moe.optimal_learning.python.data_containers.HistoricalData`."""
-        return self._historical_data.points_sampled_value
+        return numpy.copy(self._historical_data.points_sampled_value)
+
+    @property
+    def _points_sampled(self):
+        """return the points sampled"""
+        return numpy.copy(self._historical_data.points_sampled)
 
     def get_historical_data_copy(self):
         """Return the data (points, function values, noise) specifying the prior of the Gaussian Process.
@@ -178,7 +207,7 @@ class GaussianProcess(GaussianProcessInterface):
             cpp_utils.cppify(points_to_sample[:num_derivatives, ...]),
             num_derivatives,
         )
-        return cpp_utils.uncppify(grad_mu, (num_derivatives, self.dim))
+        return cpp_utils.uncppify(grad_mu, (num_derivatives, (1 + self._num_derivatives), self.dim))
 
     def compute_variance_of_points(self, points_to_sample):
         r"""Compute the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
@@ -201,7 +230,7 @@ class GaussianProcess(GaussianProcessInterface):
             cpp_utils.cppify(points_to_sample),
             num_to_sample,
         )
-        return cpp_utils.uncppify(variance, (num_to_sample, num_to_sample))
+        return cpp_utils.uncppify(variance, (num_to_sample*(1 + self._num_derivatives), num_to_sample*(1 + self._num_derivatives)))
 
     def compute_cholesky_variance_of_points(self, points_to_sample):
         r"""Compute the cholesky factorization of the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
@@ -219,7 +248,7 @@ class GaussianProcess(GaussianProcessInterface):
             cpp_utils.cppify(points_to_sample),
             num_to_sample,
         )
-        return cpp_utils.uncppify(cholesky_variance, (num_to_sample, num_to_sample))
+        return cpp_utils.uncppify(cholesky_variance, (num_to_sample*(1 + self._num_derivatives), num_to_sample*(1 + self._num_derivatives)))
 
     def compute_grad_variance_of_points(self, points_to_sample, num_derivatives=-1):
         r"""Compute the gradient of the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) wrt ``Xs``.
@@ -248,7 +277,7 @@ class GaussianProcess(GaussianProcessInterface):
             num_to_sample,
             num_derivatives,
         )
-        return cpp_utils.uncppify(grad_variance, (num_derivatives, num_to_sample, num_to_sample, self.dim))
+        return cpp_utils.uncppify(grad_variance, (num_derivatives, num_to_sample*(1 + self._num_derivatives), num_to_sample*(1 + self._num_derivatives), self.dim))
 
     def compute_grad_cholesky_variance_of_points(self, points_to_sample, num_derivatives=-1):
         r"""Compute the gradient of the cholesky factorization of the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) wrt ``Xs``.
@@ -284,7 +313,7 @@ class GaussianProcess(GaussianProcessInterface):
             num_to_sample,
             num_derivatives,
         )
-        return cpp_utils.uncppify(grad_chol_decomp, (num_derivatives, num_to_sample, num_to_sample, self.dim))
+        return cpp_utils.uncppify(grad_chol_decomp, (num_derivatives, num_to_sample*(1 + self._num_derivatives), num_to_sample*(1 + self._num_derivatives), self.dim))
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.
@@ -305,7 +334,7 @@ class GaussianProcess(GaussianProcessInterface):
         self._gaussian_process.add_sampled_points(
             cpp_utils.cppify(self._historical_data.points_sampled[num_sampled_prev:, ...]),
             cpp_utils.cppify(self._historical_data.points_sampled_value[num_sampled_prev:]),
-            cpp_utils.cppify(self._historical_data.points_sampled_noise_variance[num_sampled_prev:]),
+            # cpp_utils.cppify(self._historical_data.points_sampled_noise_variance[num_sampled_prev:]),
             num_to_add,
         )
 
@@ -335,5 +364,24 @@ class GaussianProcess(GaussianProcessInterface):
         """
         return self._gaussian_process.sample_point_from_gp(
             cpp_utils.cppify(point_to_sample),
-            noise_variance,
+#            noise_variance,
         )
+
+    def sample_global_optima(self,
+            num_optima,
+            inner_number,
+            domain,
+    ):
+        """
+        :param gaussian_process:
+        :param num_optima:
+        :param inner_number:
+        :param domain:
+        :return:
+        """
+        global_optima_points = self._gaussian_process.sample_global_optima(
+            num_optima,
+            inner_number,
+            cpp_utils.cppify(domain.domain_bounds),
+        )
+        return cpp_utils.uncppify(global_optima_points, (num_optima, self.dim))

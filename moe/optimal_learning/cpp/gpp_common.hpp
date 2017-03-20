@@ -82,7 +82,7 @@
          loop branches are very common or uncommon (do not be overzealous with this!)
       e. we also use several gcc attributes:
 
-         * ``unused``: suppresses compiler warnings when we expect variables/functions to be unsused
+         * ``unused``: suppresses compiler warnings when we expect variables/functions to be unused
          * ``nonnull_pointers``: compiler warnings when pointer args are ``nullptr`` (see details for special case with class member fcns)
          * ``warn_unused_result``: compiler warning when return value is unused
          * ``__pure__, __const__``: describes a function's dependencies/effects on global state

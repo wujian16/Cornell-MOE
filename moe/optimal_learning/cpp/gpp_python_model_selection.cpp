@@ -45,28 +45,29 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                    int dim, int num_sampled,
                                    LogLikelihoodTypes objective_type,
                                    const boost::python::list& hyperparameters,
+                                   const boost::python::list& derivatives,
+                                   int num_derivatives,
                                    const boost::python::list& noise_variance) {
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value,
-                                                noise_variance, points_to_sample_dummy, dim, num_sampled,
-                                                num_to_sample);
 
-  MaternNu2p5 matern_25(input_container.dim, input_container.alpha,
-                                       input_container.lengths.data());
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
       LogMarginalLikelihoodEvaluator log_marginal_eval(input_container.points_sampled.data(),
                                                        input_container.points_sampled_value.data(),
-                                                       input_container.noise_variance.data(),
-                                                       input_container.dim,
-                                                       input_container.num_sampled);
-      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, matern_25);
+                                                       input_container.derivatives.data(), input_container.num_derivatives,
+                                                       input_container.dim, input_container.num_sampled);
+      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, sqexp, input_container.noise_variance);
 
       double log_likelihood = log_marginal_eval.ComputeLogLikelihood(log_marginal_state);
       return log_likelihood;
     }  // end case LogLikelihoodTypes::kLogMarginalLikelihood
-    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
+/*    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
       LeaveOneOutLogLikelihoodEvaluator leave_one_out_eval(input_container.points_sampled.data(),
                                                            input_container.points_sampled_value.data(),
                                                            input_container.noise_variance.data(),
@@ -76,7 +77,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
 
       double loo_likelihood = leave_one_out_eval.ComputeLogLikelihood(leave_one_out_state);
       return loo_likelihood;
-    }
+    }*/
     default: {
       double log_likelihood = -std::numeric_limits<double>::max();
       OL_THROW_EXCEPTION(OptimalLearningException, "ERROR: invalid objective mode choice. Setting log likelihood to -DBL_MAX.");
@@ -90,29 +91,30 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
                                                                   int dim, int num_sampled,
                                                                   LogLikelihoodTypes objective_type,
                                                                   const boost::python::list& hyperparameters,
+                                                                  const boost::python::list& derivatives,
+                                                                  int num_derivatives,
                                                                   const boost::python::list& noise_variance) {
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value,
-                                                noise_variance, points_to_sample_dummy, dim, num_sampled,
-                                                num_to_sample);
 
-  MaternNu2p5 matern_25(input_container.dim, input_container.alpha,
-                                       input_container.lengths.data());
-  std::vector<double> grad_log_likelihood(matern_25.GetNumberOfHyperparameters());
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+
+  std::vector<double> grad_log_likelihood(sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives);
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
       LogMarginalLikelihoodEvaluator log_marginal_eval(input_container.points_sampled.data(),
                                                        input_container.points_sampled_value.data(),
-                                                       input_container.noise_variance.data(),
-                                                       input_container.dim,
-                                                       input_container.num_sampled);
-      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, matern_25);
+                                                       input_container.derivatives.data(), input_container.num_derivatives,
+                                                       input_container.dim, input_container.num_sampled);
+      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, sqexp, input_container.noise_variance);
 
       log_marginal_eval.ComputeGradLogLikelihood(&log_marginal_state, grad_log_likelihood.data());
       break;
     }  // end case LogLikelihoodTypes::kLogMarginalLikelihood
-    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
+/*    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
       LeaveOneOutLogLikelihoodEvaluator leave_one_out_eval(input_container.points_sampled.data(),
                                                            input_container.points_sampled_value.data(),
                                                            input_container.noise_variance.data(),
@@ -122,14 +124,13 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
 
       leave_one_out_eval.ComputeGradLogLikelihood(&leave_one_out_state, grad_log_likelihood.data());
       break;
-    }
+    }*/
     default: {
       std::fill(grad_log_likelihood.begin(), grad_log_likelihood.end(), std::numeric_limits<double>::max());
       OL_THROW_EXCEPTION(OptimalLearningException, "ERROR: invalid objective mode choice. Setting all gradients to DBL_MAX.");
       break;
     }
   }  // end switch over objective_type
-
   return VectorToPylist(grad_log_likelihood);
 }
 
@@ -162,6 +163,7 @@ template <typename LogLikelihoodEvaluator>
 void DispatchHyperparameterOptimization(const boost::python::object& optimizer_parameters,
                                         const LogLikelihoodEvaluator& log_likelihood_eval,
                                         const CovarianceInterface& covariance,
+                                        const std::vector<double> noise_variance,
                                         ClosedInterval const * restrict hyperparameter_domain,
                                         OptimizerTypes optimizer_type, int max_num_threads,
                                         RandomnessSourceContainer& randomness_source,
@@ -173,7 +175,7 @@ void DispatchHyperparameterOptimization(const boost::python::object& optimizer_p
       // optimizer_parameters must contain an int num_random_samples field, extract it
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_guided);
-      LatinHypercubeSearchHyperparameterOptimization(log_likelihood_eval, covariance, hyperparameter_domain,
+      LatinHypercubeSearchHyperparameterOptimization(log_likelihood_eval, covariance, noise_variance, hyperparameter_domain,
                                                      thread_schedule, num_random_samples, &found_flag,
                                                      &randomness_source.uniform_generator, new_hyperparameters);
       status[std::string(log_likelihood_eval.kName) + "_lhc_found_update"] = found_flag;
@@ -184,7 +186,7 @@ void DispatchHyperparameterOptimization(const boost::python::object& optimizer_p
       // of type GradientDescentParameters. extract it
       const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
-      MultistartGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance,
+      MultistartGradientDescentHyperparameterOptimization(log_likelihood_eval, covariance, noise_variance,
                                                           gradient_descent_parameters,
                                                           hyperparameter_domain,
                                                           thread_schedule, &found_flag,
@@ -193,7 +195,7 @@ void DispatchHyperparameterOptimization(const boost::python::object& optimizer_p
       status[std::string(log_likelihood_eval.kName) + "_gradient_descent_found_update"] = found_flag;
       break;
     }  // end case kGradientDescent for optimizer_type
-    case OptimizerTypes::kNewton: {
+/*    case OptimizerTypes::kNewton: {
       // optimizer_parameters must contain a optimizer_parameters field
       // of type NewtonParameters. extract it
       const NewtonParameters& newton_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
@@ -205,9 +207,9 @@ void DispatchHyperparameterOptimization(const boost::python::object& optimizer_p
                                                  new_hyperparameters);
       status[std::string(log_likelihood_eval.kName) + "_newton_found_update"] = found_flag;
       break;
-    }  // end case kNewton for optimizer_type
+    }  // end case kNewton for optimizer_type */
     default: {
-      std::fill(new_hyperparameters, new_hyperparameters + covariance.GetNumberOfHyperparameters(), 1.0);
+      std::fill(new_hyperparameters, new_hyperparameters + covariance.GetNumberOfHyperparameters() + noise_variance.size(), 1.0);
       OL_THROW_EXCEPTION(OptimalLearningException, "ERROR: invalid optimizer choice. Setting all hyperparameters to 1.0.");
       break;
     }
@@ -221,20 +223,21 @@ boost::python::list MultistartHyperparameterOptimizationWrapper(const boost::pyt
                                                                 int dim, int num_sampled,
                                                                 const boost::python::list& hyperparameters,
                                                                 const boost::python::list& noise_variance,
-                                                                int max_num_threads,
+                                                                const boost::python::list& derivatives,
+                                                                int num_derivatives, int max_num_threads,
                                                                 RandomnessSourceContainer& randomness_source,
                                                                 boost::python::dict& status) {
   // TODO(GH-131): make domain objects constructible from python; and pass them in through
   // the optimizer_parameters python object
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled,
-                                                points_sampled_value, noise_variance,
-                                                points_to_sample_dummy, dim, num_sampled,
-                                                num_to_sample);
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  MaternNu2p5 matern_25(input_container.dim, input_container.alpha, input_container.lengths.data());
-  int num_hyperparameters = matern_25.GetNumberOfHyperparameters();
+
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+
+  int num_hyperparameters = sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives;
   std::vector<double> new_hyperparameters(num_hyperparameters);
 
   std::vector<ClosedInterval> hyperparameter_domain_C(num_hyperparameters);
@@ -246,15 +249,15 @@ boost::python::list MultistartHyperparameterOptimizationWrapper(const boost::pyt
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
       LogMarginalLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
                                                          input_container.points_sampled_value.data(),
-                                                         input_container.noise_variance.data(),
+                                                         input_container.derivatives.data(), input_container.num_derivatives,
                                                          input_container.dim, input_container.num_sampled);
 
-      DispatchHyperparameterOptimization(optimizer_parameters, log_likelihood_eval, matern_25,
+      DispatchHyperparameterOptimization(optimizer_parameters, log_likelihood_eval, sqexp, input_container.noise_variance,
                                          hyperparameter_domain_C.data(), optimizer_type, max_num_threads,
                                          randomness_source, status, new_hyperparameters.data());
       break;
     }  // end case LogLikelihoodTypes::kLogMarginalLikelihood
-    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
+/*    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
       LeaveOneOutLogLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
                                                             input_container.points_sampled_value.data(),
                                                             input_container.noise_variance.data(),
@@ -264,7 +267,7 @@ boost::python::list MultistartHyperparameterOptimizationWrapper(const boost::pyt
                                          hyperparameter_domain_C.data(), optimizer_type, max_num_threads,
                                          randomness_source, status, new_hyperparameters.data());
       break;
-    }  // end case LogLikelihoodTypes::kLeaveOneOutLogLikelihood
+    }  // end case LogLikelihoodTypes::kLeaveOneOutLogLikelihood*/
     default: {
       std::fill(new_hyperparameters.begin(), new_hyperparameters.end(), 1.0);
       OL_THROW_EXCEPTION(OptimalLearningException, "ERROR: invalid objective type choice. Setting all hyperparameters to 1.0.");
@@ -282,21 +285,22 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
                                                                      LogLikelihoodTypes objective_mode,
                                                                      const boost::python::list& hyperparameters,
                                                                      const boost::python::list& noise_variance,
+                                                                     const boost::python::list& derivatives,
+                                                                     int num_derivatives,
                                                                      int num_multistarts, int max_num_threads,
                                                                      boost::python::dict& status) {
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value,
-                                                noise_variance, points_to_sample_dummy, dim, num_sampled,
-                                                num_to_sample);
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  MaternNu2p5 matern_25(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
 
-  std::vector<double> new_hyperparameters_C(matern_25.GetNumberOfHyperparameters());
+  std::vector<double> new_hyperparameters_C(sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives);
   std::vector<double> result_function_values_C(num_multistarts);
-  std::vector<double> initial_guesses_C(matern_25.GetNumberOfHyperparameters() * num_multistarts);
+  std::vector<double> initial_guesses_C((sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives) * num_multistarts);
 
-  CopyPylistToVector(hyperparameter_list, matern_25.GetNumberOfHyperparameters() * num_multistarts, initial_guesses_C);
+  CopyPylistToVector(hyperparameter_list, (sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives) * num_multistarts, initial_guesses_C);
 
   TensorProductDomain dummy_domain(nullptr, 0);
   ThreadSchedule thread_schedule(max_num_threads, omp_sched_guided);
@@ -306,15 +310,15 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
       LogMarginalLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
                                                          input_container.points_sampled_value.data(),
-                                                         input_container.noise_variance.data(),
+                                                         input_container.derivatives.data(), input_container.num_derivatives,
                                                          input_container.dim, input_container.num_sampled);
-      EvaluateLogLikelihoodAtPointList(log_likelihood_eval, matern_25, dummy_domain, thread_schedule,
+      EvaluateLogLikelihoodAtPointList(log_likelihood_eval, sqexp, input_container.noise_variance, dummy_domain, thread_schedule,
                                        initial_guesses_C.data(), num_multistarts, &found_flag,
                                        result_function_values_C.data(), new_hyperparameters_C.data());
       status[std::string("evaluate_") + log_likelihood_eval.kName + "_at_hyperparameter_list"] = found_flag;
       break;
     }
-    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
+/*    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {
       LeaveOneOutLogLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
                                                             input_container.points_sampled_value.data(),
                                                             input_container.noise_variance.data(),
@@ -324,7 +328,7 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
                                        result_function_values_C.data(), new_hyperparameters_C.data());
       status[std::string("evaluate_") + log_likelihood_eval.kName + "_at_hyperparameter_list"] = found_flag;
       break;
-    }
+    }*/
     default: {
       std::fill(result_function_values_C.begin(), result_function_values_C.end(), -std::numeric_limits<double>::max());
       status["evaluate_invalid_log_likelihood_at_hyperparameter_list"] = found_flag;
@@ -335,6 +339,42 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
 
   return VectorToPylist(result_function_values_C);
 }
+
+boost::python::list RestartedGradientDescentHyperparameterOptimizationWrapper(const boost::python::object& optimizer_parameters,
+                                                                              const boost::python::list& hyperparameter_domain,
+                                                                              const boost::python::list& points_sampled,
+                                                                              const boost::python::list& points_sampled_value,
+                                                                              int dim, int num_sampled,
+                                                                              const boost::python::list& hyperparameters,
+                                                                              const boost::python::list& noise_variance,
+                                                                              const boost::python::list& derivatives,
+                                                                              int num_derivatives,
+                                                                              boost::python::dict& status){
+  // the optimizer_parameters python object
+  const int num_to_sample = 0;
+  const boost::python::list points_to_sample_dummy;
+  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+
+
+  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+
+  int num_hyperparameters = sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives;
+  std::vector<double> new_hyperparameters(num_hyperparameters);
+
+  std::vector<ClosedInterval> hyperparameter_domain_C(num_hyperparameters);
+  CopyPylistToClosedIntervalVector(hyperparameter_domain, num_hyperparameters, hyperparameter_domain_C);
+
+  LogMarginalLikelihoodEvaluator log_likelihood_eval(input_container.points_sampled.data(),
+                                                     input_container.points_sampled_value.data(),
+                                                     input_container.derivatives.data(), input_container.num_derivatives,
+                                                     input_container.dim, input_container.num_sampled);
+  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  RestartedGradientDescentHyperparameterOptimizationTensor(log_likelihood_eval, sqexp, input_container.noise_variance, gradient_descent_parameters,
+                                                           hyperparameter_domain_C.data(), new_hyperparameters.data());
+  return VectorToPylist(new_hyperparameters);
+}
+
 
 }  // end unnamed namespace
 
@@ -386,6 +426,52 @@ void ExportModelSelectionFunctions() {
     )%%");
 
   boost::python::def("multistart_hyperparameter_optimization", MultistartHyperparameterOptimizationWrapper, R"%%(
+    Optimize the specified log likelihood measure over the specified domain using the specified optimization method.
+
+    The _CppOptimizerParameters object is a python class defined in:
+    ``python/cpp_wrappers/optimization._CppOptimizerParameters``
+    See that class definition for more details.
+
+    This function expects it to have the fields:
+
+    * objective_type (LogLikelihoodTypes enum from this file)
+    * optimizer_type (OptimizerTypes enum from this file)
+    * num_random_samples (int, number of samples to 'dumb' search over, only used if optimizer_type == kNull)
+    * optimizer_parameters (*Parameters struct (gpp_optimizer_parameters.hpp) where * matches optimizer_type
+      unused if optimizer_type == kNull)
+
+    ``n_hyper`` denotes the number of hyperparameters.
+
+
+    :param optimizer_parameters: python object containing the LogLikelihoodTypes
+      objective to use, OptimizerTypes optimzer_type to use as well as appropriate
+      parameter structs e.g., NewtonParameters for type kNewton
+    :type optimizer_parameters:  _CppOptimizerParameters
+    :param hyperparameter_domain: [lower, upper] bound pairs for each hyperparameter dimension in LOG-10 SPACE
+    :type hyperparameter_domain: list of float64 with shape (num_hyperparameters, 2)
+    :param points_sampled: points that have already been sampled
+    :type points_sampled: list of float64 with shape (num_sampled, dim)
+    :param points_sampled_value: values of the already-sampled points
+    :type points_sampled_value: list of float64 with shape (num_sampled, )
+    :param dim: the spatial dimension of a point (i.e., number of independent params in experiment)
+    :type dim: int > 0
+    :param num_sampled: number of already-sampled points
+    :type num_sampled: int > 0
+    :param hyperparameters: covariance hyperparameters; see "Details on ..." section at the top of ``BOOST_PYTHON_MODULE``
+    :type hyperparameters: list of len 2; index 0 is a float64 ``\alpha`` (signal variance) and index 1 is the length scales (list of floa64 of length ``dim``)
+    :param noise_variance: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
+    :type noise_variance: list of float64 with shape (num_sampled, )
+    :param max_num_threads: max number of threads to use during EI optimization
+    :type max_num_threads: int >= 1
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :param status: pydict object (cannot be None!); modified on exit to describe whether convergence occurred
+    :type status: dict
+    :return: optimized hyperparameters
+    :rtype: list of float64 with shape (num_hyperparameters, )
+    )%%");
+
+  boost::python::def("restarted_hyperparameter_optimization", RestartedGradientDescentHyperparameterOptimizationWrapper, R"%%(
     Optimize the specified log likelihood measure over the specified domain using the specified optimization method.
 
     The _CppOptimizerParameters object is a python class defined in:

@@ -213,11 +213,12 @@ class MockExpectedImprovementEnvironment {
       :num_being_sampled: number of points being sampled concurrently
       :num_sampled: number of already-sampled points
   \endrst*/
-  void Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_sampled_in) {
-    Initialize(dim_in, num_to_sample_in, num_being_sampled_in, num_sampled_in, &uniform_generator_);
+  void Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_sampled_in, int num_derivatives_in) {
+    Initialize(dim_in, num_to_sample_in, num_being_sampled_in, num_sampled_in, num_derivatives_in, &uniform_generator_);
   }
 
-  void Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_sampled_in, UniformRandomGenerator * uniform_generator);
+  void Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_sampled_in,
+                  int num_derivatives_in, UniformRandomGenerator * uniform_generator);
 
   //! spatial dimension (e.g., entries per point of points_sampled)
   int dim;
@@ -227,6 +228,8 @@ class MockExpectedImprovementEnvironment {
   int num_to_sample;
   //! number of points currently being sampled (i.e., the p in q,p-EI)
   int num_being_sampled;
+  // number of derivatives observations
+  int num_derivatives;
 
   double * points_sampled() {
     return points_sampled_.data();
@@ -287,7 +290,8 @@ struct MockGaussianProcessPriorData {
       :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
       :num_sampled: number of already-sampled points (that we want the GP to hold)
   \endrst*/
-  MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<double>& noise_variance_in, int dim_in, int num_sampled_in);
+  MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<int>& derivatives_in, int num_derivatives_in,
+                               int dim_in, int num_sampled_in);
 
   /*!\rst
     Completely constructs a MockGaussianProcessPriorData, initializing all fields.
@@ -305,7 +309,10 @@ struct MockGaussianProcessPriorData {
     \output
       :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
   \endrst*/
-  MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<double>& noise_variance_in, int dim_in, int num_sampled_in, const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper, const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator);
+  MockGaussianProcessPriorData(const CovarianceInterface& covariance,
+                               const std::vector<int>& derivatives_in, int num_derivatives_in, int dim_in, int num_sampled_in,
+                               const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper,
+                               const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator);
 
   /*!\rst
     Prevent inline destructor: the dtor of std::unique_ptr<T> needs access to T's dtor (b/c
@@ -324,7 +331,8 @@ struct MockGaussianProcessPriorData {
     \output
       :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
   \endrst*/
-  void InitializeHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator);
+  void InitializeHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameters,
+                                 UniformRandomGenerator * uniform_generator);
 
   /*!\rst
     Sets the domain from which the GP's historical data will be generated. For each dimension,
@@ -338,7 +346,8 @@ struct MockGaussianProcessPriorData {
     \output
       :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
   \endrst*/
-  void InitializeDomain(const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper, UniformRandomGenerator * uniform_generator);
+  void InitializeDomain(const boost::uniform_real<double>& uniform_double_domain_lower,
+                        const boost::uniform_real<double>& uniform_double_domain_upper, UniformRandomGenerator * uniform_generator);
 
   /*!\rst
     Builds a GaussianProcess with num_sampled points (drawn randomly from the domain) whose
@@ -353,6 +362,11 @@ struct MockGaussianProcessPriorData {
       :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
   \endrst*/
   void InitializeGaussianProcess(UniformRandomGenerator * uniform_generator);
+
+  // direction derivatives observable.
+  std::vector<int> derivatives;
+
+  int num_derivatives;
 
   //! spatial dimension (e.g., entries per point of points_sampled)
   int dim;
@@ -570,7 +584,9 @@ void ExpandDomainBounds(double scale_factor, std::vector<ClosedInterval> * domai
     :hyperparameters[1]: vector set to the newly generated hyperparameters
     :covariance[1]: covariance object with its hyperparameters set to "hyperparameters"
 \endrst*/
-void FillRandomCovarianceHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameter, UniformRandomGenerator * uniform_generator, std::vector<double> * hyperparameters, CovarianceInterface * covariance);
+void FillRandomCovarianceHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameter,
+    UniformRandomGenerator * uniform_generator, std::vector<double> * hyperparameters, CovarianceInterface * covariance,
+    std::vector<double> * noise_variance);
 
 /*!\rst
   Generates a random list of ``domain_bounds->size()`` ``[min_i, max_i]`` pairs such that:
@@ -588,7 +604,9 @@ void FillRandomCovarianceHyperparameters(const boost::uniform_real<double>& unif
     :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to ``2*domain_bounds->size()`` random draws
     :domain_bounds[1]: vector of ClosedInterval objects with their min, max members initialized as described
 \endrst*/
-void FillRandomDomainBounds(const boost::uniform_real<double>& uniform_double_lower_bound, const boost::uniform_real<double>& uniform_double_upper_bound, UniformRandomGenerator * uniform_generator, std::vector<ClosedInterval> * domain_bounds);
+void FillRandomDomainBounds(const boost::uniform_real<double>& uniform_double_lower_bound,
+      const boost::uniform_real<double>& uniform_double_upper_bound, UniformRandomGenerator * uniform_generator,
+      std::vector<ClosedInterval> * domain_bounds);
 
 /*!\rst
   Utility to draw num_to_sample points from a GaussianProcess and add those values to the prior.
@@ -604,7 +622,8 @@ void FillRandomDomainBounds(const boost::uniform_real<double>& uniform_double_lo
     :gaussian_process[1]: the input GP with num_sampled additional points added to it; its internal state is modified to match
                           the new data; and its internal PRNG state is modified
 \endrst*/
-void FillRandomGaussianProcess(double const * restrict points_to_sample, double const * restrict noise_variance, int dim, int num_to_sample, double * restrict points_to_sample_value, GaussianProcess * gaussian_process);
+void FillRandomGaussianProcess(double const * restrict points_to_sample,
+        int dim, int num_to_sample, double * restrict points_to_sample_value, GaussianProcess * gaussian_process);
 
 }  // end namespace optimal_learning
 

@@ -40,6 +40,7 @@ MockExpectedImprovementEnvironment::MockExpectedImprovementEnvironment()
       num_sampled(-1),
       num_to_sample(-1),
       num_being_sampled(-1),
+      num_derivatives(-1),
       points_sampled_(20*4),
       points_sampled_value_(20),
       points_to_sample_(4),
@@ -48,15 +49,17 @@ MockExpectedImprovementEnvironment::MockExpectedImprovementEnvironment()
       uniform_double_(range_min, range_max) {
 }
 
-void MockExpectedImprovementEnvironment::Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in, int num_sampled_in, UniformRandomGenerator * uniform_generator) {
-  if (dim_in != dim || num_to_sample_in != num_to_sample || num_being_sampled_in != num_being_sampled || num_sampled_in != num_sampled) {
+void MockExpectedImprovementEnvironment::Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in,
+                 int num_sampled_in, int num_derivatives_in, UniformRandomGenerator * uniform_generator) {
+  if (dim_in != dim || num_to_sample_in != num_to_sample || num_being_sampled_in != num_being_sampled
+      || num_sampled_in != num_sampled || num_derivatives_in != num_derivatives) {
     dim = dim_in;
     num_to_sample = num_to_sample_in;
     num_being_sampled = num_being_sampled_in;
     num_sampled = num_sampled_in;
-
+    num_derivatives = num_derivatives_in;
     points_sampled_.resize(num_sampled*dim);
-    points_sampled_value_.resize(num_sampled);
+    points_sampled_value_.resize(num_sampled*(1+num_derivatives));
     points_to_sample_.resize(num_to_sample*dim);
     points_being_sampled_.resize(num_being_sampled*dim);
   }
@@ -65,7 +68,7 @@ void MockExpectedImprovementEnvironment::Initialize(int dim_in, int num_to_sampl
     points_sampled_[i] = uniform_double_(uniform_generator->engine);
   }
 
-  for (int i = 0; i < num_sampled; ++i) {
+  for (int i = 0; i < num_sampled*(1+num_derivatives); ++i) {
     points_sampled_value_[i] = uniform_double_(uniform_generator->engine);
   }
 
@@ -79,19 +82,25 @@ void MockExpectedImprovementEnvironment::Initialize(int dim_in, int num_to_sampl
 }
 
 template <typename DomainType>
-MockGaussianProcessPriorData<DomainType>::MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<double>& noise_variance_in, int dim_in, int num_sampled_in)
-    : dim(dim_in),
+MockGaussianProcessPriorData<DomainType>::MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<int>& derivatives_in,
+                                                                       int num_derivatives_in, int dim_in, int num_sampled_in)
+    : derivatives(derivatives_in),
+      num_derivatives(num_derivatives_in),
+      dim(dim_in),
       num_sampled(num_sampled_in),
       domain_bounds(dim),
       covariance_ptr(covariance.Clone()),
       hyperparameters(covariance_ptr->GetNumberOfHyperparameters()),
-      noise_variance(noise_variance_in),
+      noise_variance(num_derivatives+1),
       best_so_far(0.0) {
 }
 
 template <typename DomainType>
-MockGaussianProcessPriorData<DomainType>::MockGaussianProcessPriorData(const CovarianceInterface& covariance, const std::vector<double>& noise_variance_in, int dim_in, int num_sampled_in, const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper, const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator)
-    : MockGaussianProcessPriorData<DomainType>(covariance, noise_variance_in, dim_in, num_sampled_in) {
+MockGaussianProcessPriorData<DomainType>::MockGaussianProcessPriorData(const CovarianceInterface& covariance,
+          const std::vector<int>& derivatives_in, int num_derivatives_in, int dim_in, int num_sampled_in,
+          const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper,
+          const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator)
+    : MockGaussianProcessPriorData<DomainType>(covariance, derivatives_in, num_derivatives_in, dim_in, num_sampled_in) {
   InitializeHyperparameters(uniform_double_hyperparameters, uniform_generator);
   InitializeDomain(uniform_double_domain_lower, uniform_double_domain_upper, uniform_generator);
   InitializeGaussianProcess(uniform_generator);
@@ -101,12 +110,15 @@ template <typename DomainType>
 MockGaussianProcessPriorData<DomainType>::~MockGaussianProcessPriorData() = default;
 
 template <typename DomainType>
-void MockGaussianProcessPriorData<DomainType>::InitializeHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameters, UniformRandomGenerator * uniform_generator) {
-  FillRandomCovarianceHyperparameters(uniform_double_hyperparameters, uniform_generator, &hyperparameters, covariance_ptr.get());
+void MockGaussianProcessPriorData<DomainType>::InitializeHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameters,
+                                                                         UniformRandomGenerator * uniform_generator) {
+  FillRandomCovarianceHyperparameters(uniform_double_hyperparameters, uniform_generator,
+                                      &hyperparameters, covariance_ptr.get(), &noise_variance);
 }
 
 template <typename DomainType>
-void MockGaussianProcessPriorData<DomainType>::InitializeDomain(const boost::uniform_real<double>& uniform_double_domain_lower, const boost::uniform_real<double>& uniform_double_domain_upper, UniformRandomGenerator * uniform_generator) {
+void MockGaussianProcessPriorData<DomainType>::InitializeDomain(const boost::uniform_real<double>& uniform_double_domain_lower,
+        const boost::uniform_real<double>& uniform_double_domain_upper, UniformRandomGenerator * uniform_generator) {
   FillRandomDomainBounds(uniform_double_domain_lower, uniform_double_domain_upper, uniform_generator, &domain_bounds);
   domain_ptr.reset(new DomainType(domain_bounds.data(), dim));
 }
@@ -116,13 +128,21 @@ void MockGaussianProcessPriorData<DomainType>::InitializeGaussianProcess(Uniform
   covariance_ptr->SetHyperparameters(hyperparameters.data());
 
   std::vector<double> points_sampled(dim*num_sampled);
-  std::vector<double> points_sampled_value(num_sampled);
-  gaussian_process_ptr.reset(new GaussianProcess(*covariance_ptr, points_sampled.data(), points_sampled_value.data(), noise_variance.data(), dim, 0));
+  std::vector<double> points_sampled_value(num_sampled*(1+num_derivatives));
+  gaussian_process_ptr.reset(new GaussianProcess(*covariance_ptr, points_sampled.data(), points_sampled_value.data(), noise_variance.data(),
+                             derivatives.data(), num_derivatives, dim, 0));
 
   // generate the "world"
   num_sampled = domain_ptr->GenerateUniformPointsInDomain(num_sampled, uniform_generator, points_sampled.data());
-  FillRandomGaussianProcess(points_sampled.data(), noise_variance.data(), dim, num_sampled, points_sampled_value.data(), gaussian_process_ptr.get());
-  best_so_far = *std::min_element(points_sampled_value.begin(), points_sampled_value.end());
+  FillRandomGaussianProcess(points_sampled.data(), dim, num_sampled,
+                            points_sampled_value.data(), gaussian_process_ptr.get());
+
+  best_so_far = 5.0;//*std::min_element(points_sampled_value.begin(), points_sampled_value.end());
+  for (int i = 0; i < num_sampled; ++i){
+      if (best_so_far > points_sampled_value[i*(1+num_derivatives)]){
+          best_so_far = points_sampled_value[i*(1+num_derivatives)];
+      }
+  }
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
@@ -602,28 +622,39 @@ void ExpandDomainBounds(double scale_factor, std::vector<ClosedInterval> * domai
 #endif
 }
 
-void FillRandomCovarianceHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameter, UniformRandomGenerator * uniform_generator, std::vector<double> * hyperparameters, CovarianceInterface * covariance) {
+void FillRandomCovarianceHyperparameters(const boost::uniform_real<double>& uniform_double_hyperparameter,
+    UniformRandomGenerator * uniform_generator, std::vector<double> * hyperparameters, CovarianceInterface * covariance,
+    std::vector<double> * noise_variance) {
   std::generate(hyperparameters->begin(), hyperparameters->end(), [&uniform_double_hyperparameter, uniform_generator]() {
     return uniform_double_hyperparameter(uniform_generator->engine);
   });
   covariance->SetHyperparameters(hyperparameters->data());
+
+  std::generate(noise_variance->begin(), noise_variance->end(), [&uniform_double_hyperparameter, uniform_generator]() {
+    return uniform_double_hyperparameter(uniform_generator->engine);
+  });
 }
 
-void FillRandomDomainBounds(const boost::uniform_real<double>& uniform_double_lower_bound, const boost::uniform_real<double>& uniform_double_upper_bound, UniformRandomGenerator * uniform_generator, std::vector<ClosedInterval> * domain_bounds) {
-  std::generate(domain_bounds->begin(), domain_bounds->end(), [&uniform_double_lower_bound, &uniform_double_upper_bound, uniform_generator]() {
+void FillRandomDomainBounds(const boost::uniform_real<double>& uniform_double_lower_bound,
+     const boost::uniform_real<double>& uniform_double_upper_bound, UniformRandomGenerator * uniform_generator,
+     std::vector<ClosedInterval> * domain_bounds) {
+    std::generate(domain_bounds->begin(), domain_bounds->end(),
+                  [&uniform_double_lower_bound, &uniform_double_upper_bound, uniform_generator]() {
     double min = uniform_double_lower_bound(uniform_generator->engine);
     double max = uniform_double_upper_bound(uniform_generator->engine);
     return ClosedInterval(min, max);
   });
 }
 
-void FillRandomGaussianProcess(double const * restrict points_to_sample, double const * restrict noise_variance, int dim, int num_to_sample, double * restrict points_to_sample_value, GaussianProcess * gaussian_process) {
+void FillRandomGaussianProcess(double const * restrict points_to_sample, int dim,
+                      int num_to_sample, double * restrict points_to_sample_value, GaussianProcess * gaussian_process) {
   for (int j = 0; j < num_to_sample; ++j) {
     // draw function value from the GP
-    points_to_sample_value[j] = gaussian_process->SamplePointFromGP(points_to_sample, noise_variance[j]);
+    gaussian_process->SamplePointFromGP(points_to_sample, points_to_sample_value);
     // add function value back into the GP
-    gaussian_process->AddPointsToGP(points_to_sample, points_to_sample_value + j, noise_variance + j, 1);
+    gaussian_process->AddPointsToGP(points_to_sample, points_to_sample_value, 1);
     points_to_sample += dim;
+    points_to_sample_value += 1+gaussian_process->num_derivatives();
   }
 }
 

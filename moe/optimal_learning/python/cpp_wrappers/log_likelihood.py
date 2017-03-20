@@ -53,12 +53,14 @@ Again, we can maximize this quanitity over hyperparameters to help us choose the
 import copy
 
 import numpy
+import emcee
 
 import moe.build.GPP as C_GP
 from moe.optimal_learning.python.constant import DEFAULT_MAX_NUM_THREADS
 from moe.optimal_learning.python.cpp_wrappers import cpp_utils
 from moe.optimal_learning.python.interfaces.log_likelihood_interface import GaussianProcessLogLikelihoodInterface
 from moe.optimal_learning.python.interfaces.optimization_interface import OptimizableInterface
+
 
 
 def multistart_hyperparameter_optimization(
@@ -134,13 +136,44 @@ def multistart_hyperparameter_optimization(
         cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled_value),
         log_likelihood_optimizer.objective_function.dim,
         log_likelihood_optimizer.objective_function._num_sampled,
-        cpp_utils.cppify_hyperparameters(log_likelihood_optimizer.objective_function.hyperparameters),
-        cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled_noise_variance),
+        cpp_utils.cppify_hyperparameters(log_likelihood_optimizer.objective_function.cov_hyperparameters),
+        cpp_utils.cppify(log_likelihood_optimizer.objective_function.noise_variance),
+        cpp_utils.cppify(log_likelihood_optimizer.objective_function.derivatives),
+        log_likelihood_optimizer.objective_function.num_derivatives,
         max_num_threads,
         randomness,
         status,
     )
     return numpy.array(hyperparameters_opt)
+
+
+
+def restarted_hyperparameter_optimization(
+        log_likelihood_optimizer,
+        status=None,
+):
+    # status must be an initialized dict for the call to C++.
+    if status is None:
+        status = {}
+
+    # C++ expects the domain in log10 space and in list form
+    domain_bounds_log10 = numpy.log10(log_likelihood_optimizer.domain._domain_bounds)
+
+    hyperparameters_opt = C_GP.restarted_hyperparameter_optimization(
+            log_likelihood_optimizer.optimizer_parameters,
+            cpp_utils.cppify(domain_bounds_log10),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function._points_sampled_value),
+            log_likelihood_optimizer.objective_function.dim,
+            log_likelihood_optimizer.objective_function._num_sampled,
+            cpp_utils.cppify_hyperparameters(log_likelihood_optimizer.objective_function.cov_hyperparameters),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function.noise_variance),
+            cpp_utils.cppify(log_likelihood_optimizer.objective_function.derivatives),
+            log_likelihood_optimizer.objective_function.num_derivatives,
+            status,
+    )
+    return numpy.array(hyperparameters_opt)
+
 
 
 def evaluate_log_likelihood_at_hyperparameter_list(
@@ -181,8 +214,10 @@ def evaluate_log_likelihood_at_hyperparameter_list(
         log_likelihood_evaluator.dim,
         log_likelihood_evaluator._num_sampled,
         log_likelihood_evaluator.objective_type,
-        cpp_utils.cppify_hyperparameters(log_likelihood_evaluator.hyperparameters),
-        cpp_utils.cppify(log_likelihood_evaluator._points_sampled_noise_variance),
+        cpp_utils.cppify_hyperparameters(log_likelihood_evaluator.cov_hyperparameters),
+        cpp_utils.cppify(log_likelihood_evaluator.noise_variance),
+        cpp_utils.cppify(log_likelihood_evaluator.derivatives),
+        log_likelihood_evaluator.num_derivatives,
         hyperparameters_to_evaluate.shape[0],
         max_num_threads,
         status,
@@ -212,7 +247,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
 
     """
 
-    def __init__(self, covariance_function, historical_data, log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood):
+    def __init__(self, covariance_function, historical_data, noise_variance, derivatives, log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
 
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
@@ -226,6 +261,10 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
         """
         self._covariance = copy.deepcopy(covariance_function)
         self._historical_data = copy.deepcopy(historical_data)
+        self._noise_variance = noise_variance
+
+        self._derivatives = copy.deepcopy(derivatives)
+        self._num_derivatives = len(cpp_utils.cppify(self._derivatives))
 
         self.objective_type = log_likelihood_type
 
@@ -237,7 +276,7 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
     @property
     def num_hyperparameters(self):
         """Return the number of hyperparameters aka the number of independent parameters to optimize."""
-        return self._covariance.num_hyperparameters
+        return self._covariance.num_hyperparameters + self._noise_variance.size()
 
     #: an alias for num_hyperparameters to fulfill :class:`moe.optimal_learning.python.interfaces.optimization_interface.OptimizableInterface`
     problem_size = num_hyperparameters
@@ -248,7 +287,15 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
         Equivalently, get the current_point at which this object is evaluating the objective function, ``f(x)``
 
         """
+        return numpy.append(self._covariance.hyperparameters, self._noise_variance)
+
+    @property
+    def cov_hyperparameters(self):
         return self._covariance.hyperparameters
+
+    @property
+    def noise_variance(self):
+        return self._noise_variance
 
     def set_hyperparameters(self, hyperparameters):
         """Set hyperparameters to the specified hyperparameters; ordering must match.
@@ -257,7 +304,8 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
         :type hyperparameters: array of float64 with shape (num_hyperparameters)
 
         """
-        self._covariance.hyperparameters = hyperparameters
+        self._covariance.hyperparameters = hyperparameters[:self._covariance.num_hyperparameters]
+        self._noise_variance = hyperparameters[self._covariance.num_hyperparameters:]
 
     hyperparameters = property(get_hyperparameters, set_hyperparameters)
     current_point = hyperparameters
@@ -281,6 +329,14 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
     def _points_sampled_noise_variance(self):
         """Return the noise variance associated with points_sampled_value; see :class:`moe.optimal_learning.python.data_containers.HistoricalData`."""
         return self._historical_data.points_sampled_noise_variance
+
+    @property
+    def derivatives(self):
+        return self._derivatives
+
+    @property
+    def num_derivatives(self):
+        return self._num_derivatives
 
     def get_covariance_copy(self):
         """Return a copy of the covariance object specifying the Gaussian Process.
@@ -313,8 +369,9 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self.dim,
             self._num_sampled,
             self.objective_type,
-            cpp_utils.cppify_hyperparameters(self.hyperparameters),
-            cpp_utils.cppify(self._points_sampled_noise_variance),
+            cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
+            cpp_utils.cppify(self.noise_variance),
         )
 
     compute_objective_function = compute_log_likelihood
@@ -332,8 +389,9 @@ class GaussianProcessLogLikelihood(GaussianProcessLogLikelihoodInterface, Optimi
             self.dim,
             self._num_sampled,
             self.objective_type,
-            cpp_utils.cppify_hyperparameters(self.hyperparameters),
-            cpp_utils.cppify(self._points_sampled_noise_variance),
+            cpp_utils.cppify_hyperparameters(self.cov_hyperparameters),
+            cpp_utils.cppif(self._derivatives), self._num_derivatives,
+            cpp_utils.cppify(self.noise_variance),
         )
         return numpy.array(grad_log_marginal)
 
@@ -375,11 +433,13 @@ class GaussianProcessLogMarginalLikelihood(GaussianProcessLogLikelihood):
 
     """
 
-    def __init__(self, covariance_function, historical_data):
+    def __init__(self, covariance_function, historical_data, noise_variance, derivatives):
         """Construct a LogLikelihood object configured for Log Marginal Likelihood computation; see superclass ctor for details."""
         super(GaussianProcessLogMarginalLikelihood, self).__init__(
             covariance_function,
             historical_data,
+            noise_variance,
+            derivatives,
             log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood,
             )
 
@@ -414,11 +474,13 @@ class GaussianProcessLeaveOneOutLogLikelihood(GaussianProcessLogLikelihood):
 
     """
 
-    def __init__(self, covariance_function, historical_data):
+    def __init__(self, covariance_function, historical_data, noise_variance, derivatives):
         """Construct a LogLikelihood object configured for Leave One Out Cross Validation Log Pseudo-Likelihood computation; see superclass ctor for details."""
         super(GaussianProcessLeaveOneOutLogLikelihood, self).__init__(
             covariance_function,
             historical_data,
+            noise_variance,
+            derivatives,
             log_likelihood_type=C_GP.LogLikelihoodTypes.leave_one_out_log_likelihood,
             )
 

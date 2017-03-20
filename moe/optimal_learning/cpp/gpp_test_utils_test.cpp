@@ -34,6 +34,7 @@ namespace {
 OL_WARN_UNUSED_RESULT int FillRandomCovarianceHyperparametersTest() {
   int total_errors = 0;
   const int kDim = 5;
+  const int num_derivatives = 2;
 
   UniformRandomGenerator uniform_generator(314);
   UniformRandomGenerator uniform_generator_original(uniform_generator);
@@ -45,8 +46,9 @@ OL_WARN_UNUSED_RESULT int FillRandomCovarianceHyperparametersTest() {
 
   std::vector<double> hyperparameters(num_hyperparameters);
   std::vector<double> hyperparameters_covariance(num_hyperparameters);
+  std::vector<double> noise_variance(1+num_derivatives);
 
-  FillRandomCovarianceHyperparameters(uniform_double, &uniform_generator, &hyperparameters, &covariance);
+  FillRandomCovarianceHyperparameters(uniform_double, &uniform_generator, &hyperparameters, &covariance, &noise_variance);
 
   // Verify that hyperparameters output and hyperparameters of covariance are the same
   covariance.GetHyperparameters(hyperparameters_covariance.data());
@@ -71,7 +73,7 @@ OL_WARN_UNUSED_RESULT int FillRandomCovarianceHyperparametersTest() {
   }
 
   // Verify that the uniform_generator was called hyperparameters.size() times
-  uniform_generator_original.engine.discard(num_hyperparameters);
+  uniform_generator_original.engine.discard(num_hyperparameters+1+num_derivatives);
   if (uniform_generator != uniform_generator_original) {
     ++total_errors;
   }
@@ -133,12 +135,15 @@ OL_WARN_UNUSED_RESULT int FillRandomGaussianProcess() {
   const int kNumToDraw = 3;
   const int kNumPoints = kNumSampled + kNumToDraw;
 
+  int *derivatives = new int[2]{0,1};
+  int num_derivatives = 2;
+
   UniformRandomGenerator uniform_generator(314);
   SquareExponential covariance(kDim, 0.4, 0.9);
 
   std::vector<double> points_sampled(kNumPoints*kDim, std::numeric_limits<double>::quiet_NaN());
-  std::vector<double> points_sampled_value(kNumPoints, std::numeric_limits<double>::quiet_NaN());
-  std::vector<double> noise_variance(kNumPoints, std::numeric_limits<double>::quiet_NaN());
+  std::vector<double> points_sampled_value(kNumPoints*(1+num_derivatives), std::numeric_limits<double>::quiet_NaN());
+  std::vector<double> noise_variance(1+num_derivatives, std::numeric_limits<double>::quiet_NaN());
 
   boost::uniform_real<double> uniform_double_lower_bound(-2.0, 0.5);
   boost::uniform_real<double> uniform_double_upper_bound(2.0, 3.5);
@@ -148,19 +153,21 @@ OL_WARN_UNUSED_RESULT int FillRandomGaussianProcess() {
   domain.GenerateUniformPointsInDomain(kNumSampled, &uniform_generator, points_sampled.data());
 
   boost::uniform_real<double> uniform_double_value(-0.7, 0.5);
-  std::generate(points_sampled_value.begin(), points_sampled_value.begin() + kNumSampled, [&]() {
+  std::generate(points_sampled_value.begin(), points_sampled_value.begin() + kNumSampled*(1+num_derivatives), [&]() {
     return uniform_double_value(uniform_generator.engine);
   });
 
   boost::uniform_real<double> uniform_double_noise(0.01, 0.1);
-  std::generate(noise_variance.begin(), noise_variance.begin() + kNumSampled, [&]() {
+  std::generate(noise_variance.begin(), noise_variance.begin() + 1 + num_derivatives, [&]() {
     return uniform_double_noise(uniform_generator.engine);
   });
 
-  GaussianProcess gaussian_process(covariance, points_sampled.data(), points_sampled_value.data(), noise_variance.data(), kDim, 0);
+  GaussianProcess gaussian_process(covariance, points_sampled.data(), points_sampled_value.data(), noise_variance.data(),
+                                   derivatives, num_derivatives, kDim, 0);
 
+  delete [] derivatives;
   // add in kNumSampled points
-  FillRandomGaussianProcess(points_sampled.data(), noise_variance.data(), kDim, kNumSampled, points_sampled_value.data(), &gaussian_process);
+  FillRandomGaussianProcess(points_sampled.data(), kDim, kNumSampled, points_sampled_value.data(), &gaussian_process);
 
   // Verify that the GP's num_sampled value is correct
   if (!CheckIntEquals(kNumSampled, gaussian_process.num_sampled())) {
@@ -184,16 +191,17 @@ OL_WARN_UNUSED_RESULT int FillRandomGaussianProcess() {
   // now add in kNumtoDraw points and re-verify
   domain.GenerateUniformPointsInDomain(kNumToDraw, &uniform_generator, points_sampled.data() + kDim*kNumSampled);
 
-  std::generate(points_sampled_value.begin() + kNumSampled, points_sampled_value.begin() + kNumPoints, [&]() {
+  std::generate(points_sampled_value.begin() + kNumSampled*(1+num_derivatives), points_sampled_value.begin() + kNumPoints*(1+num_derivatives), [&]() {
     return uniform_double_value(uniform_generator.engine);
   });
-
+/*
   std::generate(noise_variance.begin() + kNumSampled, noise_variance.begin() + kNumPoints, [&]() {
     return uniform_double_noise(uniform_generator.engine);
   });
-
+*/
   // add in kNumToDraw points
-  FillRandomGaussianProcess(points_sampled.data() + kDim*kNumSampled, noise_variance.data() + kNumSampled, kDim, kNumToDraw, points_sampled_value.data() + kNumSampled, &gaussian_process);
+  FillRandomGaussianProcess(points_sampled.data() + kDim*kNumSampled, kDim, kNumToDraw,
+                            points_sampled_value.data() + kNumSampled*(1+num_derivatives), &gaussian_process);
 
   // Verify that the GP's num_sampled value is correct
   if (!CheckIntEquals(kNumPoints, gaussian_process.num_sampled())) {

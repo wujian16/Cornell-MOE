@@ -17,9 +17,9 @@
 #include "gpp_covariance_test.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_domain_test.hpp"
-#include "gpp_expected_improvement_gpu_test.hpp"
+//#include "gpp_expected_improvement_gpu_test.hpp"
 #include "gpp_geometry_test.hpp"
-#include "gpp_heuristic_expected_improvement_optimization_test.hpp"
+//#include "gpp_heuristic_expected_improvement_optimization_test.hpp"
 #include "gpp_linear_algebra_test.hpp"
 #include "gpp_math_test.hpp"
 #include "gpp_model_selection.hpp"
@@ -27,6 +27,7 @@
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
 #include "gpp_knowledge_gradient_optimization_test.hpp"
+#include "gpp_knowledge_gradient_inner_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -69,7 +70,7 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = RunKGTests();
+  error = RunKGInnerTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("KG tests failed\n");
   } else {
@@ -77,6 +78,14 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
+  error = RunKGTests();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG tests\n");
+  }
+  total_errors += error;
+/*
   error = RunEIConsistencyTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic, MC EI do not match for 1 potential sample case\n");
@@ -84,7 +93,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("analytic, MC EI match for 1 potential sample case\n");
   }
   total_errors += error;
-/*
+
   error = RunGPUTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("GPU tests failed\n");
@@ -92,7 +101,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("GPU tests passed\n");
   }
   total_errors += error;
-*/
+
   error = RunLogLikelihoodPingTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("LogLikelihood ping tests failed\n");
@@ -247,9 +256,9 @@ int RunCppTestsWrapper() {
 
   error = ExpectedImprovementOptimizationTest(DomainTypes::kTensorProduct, ExpectedImprovementEvaluationMode::kMonteCarlo);
   if (error != 0) {
-    OL_FAILURE_PRINTF("monte-carlo EI optimization\n");
+    OL_FAILURE_PRINTF("monte-carlo tensor EI optimization\n");
   } else {
-    OL_SUCCESS_PRINTF("monte-carlo EI optimization\n");
+    OL_SUCCESS_PRINTF("monte-carlo tensor EI optimization\n");
   }
   total_errors += error;
 
@@ -300,9 +309,8 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("monte-carlo KG optimization for multiple simultaneous experiments\n");
   }
   total_errors += error;
-
+*/
   return total_errors;
-
 }
 
 }  // end unnamed namespace

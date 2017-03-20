@@ -43,7 +43,7 @@ enum class ExpectedImprovementEvaluationMode {
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPMeanTest();
+ OL_WARN_UNUSED_RESULT int PingGPMeanTest();
 
 
 /*!\rst
@@ -52,7 +52,7 @@ OL_WARN_UNUSED_RESULT int PingGPMeanTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPAdditionalMeanTest();
+ OL_WARN_UNUSED_RESULT int PingGPAdditionalMeanTest();
 
 /*!\rst
   Checks that the gradients (spatial) of the GP variance are computed correctly.
@@ -60,7 +60,7 @@ OL_WARN_UNUSED_RESULT int PingGPAdditionalMeanTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPVarianceTest();
+ OL_WARN_UNUSED_RESULT int PingGPVarianceTest();
 
 
 /*!\rst
@@ -69,7 +69,7 @@ OL_WARN_UNUSED_RESULT int PingGPVarianceTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPCovarianceTest();
+ OL_WARN_UNUSED_RESULT int PingGPCovarianceTest();
 
 /*!\rst
   Checks that the gradients (spatial) of the cholesky factorization of GP variance are computed correctly.
@@ -77,7 +77,7 @@ OL_WARN_UNUSED_RESULT int PingGPCovarianceTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceTest();
+ OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceTest();
 
 
 /*!\rst
@@ -86,7 +86,7 @@ OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceNoiseTest();
+ OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceNoiseTest();
 
 
 /*!\rst
@@ -95,7 +95,7 @@ OL_WARN_UNUSED_RESULT int PingGPCholeskyVarianceNoiseTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingGPInverseCholeskyVarianceNoiseTest();
+ OL_WARN_UNUSED_RESULT int PingGPInverseCholeskyVarianceNoiseTest();
 
 /*!\rst
   Checks that the gradients (spatial) of Expected Improvement are computed correctly.
@@ -103,7 +103,7 @@ OL_WARN_UNUSED_RESULT int PingGPInverseCholeskyVarianceNoiseTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingEIGeneralTest();
+ OL_WARN_UNUSED_RESULT int PingEIGeneralTest();
 
 /*!\rst
   Checks the gradients (spatial) of Expected Improvement (in the special case of only 1 potential sample) are computed correctly.
@@ -111,7 +111,7 @@ OL_WARN_UNUSED_RESULT int PingEIGeneralTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int PingEIOnePotentialSampleTest();
+// OL_WARN_UNUSED_RESULT int PingEIOnePotentialSampleTest();
 
 
 /*!\rst
@@ -130,7 +130,7 @@ OL_WARN_UNUSED_RESULT int PingEIOnePotentialSampleTest();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int RunGPTests();
+ OL_WARN_UNUSED_RESULT int RunGPTests();
 
 /*!\rst
   Tests that the general EI + grad EI computation (using MC integration) is consistent
@@ -140,7 +140,7 @@ OL_WARN_UNUSED_RESULT int RunGPTests();
   \return
     number of test failures: 0 if all is working well.
 \endrst*/
-OL_WARN_UNUSED_RESULT int RunEIConsistencyTests();
+// OL_WARN_UNUSED_RESULT int RunEIConsistencyTests();
 
 /*!\rst
   Checks that multithreaded EI optimization behaves the same way that single threaded does.
@@ -150,7 +150,7 @@ OL_WARN_UNUSED_RESULT int RunEIConsistencyTests();
   \return
     number of test failures: 0 if EI multi/single threaded optimization are consistent
 \endrst*/
-OL_WARN_UNUSED_RESULT int MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode ei_mode);
+ OL_WARN_UNUSED_RESULT int MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode ei_mode);
 
 /*!\rst
   Checks that EI optimization is working on tensor product or simplex domain using
@@ -162,7 +162,7 @@ OL_WARN_UNUSED_RESULT int MultithreadedEIOptimizationTest(ExpectedImprovementEva
   \return
     number of test failures: 0 if EI optimization is working properly
 \endrst*/
-OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTest(DomainTypes domain_type, ExpectedImprovementEvaluationMode ei_mode);
+ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTest(DomainTypes domain_type, ExpectedImprovementEvaluationMode ei_mode);
 
 /*!\rst
   Checks that ComputeOptimalPointsToSample works on a tensor product domain.
@@ -175,7 +175,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTest(DomainTypes domain
   \return
     number of test failures: 0 if EI optimization is working properly
 \endrst*/
-OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationMultipleSamplesTest();
+ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationMultipleSamplesTest();
 
 /*!\rst
   Tests EvaluateEIAtPointList (computes EI at a specified list of points, multithreaded).
@@ -185,7 +185,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationMultipleSamplesTest();
   \return
     number of test failures: 0 if function evaluation is working properly
 \endrst*/
-OL_WARN_UNUSED_RESULT int EvaluateEIAtPointListTest();
+ OL_WARN_UNUSED_RESULT int EvaluateEIAtPointListTest();
 
 }  // end namespace optimal_learning
 

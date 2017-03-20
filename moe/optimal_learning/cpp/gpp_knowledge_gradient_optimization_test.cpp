@@ -35,6 +35,7 @@
 
 #include "gpp_common.hpp"
 #include "gpp_covariance.hpp"
+#include "gpp_domain.hpp"
 #include "gpp_geometry.hpp"
 #include "gpp_linear_algebra.hpp"
 #include "gpp_logging.hpp"
@@ -42,7 +43,7 @@
 #include "gpp_random.hpp"
 #include "gpp_test_utils.hpp"
 #include "gpp_knowledge_gradient_optimization.hpp"
-
+#include "gpp_optimizer_parameters.hpp"
 
 namespace optimal_learning {
 
@@ -52,7 +53,7 @@ MockKnowledgeGradientEnvironment::MockKnowledgeGradientEnvironment()
       num_to_sample(-1),
       num_being_sampled(-1),
       num_pts(-1),
-      noise(0.0),
+      num_derivatives(-1),
       points_sampled_(20*4),
       points_sampled_value_(20),
       points_to_sample_(4),
@@ -63,29 +64,28 @@ MockKnowledgeGradientEnvironment::MockKnowledgeGradientEnvironment()
 }
 
 void MockKnowledgeGradientEnvironment::Initialize(int dim_in, int num_to_sample_in, int num_being_sampled_in,
-                                                  int num_sampled_in, int num_pts_in, double noise_in, UniformRandomGenerator * uniform_generator) {
+               int num_sampled_in, int num_pts_in, int num_derivatives_in, UniformRandomGenerator * uniform_generator) {
   if (dim_in != dim || num_to_sample_in != num_to_sample || num_being_sampled_in != num_being_sampled || num_sampled_in != num_sampled || num_pts_in != num_pts
-     || noise_in != noise) {
+     || num_derivatives_in != num_derivatives) {
     dim = dim_in;
     num_to_sample = num_to_sample_in;
     num_being_sampled = num_being_sampled_in;
     num_sampled = num_sampled_in;
     num_pts = num_pts_in;
+    num_derivatives = num_derivatives_in;
 
     points_sampled_.resize(num_sampled*dim);
-    points_sampled_value_.resize(num_sampled);
+    points_sampled_value_.resize(num_sampled*(1+num_derivatives));
     points_to_sample_.resize(num_to_sample*dim);
     points_being_sampled_.resize(num_being_sampled*dim);
     discrete_pts_.resize(num_pts*dim);
-
-    noise = noise_in;
   }
 
   for (int i = 0; i < dim*num_sampled; ++i) {
     points_sampled_[i] = uniform_double_(uniform_generator->engine);
   }
 
-  for (int i = 0; i < num_sampled; ++i) {
+  for (int i = 0; i < num_sampled*(1+num_derivatives); ++i) {
     points_sampled_value_[i] = uniform_double_(uniform_generator->engine);
   }
 
@@ -117,25 +117,34 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
  public:
   constexpr static char const * const kName = "KG with MC integration";
 
-  PingKnowledgeGradient(double const * restrict lengths, double const * restrict points_being_sampled,
+  PingKnowledgeGradient(TensorProductDomain domain, GradientDescentParameters& optimizer_parameters,
+                        double const * restrict lengths, double const * restrict points_being_sampled,
                         double const * restrict points_sampled, double const * restrict points_sampled_value,
-                        double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
-                        int num_sampled, int num_mc_iter, int num_pts, double noise) OL_NONNULL_POINTERS
+                        int const * restrict gradients, double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
+                        int num_sampled, int num_mc_iter, int num_pts, int num_gradients) OL_NONNULL_POINTERS
       : dim_(dim),
+        domain_(domain),
+        gdp_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
+             optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
+             optimizer_parameters.gamma, optimizer_parameters.pre_mult,
+             optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
         num_to_sample_(num_to_sample),
         num_being_sampled_(num_being_sampled),
         num_sampled_(num_sampled),
         num_pts_(num_pts),
+        num_gradients_(num_gradients),
         gradients_already_computed_(false),
-        noise_variance_(num_sampled_, 0.0),
+        gradients_(gradients, gradients + num_gradients),
+        noise_variance_(1+num_gradients, 0.1),
         points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
-        points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_),
+        points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_*(1+num_gradients_)),
         points_being_sampled_(points_being_sampled, points_being_sampled + num_being_sampled_*dim_),
         discrete_pts_(random_discrete(dim_, num_pts_)),
-        grad_KG_(num_to_sample_*dim_*num_pts_*(num_to_sample_+num_being_sampled_)),
-        matern25_covariance_(dim_, alpha, lengths),
-        gaussian_process_(matern25_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(), dim_, num_sampled_),
-        kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, noise, best_so_far){
+        grad_KG_(dim_*num_to_sample_),
+        sqexp_covariance_(dim_, alpha, lengths),
+        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
+                          gradients_.data(), num_gradients_, dim_, num_sampled_),
+        kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far) {
   }
 
   std::vector<double> random_discrete(int dim, int num_pts){
@@ -147,7 +156,6 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
      }
      return randomDiscrete;
   }
-
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
     *num_rows = dim_;
@@ -171,12 +179,11 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = true;
 
-    KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                   num_to_sample_, num_being_sampled_, num_pts_,
-                                                   configure_for_gradients, &normal_rng);
+    KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
+                                                                        num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                        num_gradients_, configure_for_gradients, &normal_rng);
 
     kg_evaluator_.ComputeGradKnowledgeGradient(&kg_state, grad_KG_.data());
-
 
     if (gradients != nullptr) {
       std::copy(grad_KG_.begin(), grad_KG_.end(), gradients);
@@ -195,15 +202,19 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = false;
 
-    KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                   num_to_sample_, num_being_sampled_, num_pts_,
-                                                   configure_for_gradients, &normal_rng);
+    KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
+                                                                       num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                       num_gradients_, configure_for_gradients, &normal_rng);
     *function_values = kg_evaluator_.ComputeKnowledgeGradient(&kg_state);
   }
 
  private:
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
   int dim_;
+  //! domain
+  TensorProductDomain domain_;
+  //! gradient decent para
+  GradientDescentParameters gdp_;
   //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
   int num_to_sample_;
   //! number of points being sampled concurrently (i.e., the "p" in q,p-EI)
@@ -212,8 +223,13 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   int num_sampled_;
   //! number of points in ``discret_pts''
   int num_pts_;
+  //! number of derivatives' observations.
+  int num_gradients_;
+
   //! whether gradients been computed and stored--whether this class is ready for use
   bool gradients_already_computed_;
+  // indices of the derivatives' observations.
+  std::vector<int> gradients_;
 
   //! ``\sigma_n^2``, the noise variance
   std::vector<double> noise_variance_;
@@ -229,13 +245,125 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   std::vector<double> grad_KG_;
 
   //! covariance class (for computing covariance and its gradients)
-  MaternNu2p5 matern25_covariance_;
+  SquareExponential sqexp_covariance_;
   //! gaussian process used for computations
   GaussianProcess gaussian_process_;
   //! expected improvement evaluator object that specifies the parameters & GP for KG evaluation
-  KnowledgeGradientEvaluator kg_evaluator_;
+  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator_;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingKnowledgeGradient);
+};
+
+/*!\rst
+  Supports evaluating the knowledge gradient, KnowledgeGradientEvaluator::ComputeKnowledgeGradient() and
+  its gradient, KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient()
+
+  The gradient is taken wrt ``points_to_sample[dim]``, so this is the ``input_matrix``, ``X_{d,i}``.
+  The other inputs to KG are not differentiated against, so they are taken as input and stored by the constructor.
+
+  The output of KG is a scalar.
+\endrst*/
+class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface {
+ public:
+  constexpr static char const * const kName = "Posterior Mean";
+
+  PingPosteriorMean(double const * restrict lengths, double const * restrict points_sampled, double const * restrict points_sampled_value,
+                    int const * restrict gradients, double alpha, int dim, int num_to_sample, int num_sampled, int num_gradients) OL_NONNULL_POINTERS
+      : dim_(dim),
+        num_to_sample_(num_to_sample),
+        num_sampled_(num_sampled),
+        num_gradients_(num_gradients),
+        gradients_already_computed_(false),
+        gradients_(gradients, gradients + num_gradients),
+        noise_variance_(1+num_gradients, 0.1),
+        points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
+        points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_*(1+num_gradients_)),
+        grad_PS_(dim_*num_to_sample_),
+        sqexp_covariance_(dim_, alpha, lengths),
+        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
+                          gradients_.data(), num_gradients_, dim_, num_sampled_),
+        ps_evaluator_(gaussian_process_){
+  }
+
+  virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
+    *num_rows = dim_;
+    *num_cols = num_to_sample_;
+  }
+
+  virtual int GetGradientsSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return dim_*GetOutputSize()*num_to_sample_;
+  }
+
+  virtual int GetOutputSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return 1;
+  }
+
+  virtual void EvaluateAndStoreAnalyticGradient(double const * restrict points_to_sample, double * restrict gradients) noexcept override OL_NONNULL_POINTERS_LIST(2) {
+    if (gradients_already_computed_ == true) {
+      OL_WARNING_PRINTF("WARNING: grad_KG data already set.  Overwriting...\n");
+    }
+    gradients_already_computed_ = true;
+
+    NormalRNG normal_rng(3141);
+    bool configure_for_gradients = true;
+
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, points_to_sample, configure_for_gradients);
+
+    ps_evaluator_.ComputeGradPosteriorMean(&ps_state, grad_PS_.data());
+
+
+    if (gradients != nullptr) {
+      std::copy(grad_PS_.begin(), grad_PS_.end(), gradients);
+    }
+  }
+
+  virtual double GetAnalyticGradient(int row_index, int column_index, int OL_UNUSED(output_index)) const override OL_WARN_UNUSED_RESULT {
+    if (gradients_already_computed_ == false) {
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingPosteriorMean::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+    }
+
+    return grad_PS_[column_index*dim_ + row_index];
+  }
+
+  virtual void EvaluateFunction(double const * restrict points_to_sample, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
+    bool configure_for_gradients = false;
+
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, points_to_sample, configure_for_gradients);
+    *function_values = ps_evaluator_.ComputePosteriorMean(&ps_state);
+  }
+
+ private:
+  //! spatial dimension (e.g., entries per point of ``points_sampled``)
+  int dim_;
+  //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+  int num_to_sample_;
+  //! number of points in ``points_sampled``
+  int num_sampled_;
+  //! number of derivatives' observations.
+  int num_gradients_;
+
+  //! whether gradients been computed and stored--whether this class is ready for use
+  bool gradients_already_computed_;
+  // indices of the derivatives' observations.
+  std::vector<int> gradients_;
+
+  //! ``\sigma_n^2``, the noise variance
+  std::vector<double> noise_variance_;
+  //! coordinates of already-sampled points, ``X``
+  std::vector<double> points_sampled_;
+  //! function values at points_sampled, ``y``
+  std::vector<double> points_sampled_value_;
+  //! the gradient of KG at union_of_points, wrt union_of_points[0:num_to_sample]
+  std::vector<double> grad_PS_;
+
+  //! covariance class (for computing covariance and its gradients)
+  SquareExponential sqexp_covariance_;
+  //! gaussian process used for computations
+  GaussianProcess gaussian_process_;
+  //! expected improvement evaluator object that specifies the parameters & GP for KG evaluation
+  PosteriorMeanEvaluator ps_evaluator_;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingPosteriorMean);
 };
 
 
@@ -256,15 +384,16 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
 template <typename KGEvaluator>
 OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, double epsilon[2],
                                      double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
+  using DomainType = TensorProductDomain;
   int total_errors = 0;
   int errors_this_iteration;
   const int dim = 3;
 
   int num_sampled = 7;
+  int num_pts = 5;
 
-  int num_pts = 1;
-
-  double noise = 1.0;
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
 
   std::vector<double> lengths(dim);
   double alpha = 2.80723;
@@ -274,19 +403,41 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
 
   MockExpectedImprovementEnvironment KG_environment;
 
-  UniformRandomGenerator uniform_generator(2718);
+  // gradient descent parameters
+  const double gamma = 0.7;
+  const double pre_mult = 1.0;
+  const double max_relative_change = 0.7;
+  const double tolerance = 1.0e-1;
+
+  const int max_gradient_descent_steps = 250;
+  const int max_num_restarts = 3;
+  const int num_steps_averaged = 15;
+
+  GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
+                                      num_steps_averaged, gamma, pre_mult,
+                                      max_relative_change, tolerance);
+  ClosedInterval * domain_bounds = new ClosedInterval[dim];
+  for (int i=0; i<dim; ++i){
+      domain_bounds[i] = ClosedInterval(-5.0, 5.0);
+  }
+  TensorProductDomain domain(domain_bounds, dim);
+  // seed randoms
+  UniformRandomGenerator uniform_generator(314);
+
+  //UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
 
-  for (int i = 0; i < 50; ++i) {
-    KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled);
+  for (int i = 0; i < 1; ++i) {
+    KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_gradients);
+    //std::vector<double> noise_variance(num_sampled, 0.0003);
     for (int j = 0; j < dim; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
-                             KG_environment.points_sampled_value(), alpha, best_so_far, KG_environment.dim,
+    KGEvaluator KG_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+                             KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
-                             num_mc_iter, num_pts, noise);
+                             num_mc_iter, num_pts, num_gradients);
 
     //KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_sampled(), KG_environment.points_sampled_value(), alpha, KG_environment.dim, KG_environment.num_to_sample, KG_environment.num_sampled);
     KG_evaluator.EvaluateAndStoreAnalyticGradient(KG_environment.points_to_sample(), nullptr);
@@ -305,6 +456,72 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
     OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-KG) gradient pings passed\n", KGEvaluator::kName, num_to_sample, num_being_sampled);
   }
 
+  delete [] gradients;
+  return total_errors;
+};
+
+
+/*!\rst
+  Pings the gradients (spatial) of the KG 50 times with randomly generated test cases
+  Works with MC formulae
+
+  \param
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
+    :num_being_sampled: number of points being sampled in concurrent experiments (i.e., the "p" in q,p-KG)
+    :epsilon: coarse, fine ``h`` sizes to use in finite difference computation
+    :tolerance_fine: desired amount of deviation from the exact rate
+    :tolerance_coarse: maximum allowable abmount of deviation from the exact rate
+    :input_output_ratio: for ``||analytic_gradient||/||input|| < input_output_ratio``, ping testing is not performed, see PingDerivative()
+  \return
+    number of ping/test failures
+\endrst*/
+template <typename PSEvaluator>
+OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
+  int total_errors = 0;
+  int errors_this_iteration;
+  const int dim = 3;
+
+  int num_sampled = 7;
+
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
+
+  std::vector<double> lengths(dim);
+  double alpha = 2.80723;
+
+  MockExpectedImprovementEnvironment KG_environment;
+
+  UniformRandomGenerator uniform_generator(2718);
+  boost::uniform_real<double> uniform_double(0.5, 2.5);
+
+  for (int i = 0; i < 1; ++i) {
+    KG_environment.Initialize(dim, num_to_sample, 0, num_sampled, num_gradients);
+    for (int j = 0; j < dim; ++j) {
+      lengths[j] = uniform_double(uniform_generator.engine);
+    }
+
+    PSEvaluator PS_evaluator(lengths.data(), KG_environment.points_sampled(),
+                             KG_environment.points_sampled_value(), gradients, alpha, KG_environment.dim,
+                             KG_environment.num_to_sample, KG_environment.num_sampled, num_gradients);
+
+    //KGEvaluator KG_evaluator(lengths.data(), KG_environment.points_sampled(), KG_environment.points_sampled_value(), alpha, KG_environment.dim, KG_environment.num_to_sample, KG_environment.num_sampled);
+    PS_evaluator.EvaluateAndStoreAnalyticGradient(KG_environment.points_to_sample(), nullptr);
+
+    errors_this_iteration = PingDerivative(PS_evaluator, KG_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
+    }
+    total_errors += errors_this_iteration;
+  }
+
+  if (total_errors != 0) {
+    OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-PS) gradient pings failed with %d errors\n", PSEvaluator::kName, num_to_sample, 0, total_errors);
+  } else {
+    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-PS) gradient pings passed\n", PSEvaluator::kName, num_to_sample, 0);
+  }
+  delete [] gradients;
+
   return total_errors;
 };
 
@@ -319,7 +536,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
 \endrst*/
 
 int PingKGGeneralTest() {
-  double epsilon_KG[2] = {1.0e-2, 1.0e-3};
+  double epsilon_KG[2] = {1.0e-3, 1.0e-4};
   int total_errors = PingKGTest<PingKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
@@ -327,6 +544,9 @@ int PingKGGeneralTest() {
   total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(10, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+
+  total_errors += PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+
   return total_errors;
 }
 
@@ -371,6 +591,8 @@ int RunKGTests() {
   (point, RNG) pair won (which is required to ascertain the 'winner' since we are not computing KG accurately enough to avoid
   error).
 \endrst*/
+
+/*
 int MultithreadedKGOptimizationTest() {
   using DomainType = TensorProductDomain;
   const int num_sampled = 17;
@@ -380,7 +602,10 @@ int MultithreadedKGOptimizationTest() {
   int num_to_sample = 2;
   int num_being_sampled = 0;
   int num_pts = 1000;
-  double noise=0.01;
+  //double noise=0.01;
+
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
 
   std::vector<double> points_being_sampled(kDim*num_being_sampled);
   std::vector<double> discrete_pts(kDim*num_pts);
@@ -408,9 +633,9 @@ int MultithreadedKGOptimizationTest() {
   boost::uniform_real<double> uniform_double_lower_bound(-2.0, 0.5);
   boost::uniform_real<double> uniform_double_upper_bound(2.5, 5.5);
 
-  std::vector<double> noise_variance(num_sampled, 0.0003);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(kDim, 1.0, 1.0), noise_variance, kDim,
-                                                        num_sampled, uniform_double_lower_bound,
+  //std::vector<double> noise_variance(num_sampled, 0.0003);
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(kDim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                        num_gradients, kDim, num_sampled, uniform_double_lower_bound,
                                                         uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
 
@@ -457,8 +682,7 @@ int MultithreadedKGOptimizationTest() {
                                                                num_to_sample, num_being_sampled, num_pts,
                                                                mock_gp_data.best_so_far, max_mc_iterations,
                                                                &normal_rng, &found_flag,
-                                                               best_next_point_single_thread.data() + j*kDim*num_to_sample,
-                                                               noise);
+                                                               best_next_point_single_thread.data() + j*kDim*num_to_sample);
     if (!found_flag) {
       ++total_errors;
     }
@@ -472,8 +696,7 @@ int MultithreadedKGOptimizationTest() {
                                                                num_to_sample, num_being_sampled, num_pts,
                                                                mock_gp_data.best_so_far, max_mc_iterations,
                                                                &normal_rng, &found_flag,
-                                                               best_next_point_single_thread.data() + j*kDim*num_to_sample + kDim*kMaxNumThreads*num_to_sample,
-                                                               noise);
+                                                               best_next_point_single_thread.data() + j*kDim*num_to_sample + kDim*kMaxNumThreads*num_to_sample);
     if (!found_flag) {
       ++total_errors;
     }
@@ -489,7 +712,7 @@ int MultithreadedKGOptimizationTest() {
                                                              num_to_sample, num_being_sampled, num_pts,
                                                              mock_gp_data.best_so_far,
                                                              max_mc_iterations, normal_rng_vec.data(),
-                                                             &found_flag, best_next_point_multithread.data(), noise);
+                                                             &found_flag, best_next_point_multithread.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -546,7 +769,7 @@ int MultithreadedKGOptimizationTest() {
                                                              num_to_sample, num_being_sampled, num_pts,
                                                              mock_gp_data.best_so_far,
                                                              max_mc_iterations, normal_rng_vec.data(),
-                                                             &found_flag, best_next_point_multithread.data(), noise);
+                                                             &found_flag, best_next_point_multithread.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -573,6 +796,8 @@ int MultithreadedKGOptimizationTest() {
       break;
     }
   }
+  delete [] gradients;
+
   if (pass == false) {
     OL_PARTIAL_FAILURE_PRINTF("multi & single threaded results differ 2: ");
     PrintMatrix(error, 1, Square(kMaxNumThreads));
@@ -603,6 +828,9 @@ int EvaluateKGAtPointListTest() {
   int num_being_sampled = 0;
   int max_int_steps = 10;
 
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
+
   // random number generators
   UniformRandomGenerator uniform_generator(314);
   boost::uniform_real<double> uniform_double_hyperparameter(0.4, 1.3);
@@ -618,15 +846,16 @@ int EvaluateKGAtPointListTest() {
   }
 
   int num_sampled = 20;  // arbitrary
-  std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance, dim, num_sampled,
-                                                        uniform_double_lower_bound, uniform_double_upper_bound,
-                                                        uniform_double_hyperparameter, &uniform_generator);
+  //std::vector<double> noise_variance(num_sampled, 0.002);
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                        num_gradients, dim, num_sampled, uniform_double_lower_bound,
+                                                        uniform_double_upper_bound, uniform_double_hyperparameter,
+                                                        &uniform_generator);
 
   // no parallel experiments
   num_being_sampled = 0;
   int num_pts = 10;
-  double noise=0.01;
+  //double noise=0.01;
 
   std::vector<double> points_being_sampled(dim*num_being_sampled);
   std::vector<double> discrete_pts(dim*num_pts);
@@ -648,7 +877,7 @@ int EvaluateKGAtPointListTest() {
   EvaluateKGAtPointList(*mock_gp_data.gaussian_process_ptr, thread_schedule, initial_guesses.data(),
                         points_being_sampled.data(), discrete_pts.data(), num_grid_search_points, num_to_sample,
                         num_being_sampled, num_pts, mock_gp_data.best_so_far, max_int_steps, &found_flag,
-                        normal_rng_vec.data(), function_values.data(), grid_search_best_point.data(), noise);
+                        normal_rng_vec.data(), function_values.data(), grid_search_best_point.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -665,7 +894,7 @@ int EvaluateKGAtPointListTest() {
   }
 
   // now check multi-threaded & single threaded give the same result
-/*
+
   {
     std::vector<double> grid_search_best_point_single_thread(dim*num_to_sample);
     std::vector<double> function_values_single_thread(num_grid_search_points);
@@ -677,7 +906,8 @@ int EvaluateKGAtPointListTest() {
                           mock_gp_data.best_so_far, max_int_steps,
                           &found_flag, normal_rng_vec.data(),
                           function_values_single_thread.data(),
-                          grid_search_best_point_single_thread.data(), noise);
+                          grid_search_best_point_single_thread.data());
+    delete [] gradients;
 
     // check against multi-threaded result matches single
     for (int i = 0; i < dim*num_to_sample; ++i) {
@@ -693,13 +923,12 @@ int EvaluateKGAtPointListTest() {
       }
     }
   }
-*/
   return total_errors;
 }
 
 
 namespace {  // contains tests of KG optimization
-
+*/
 /*!\rst
   Test that KG optimization works as expected for the monte-carlo evaluator types on a TensorProductDomain.
 
@@ -707,6 +936,7 @@ namespace {  // contains tests of KG optimization
     number of test failures (invalid results, unconverged results, etc.)
 \endrst*/
 
+/*
 OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
   using DomainType = TensorProductDomain;
   const int dim = 3;
@@ -729,13 +959,16 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
 
   // grid search parameters
   int num_grid_search_points = 10000;
-  const double noise = 0.1;
+  //const double noise = 0.1;
 
   int num_pts = 10;
   // 1,p-KG computation parameters
   const int num_to_sample = 1;
   int num_being_sampled = 0;
   int max_int_steps = 6000;
+
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
 
   // random number generators
   UniformRandomGenerator uniform_generator(314);
@@ -754,10 +987,9 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
   int num_sampled = 20;
 
   std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0), noise_variance,
-                                                        dim, num_sampled, uniform_double_lower_bound,
-                                                        uniform_double_upper_bound,
-                                                        uniform_double_hyperparameter,
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                        num_gradients, dim, num_sampled, uniform_double_lower_bound,
+                                                        uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
 
   // we will optimize over the expanded region
@@ -792,7 +1024,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
                                                    mock_gp_data.best_so_far,
                                                    max_int_steps, &found_flag,
                                                    &uniform_generator, normal_rng_vec.data(),
-                                                   points_being_sampled.data() + j*dim, noise);
+                                                   points_being_sampled.data() + j*dim);
   }
   printf("setup complete, points_being_sampled:\n");
   PrintMatrixTrans(points_being_sampled.data(), num_being_sampled, dim);
@@ -807,7 +1039,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
                                                         num_being_sampled, num_pts, mock_gp_data.best_so_far,
                                                         max_int_steps, &found_flag,
                                                         &uniform_generator, normal_rng_vec.data(),
-                                                        grid_search_best_point.data(), noise);
+                                                        grid_search_best_point.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -830,7 +1062,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
                                                              mock_gp_data.best_so_far,
                                                              max_int_steps,
                                                              normal_rng_vec.data(), &found_flag,
-                                                             next_point.data(), noise);
+                                                             next_point.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -852,18 +1084,19 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
   // while still having this test run in a reasonable amt of time
   //noise = 0.1;
   KnowledgeGradientEvaluator kg_evaluator(*mock_gp_data.gaussian_process_ptr, discrete_pts.data(), num_pts,
-                                          max_int_steps, noise, mock_gp_data.best_so_far);
+                                          max_int_steps, mock_gp_data.best_so_far);
   KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, next_point.data(),
                                                  points_being_sampled.data(), num_to_sample,
-                                                 num_being_sampled, num_pts, configure_for_gradients,
+                                                 num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
                                                  normal_rng_vec.data());
+
   kg_optimized = kg_evaluator.ComputeKnowledgeGradient(&kg_state);
   kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_kg.data());
 
   kg_state.SetCurrentPoint(kg_evaluator, grid_search_best_point.data());
   kg_grid_search = kg_evaluator.ComputeKnowledgeGradient(&kg_state);
 
-
+  delete [] gradients;
   printf("optimized KG: %.18E, grid_search_KG: %.18E\n", kg_optimized, kg_grid_search);
   printf("grad_KG: "); PrintMatrixTrans(grad_kg.data(), num_to_sample, dim);
 
@@ -881,8 +1114,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
 
   return total_errors;
 }
-
-
+*/
 /*!\rst
   Test that KG optimization works as expected for the monte-carlo evaluator types on a SimplexIntersectTensorProductDomain.
 
@@ -890,7 +1122,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationTestCore() {
     number of test failures (invalid results, unconverged results, etc.)
 \endrst*/
 
-
+/*
 OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   using DomainType = SimplexIntersectTensorProductDomain;
   const int dim = 3;
@@ -922,6 +1154,9 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   int num_being_sampled = 0;
   int max_int_steps = 6000;
 
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
+
   // random number generators
   UniformRandomGenerator uniform_generator(314);
   boost::uniform_real<double> uniform_double_hyperparameter(0.05, 0.1);
@@ -938,12 +1173,10 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
 
   int num_sampled = 20;
 
-  std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
-                                                        noise_variance, dim, num_sampled,
-                                                        uniform_double_lower_bound,
-                                                        uniform_double_upper_bound,
-                                                        uniform_double_hyperparameter,
+  //std::vector<double> noise_variance(num_sampled, 0.002);
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                        num_gradients, dim, num_sampled, uniform_double_lower_bound,
+                                                        uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
 
   // we will optimize over the expanded region
@@ -981,7 +1214,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
                                                    mock_gp_data.best_so_far,
                                                    max_int_steps, &found_flag,
                                                    &uniform_generator, normal_rng_vec.data(),
-                                                   points_being_sampled.data() + j*dim, noise);
+                                                   points_being_sampled.data() + j*dim);
   }
   printf("setup complete, points_being_sampled:\n");
   PrintMatrixTrans(points_being_sampled.data(), num_being_sampled, dim);
@@ -995,7 +1228,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
                                                         num_being_sampled, num_pts, mock_gp_data.best_so_far,
                                                         max_int_steps, &found_flag,
                                                         &uniform_generator, normal_rng_vec.data(),
-                                                        grid_search_best_point.data(), noise);
+                                                        grid_search_best_point.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -1021,7 +1254,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
                                                              mock_gp_data.best_so_far,
                                                              max_int_steps,
                                                              normal_rng_vec.data(), &found_flag,
-                                                             next_point.data(), noise);
+                                                             next_point.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -1042,10 +1275,10 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   // while still having this test run in a reasonable amt of time
   //noise = 0.1;
   KnowledgeGradientEvaluator kg_evaluator(*mock_gp_data.gaussian_process_ptr, discrete_pts.data(), num_pts,
-                                          max_int_steps, noise, mock_gp_data.best_so_far);
+                                          max_int_steps, mock_gp_data.best_so_far);
   KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, next_point.data(),
                                                  points_being_sampled.data(), num_to_sample,
-                                                 num_being_sampled, num_pts, configure_for_gradients,
+                                                 num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
                                                  normal_rng_vec.data());
   kg_optimized = kg_evaluator.ComputeKnowledgeGradient(&kg_state);
   kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_kg.data());
@@ -1053,7 +1286,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   kg_state.SetCurrentPoint(kg_evaluator, grid_search_best_point.data());
   kg_grid_search = kg_evaluator.ComputeKnowledgeGradient(&kg_state);
 
-
+  delete [] gradients;
   printf("optimized KG: %.18E, grid_search_KG: %.18E\n", kg_optimized, kg_grid_search);
   printf("grad_KG: "); PrintMatrixTrans(grad_kg.data(), num_to_sample, dim);
 
@@ -1072,9 +1305,7 @@ OL_WARN_UNUSED_RESULT int KnowledgeGradientOptimizationSimplexTestCore() {
   return total_errors;
 }
 
-
 }  // end unnamed namespace
-
 
 int KnowledgeGradientOptimizationTest(DomainTypes domain_type) {
   switch (domain_type) {
@@ -1090,7 +1321,7 @@ int KnowledgeGradientOptimizationTest(DomainTypes domain_type) {
     }
   }  // end switch over domain_type
 }
-
+*/
 /*!\rst
   At the moment, this test is very bare-bones.  It checks:
 
@@ -1103,6 +1334,8 @@ int KnowledgeGradientOptimizationTest(DomainTypes domain_type) {
   The test sets up a toy problem by repeatedly drawing from a GP with made-up hyperparameters.
   Then it runs KG optimization, attempting to sample 3 points simultaneously.
 \endrst*/
+
+/*
 int KnowledgeGradientOptimizationMultipleSamplesTest() {
   using DomainType = TensorProductDomain;
   const int dim = 3;
@@ -1133,6 +1366,9 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
   const int num_to_sample = 3;
   const int num_being_sampled = 0;
 
+  int * gradients = new int[3]{0, 1, 2};
+  int num_gradients = 3;
+
   std::vector<double> points_being_sampled(dim*num_being_sampled);
 
   int max_int_steps = 6000;
@@ -1152,12 +1388,10 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
   }
 
   const int num_sampled = 20;
-  std::vector<double> noise_variance(num_sampled, 0.002);
-  MockGaussianProcessPriorData<DomainType> mock_gp_data(MaternNu2p5(dim, 1.0, 1.0),
-                                                        noise_variance, dim, num_sampled,
-                                                        uniform_double_lower_bound,
-                                                        uniform_double_upper_bound,
-                                                        uniform_double_hyperparameter,
+  //std::vector<double> noise_variance(num_sampled, 0.002);
+  MockGaussianProcessPriorData<DomainType> mock_gp_data(SquareExponential(dim, 1.0, 1.0), std::vector<int>(gradients, gradients+num_gradients),
+                                                        num_gradients, dim, num_sampled, uniform_double_lower_bound,
+                                                        uniform_double_upper_bound, uniform_double_hyperparameter,
                                                         &uniform_generator);
 
   // we will optimize over the expanded region
@@ -1177,7 +1411,7 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
                                                         num_being_sampled, num_pts, mock_gp_data.best_so_far,
                                                         max_int_steps, &found_flag,
                                                         &uniform_generator, normal_rng_vec.data(),
-                                                        grid_search_best_point_set.data(), noise);
+                                                        grid_search_best_point_set.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -1191,7 +1425,7 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
                                  num_to_sample, num_being_sampled, num_pts, mock_gp_data.best_so_far,
                                  max_int_steps, lhc_search_only,
                                  num_grid_search_points, &found_flag, &uniform_generator,
-                                 normal_rng_vec.data(), best_points_to_sample.data(), noise);
+                                 normal_rng_vec.data(), best_points_to_sample.data());
   if (!found_flag) {
     ++total_errors;
   }
@@ -1234,10 +1468,10 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
     // while still having this test run in a reasonable amt of time
     bool configure_for_gradients = true;
     KnowledgeGradientEvaluator kg_evaluator(*mock_gp_data.gaussian_process_ptr, discrete_pts.data(), num_pts,
-                                            max_int_steps, noise, mock_gp_data.best_so_far);
+                                            max_int_steps, mock_gp_data.best_so_far);
     KnowledgeGradientEvaluator::StateType kg_state(kg_evaluator, best_points_to_sample.data(),
                                                    points_being_sampled.data(), num_to_sample,
-                                                   num_being_sampled, num_pts, configure_for_gradients,
+                                                   num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
                                                    normal_rng_vec.data());
     kg_optimized = kg_evaluator.ComputeKnowledgeGradient(&kg_state);
     kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_kg.data());
@@ -1245,13 +1479,14 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
     KnowledgeGradientEvaluator::StateType kg_state_grid_search(kg_evaluator,
                                                                grid_search_best_point_set.data(),
                                                                points_being_sampled.data(), num_to_sample,
-                                                               num_being_sampled, num_pts, configure_for_gradients,
+                                                               num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
                                                                normal_rng_vec.data());
     kg_grid_search = kg_evaluator.ComputeKnowledgeGradient(&kg_state_grid_search);
   }
 
   printf("optimized KG: %.18E, grid_search_KG: %.18E\n", kg_optimized, kg_grid_search);
   printf("grad_KG: "); PrintMatrixTrans(grad_kg.data(), num_to_sample, dim);
+  delete [] gradients;
 
   if (kg_optimized < kg_grid_search) {
     ++total_errors;
@@ -1267,5 +1502,6 @@ int KnowledgeGradientOptimizationMultipleSamplesTest() {
 
   return total_errors;
 }
+*/
 
 }  // end namespace optimal_learning
