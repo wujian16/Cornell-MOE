@@ -112,14 +112,12 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
         }
         // compute KG_this_step_from_far = cholesky * normals   as  KG = cholesky * normal
         // b/c normals currently held in KG_this_step_from_var
-
         GeneralMatrixVectorMultiply(kg_state->inverse_cholesky_covariance.data(), 'T',
                                     kg_state->normals.data(), 1.0, 0.0,
                                     num_union*(1+num_gradients_to_sample),
                                     num_pts_+num_union,
                                     num_union*(1+num_gradients_to_sample),
                                     kg_state->KG_this_step_from_var.data());
-
         int winner_so_far = -1;
         for (int j = 0; j < num_pts_+num_union; ++j) {
           double KG_total = best_posterior - (kg_state->to_sample_mean_[j] + kg_state->KG_this_step_from_var[j]);
@@ -262,7 +260,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
             //norm[j] = (*(kg_state->normal_rng))();
             kg_state->normals[j] = (*(kg_state->normal_rng))();//norm[j];
         }
-        // compute KG_this_step_from_far = cholesky * normals   as  KG = inverse_cholesky_covariance^T * normal
+        // compute KG_this_step_from_far = cholesky * normals as KG = inverse_cholesky_covariance^T * normal
         GeneralMatrixVectorMultiply(kg_state->inverse_cholesky_covariance.data(), 'T',
                                     kg_state->normals.data(),
                                     1.0, 0.0, num_union*(1+num_gradients_to_sample),
@@ -381,7 +379,14 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
       best_point(dim),
       chol_inverse_cov(num_union*(1+num_gradients_to_sample)),
       grad_chol_inverse_cov(dim*num_union*(1+num_gradients_to_sample)*num_derivatives),
-      train_sample(kg_evaluator.train_sample(union_of_points.data(), num_union, gradients_in, num_gradients_in)) {
+      train_sample((num_to_sample*(num_gradients_to_sample+1))*(kg_evaluator.gaussian_process()->num_sampled()*(kg_evaluator.gaussian_process()->num_derivatives()+1))) {
+      if (points_to_sample_state.num_derivatives > 0) {
+          std::copy(points_to_sample_state.K_inv_times_K_star.begin(), points_to_sample_state.K_inv_times_K_star.end(),
+                    train_sample.begin());
+      } else {
+          std::vector<double> temp = kg_evaluator.train_sample(union_of_points.data(), num_union, gradients_in, num_gradients_in);
+          std::copy(temp.begin(), temp.end(), train_sample.begin());
+      }
 }
 
 template <typename DomainType>

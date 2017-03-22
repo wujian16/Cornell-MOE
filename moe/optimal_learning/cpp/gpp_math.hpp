@@ -916,7 +916,6 @@ struct PointsToSampleState final {
 
   int num_gradients_sampled;
 
-
   // state variables for predictive component
   //! points to make predictions about, ``Xs``
   std::vector<double> points_to_sample;
@@ -932,7 +931,6 @@ struct PointsToSampleState final {
   std::vector<double> K_inv_times_K_star;
   //! the gradient of covariance(x_1, x_2) wrt x_1
   // std::vector<double> grad_cov;
-
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PointsToSampleState);
 };
 

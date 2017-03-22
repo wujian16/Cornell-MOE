@@ -400,7 +400,6 @@ OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const Covariance
   delete [] cov_temp;
 }
 
-
 /*!\rst
   .. NOTE:: These comments have been copied into build_mix_covariance_matrix in python_version/python_utils.py.
 
@@ -1714,7 +1713,6 @@ int GaussianProcess::SamplePointsFromGP(double const * restrict points_to_sample
   }
   return best_point;
 }
-
 
 /*!\rst
   Approximate the global optima of the GP.
