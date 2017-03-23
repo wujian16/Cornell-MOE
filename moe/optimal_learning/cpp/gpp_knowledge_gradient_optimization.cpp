@@ -379,7 +379,7 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
       best_point(dim),
       chol_inverse_cov(num_union*(1+num_gradients_to_sample)),
       grad_chol_inverse_cov(dim*num_union*(1+num_gradients_to_sample)*num_derivatives),
-      train_sample((num_to_sample*(num_gradients_to_sample+1))*(kg_evaluator.gaussian_process()->num_sampled()*(kg_evaluator.gaussian_process()->num_derivatives()+1))) {
+      train_sample((num_union*(num_gradients_to_sample+1))*(kg_evaluator.gaussian_process()->num_sampled()*(kg_evaluator.gaussian_process()->num_derivatives()+1))) {
       if (points_to_sample_state.num_derivatives > 0) {
           std::copy(points_to_sample_state.K_inv_times_K_star.begin(), points_to_sample_state.K_inv_times_K_star.end(),
                     train_sample.begin());

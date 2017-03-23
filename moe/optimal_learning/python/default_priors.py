@@ -26,7 +26,7 @@ class DefaultPrior(BasePrior):
         if noisy == False:
             self.horseshoe = HorseshoePrior(scale=1e-10)
         else:
-            self.horseshoe = HorseshoePrior(scale=0.1)
+            self.horseshoe = HorseshoePrior(scale=0.01)
 
     def lnprob(self, theta):
         lp = 0
