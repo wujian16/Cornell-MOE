@@ -8,6 +8,7 @@ Co-Devlopers
 
 - Scott Clark (sclark@yelp.com, [@DrScottClark][3], http://scottclark.io)
 - Eric Liu (eliu@yelp.com, [@ehliu][4])
+- Jian Wu (jw926@cornell.edu)
 
 Contributors
 ------------

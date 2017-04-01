@@ -14,10 +14,12 @@ MAX_ALLOWED_NUM_THREADS = 10000
 
 # Covariance type names
 SQUARE_EXPONENTIAL_COVARIANCE_TYPE = 'square_exponential'
+DEEP_KERNEL_COVARIANCE_TYPE = 'deep_kernel'
 
 #: Covariance types supported by :mod:`moe`
 COVARIANCE_TYPES = [
         SQUARE_EXPONENTIAL_COVARIANCE_TYPE,
+        DEEP_KERNEL_COVARIANCE_TYPE,
         ]
 
 # GP Defaults

@@ -792,7 +792,7 @@ class ExpectedImprovement(ExpectedImprovementInterface, OptimizableInterface):
         union_of_points = numpy.reshape(numpy.append(self._points_to_sample, self._points_being_sampled), (num_points, self.dim))
 
         mu_star = self._gaussian_process.compute_mean_of_points(union_of_points)
-        var_star = self._gaussian_process.compute_variance_of_points(union_of_points)
+        var_star = self._gaussian_process.compute_variance_of_points(union_of_points).eval()
 
         if force_monte_carlo is False and force_1d_ei is False:
             var_star = numpy.fmax(MINIMUM_VARIANCE_EI, var_star)  # TODO(272): Check if this is needed.
@@ -836,7 +836,7 @@ class ExpectedImprovement(ExpectedImprovementInterface, OptimizableInterface):
         union_of_points = numpy.reshape(numpy.append(self._points_to_sample, self._points_being_sampled), (num_points, self.dim))
 
         mu_star = self._gaussian_process.compute_mean_of_points(union_of_points)
-        var_star = self._gaussian_process.compute_variance_of_points(union_of_points)
+        var_star = self._gaussian_process.compute_variance_of_points(union_of_points).eval()
         grad_mu = self._gaussian_process.compute_grad_mean_of_points(union_of_points, self.num_to_sample)
 
         if num_points == 1 and force_monte_carlo is False:

@@ -56,7 +56,8 @@ class CovarianceInterface(object):
         pass
 
     def get_hyperparameters(self):
-        """Get the hyperparameters (array of float64 with shape (num_hyperparameters)) of this covariance."""
+        """Get the hyperparameters (array of float64 with shape (num_hyperparameters)
+        or list of tf.tensors) of this covariance."""
         pass
 
     def set_hyperparameters(self, hyperparameters):
@@ -64,6 +65,7 @@ class CovarianceInterface(object):
 
         :param hyperparameters: hyperparameters
         :type hyperparameters: array of float64 with shape (num_hyperparameters)
+                               or list of tf.tensors
 
         """
         pass
@@ -76,7 +78,7 @@ class CovarianceInterface(object):
 
         .. Note:: comments are copied from the matching method comments of CovarianceInterface in gpp_covariance.hpp
           and comments are copied to the matching method comments of
-          :mod:`moe.optimal_learning.python.python_version.covariance.SquareExponential`.
+          :mod:`moe.optimal_learning.python.python_version.covariance.SquareExponential`.-
 
         The covariance function is guaranteed to be symmetric by definition: ``covariance(x, y) = covariance(y, x)``.
         This function is also positive definite by definition.
@@ -97,7 +99,7 @@ class CovarianceInterface(object):
 
         .. Note:: comments are copied from the matching method comments of CovarianceInterface in gpp_covariance.hpp
           and comments are copied to the matching method comments of
-          :mod:`moe.optimal_learning.python.python_version.covariance.SquareExponential`.
+          :mod:`moe.optimal_learning.python.python_version.covariance.SquareExponential`.==
 
         This distinction is important for maintaining the desired symmetry.  ``Cov(x, y) = Cov(y, x)``.
         Additionally, ``\pderiv{Cov(x, y)}{x} = \pderiv{Cov(y, x)}{x}``.
