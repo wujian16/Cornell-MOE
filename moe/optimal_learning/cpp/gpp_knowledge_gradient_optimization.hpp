@@ -438,6 +438,7 @@ struct KnowledgeGradientState final {
   // wrt union_of_points[0:num_to_sample]
   // (L_{d,*,*,k}^{-1} * L_{d,*,*,k} * L_{d,*,*,k}^{-1})^T
   std::vector<double> grad_chol_decomp;
+  std::vector<double> grad_inverse_cholesky_covariance;
   //! the mean of the GP evaluated at discrete_pts and the union_of_points
   std::vector<double> to_sample_mean_;
   //! the gradient of the GP mean evaluated at union_of_points, wrt union_of_points[0:num_to_sample]

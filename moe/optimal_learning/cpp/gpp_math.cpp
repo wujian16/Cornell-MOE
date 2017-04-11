@@ -564,12 +564,14 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
                            points_to_sample_state->K_star.data());
 
   if (points_to_sample_state->num_derivatives > 0) {
-    // to save on duplicate storage, precompute K^-1 * Ks
-    std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
-              points_to_sample_state->K_inv_times_K_star.begin());
-    CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1),
-                                     points_to_sample_state->num_to_sample*(points_to_sample_state->num_gradients_to_sample+1),
-                                     points_to_sample_state->K_inv_times_K_star.data());
+    if (points_to_sample_state->precomputed){
+        // to save on duplicate storage, precompute K^-1 * Ks
+        std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
+                  points_to_sample_state->K_inv_times_K_star.begin());
+        CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1),
+                                         points_to_sample_state->num_to_sample*(points_to_sample_state->num_gradients_to_sample+1),
+                                         points_to_sample_state->K_inv_times_K_star.data());
+    }
 
     double * restrict gKs_temp = points_to_sample_state->grad_K_star.data();
     double * restrict grad_cov_temp = new double[dim_*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)]();
@@ -1787,11 +1789,12 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
 PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process,
                                          double const * restrict points_to_sample_in,
                                          int num_to_sample_in, int const * restrict gradients_in,
-                                         int num_gradients_to_sample_in, int num_derivatives_in)
+                                         int num_gradients_to_sample_in, int num_derivatives_in, bool precomputed_in /*=true*/)
     : dim(gaussian_process.dim()),
       num_sampled(gaussian_process.num_sampled()),
       num_to_sample(num_to_sample_in),
       num_derivatives(num_derivatives_in),
+      precomputed(precomputed_in),
       gradients(gradients_in, gradients_in+num_gradients_to_sample_in),
       num_gradients_to_sample(num_gradients_to_sample_in),
       num_gradients_sampled(gaussian_process.num_derivatives()),

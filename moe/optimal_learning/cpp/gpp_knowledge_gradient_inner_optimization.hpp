@@ -402,7 +402,7 @@ void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, 
                                        double const * train_sample,
                                        const GradientDescentParameters& optimizer_parameters,
                                        const DomainType& domain, double const * restrict initial_guess,
-                                       bool * restrict found_flag, double * restrict best_next_point);
+                                       double& best_objective_value, double * restrict best_next_point);
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
@@ -414,7 +414,7 @@ extern template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& ga
                                                        double const * train_sample,
                                                        const GradientDescentParameters& optimizer_parameters,
                                                        const TensorProductDomain& domain, double const * restrict initial_guess,
-                                                       bool * restrict found_flag, double * restrict best_next_point);
+                                                       double& best_objective_value, double * restrict best_next_point);
 extern template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
                                                        double const * to_sample,
                                                        const int num_to_sample,
@@ -424,6 +424,6 @@ extern template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& ga
                                                        double const * train_sample,
                                                        const GradientDescentParameters& optimizer_parameters,
                                                        const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                                       bool * restrict found_flag, double * restrict best_next_point);
+                                                       double& best_objective_value, double * restrict best_next_point);
 }  // end namespace optimal_learning
 #endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_INNER_OPTIMIZATION_HPP_
