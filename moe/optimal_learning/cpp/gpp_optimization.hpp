@@ -657,6 +657,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimization(
     domain.LimitUpdate(gd_parameters.max_relative_change, next_point.data(), step.data());
     // take the step
     for (int j = 0; j < problem_size; ++j) {
+      //printf("dim %d, step %f\n", j, step[j]);
       next_point[j] += step[j];
     }
 

@@ -327,7 +327,14 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         }
         else {
             if (best_posterior + best_function_value < improvement_this_step){
-                std::copy(discrete_pts_.data() + winner*dim_, discrete_pts_.data() + (winner+1)*dim_, kg_state->best_point.begin());
+                if (winner < num_pts_) {
+                    std::copy(discrete_pts_.data() + winner*dim_, discrete_pts_.data() + (winner+1)*dim_, kg_state->best_point.begin());
+                }
+                else{
+                    std::copy(kg_state->union_of_points.data() + (winner-num_pts_)*dim_,
+                              kg_state->union_of_points.data() + (winner+1-num_pts_)*dim_,
+                              kg_state->best_point.begin());
+                }
             }
             //double best_mean = 0.0;
             //gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->best_point.data(), 1, nullptr, 0, &best_mean);

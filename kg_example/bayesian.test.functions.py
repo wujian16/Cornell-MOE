@@ -59,7 +59,7 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 # initialize the model
 prior = DefaultPrior(1+dim+len(observations), len(observations), noisy = False)
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 50, burnin_steps = 50, n_hypers = 100)
+                                                           chain_length = 100, burnin_steps = 50, n_hypers = 40)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
@@ -99,8 +99,8 @@ for n in xrange(num_iteration):
     discrete_pts_list = []
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
-        discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 20)
-
+        discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 40)
+        '''
         eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
         test = cpp_gp.compute_mean_of_points(eval_pts)
@@ -113,6 +113,7 @@ for n in xrange(num_iteration):
             report_point = initial_point
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                          (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
+        '''
 
         discrete_pts_list.append(discrete_pts_optima)
 
