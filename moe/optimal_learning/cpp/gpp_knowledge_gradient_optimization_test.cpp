@@ -427,7 +427,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   //UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
 
-  for (int i = 0; i < 1; ++i) {
+  for (int i = 0; i < 2; ++i) {
     KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_gradients);
     //std::vector<double> noise_variance(num_sampled, 0.0003);
     for (int j = 0; j < dim; ++j) {
@@ -494,7 +494,7 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
   UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
 
-  for (int i = 0; i < 1; ++i) {
+  for (int i = 0; i < 50; ++i) {
     KG_environment.Initialize(dim, num_to_sample, 0, num_sampled, num_gradients);
     for (int j = 0; j < dim; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);

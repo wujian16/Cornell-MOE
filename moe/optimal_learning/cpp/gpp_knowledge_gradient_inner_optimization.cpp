@@ -75,7 +75,7 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
   double * grad_cov = new double[dim_*num_to_sample_*(1+num_derivatives_)]();
   gaussian_process_->ComputeGradCovarianceOfPoints(&(ps_state->points_to_sample_state), to_sample_.data(),
                                                    num_to_sample_, to_sample_derivatives_.data(), num_derivatives_,
-                                                   false, nullptr, grad_cov);
+                                                   true, train_sample_.data(), grad_cov);
   std::vector<double> temp(coeff_);
 
   TriangularMatrixVectorSolve(chol_.data(), 'T', num_to_sample_*(1+num_derivatives_),
@@ -107,7 +107,8 @@ FuturePosteriorMeanState::FuturePosteriorMeanState(
     : dim(ps_evaluator.dim()),
       num_derivatives(configure_for_gradients ? num_to_sample : 0),
       point_to_sample(point_to_sample_in, point_to_sample_in + dim),
-      points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample, nullptr, 0, num_derivatives),
+      points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample,
+                             nullptr, 0, num_derivatives, false),
       grad_mu(dim*num_derivatives) {
 }
 
@@ -161,7 +162,7 @@ void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, 
                                        double const * train_sample,
                                        const GradientDescentParameters& optimizer_parameters,
                                        const DomainType& domain, double const * restrict initial_guess,
-                                       bool * restrict found_flag, double * restrict best_next_point) {
+                                       double& best_objective_value, double * restrict best_next_point) {
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
     return;
   }
@@ -178,6 +179,7 @@ void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, 
   GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
   gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
   ps_state.GetCurrentPoint(best_next_point);
+  best_objective_value = ps_evaluator.ComputeObjectiveFunction(&ps_state);
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
@@ -190,7 +192,7 @@ template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_
                                                 double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters,
                                                 const TensorProductDomain& domain, double const * restrict initial_guess,
-                                                bool * restrict found_flag, double * restrict best_next_point);
+                                                double& best_objective_value, double * restrict best_next_point);
 template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
                                                 double const * to_sample,
                                                 const int num_to_sample,
@@ -200,5 +202,5 @@ template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_
                                                 double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters,
                                                 const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                                bool * restrict found_flag, double * restrict best_next_point);
+                                                double& best_objective_value, double * restrict best_next_point);
 }  // end namespace optimal_learning

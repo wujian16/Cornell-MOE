@@ -1,3 +1,56 @@
+# -*- coding: utf-8 -*-
+r"""Tools to compute log likelihood-like measures of model fit and optimize them (wrt the hyperparameters of covariance).
+
+See the file comments in :mod:`moe.optimal_learning.python.interfaces.log_likelihood_interface`
+for an overview of log likelihood-like metrics and their role
+in model selection. This file provides hooks to implementations of two such metrics in C++: Log Marginal Likelihood and
+Leave One Out Cross Validation Log Pseudo-Likelihood.
+
+.. Note:: This is a copy of the file comments in gpp_model_selection.hpp.
+  These comments are copied in :mod:`moe.optimal_learning.python.python_version.log_likelihood`.
+  See this file's comments and interfaces.log_likelihood_interface for more details as well as the hpp and corresponding .cpp file.
+
+**a. LOG MARGINAL LIKELIHOOD (LML)**
+
+(Rasmussen & Williams, 5.4.1)
+The Log Marginal Likelihood measure comes from the ideas of Bayesian model selection, which use Bayesian inference
+to predict distributions over models and their parameters.  The cpp file comments explore this idea in more depth.
+For now, we will simply state the relevant result.  We can build up the notion of the "marginal likelihood":
+probability(observed data GIVEN sampling points (``X``), model hyperparameters, model class (regression, GP, etc.)),
+which is denoted: ``p(y | X, \theta, H_i)`` (see the cpp file comments for more).
+
+So the marginal likelihood deals with computing the probability that the observed data was generated from (another
+way: is easily explainable by) the given model.
+
+The marginal likelihood is in part paramaterized by the model's hyperparameters; e.g., as mentioned above.  Thus
+we can search for the set of hyperparameters that produces the best marginal likelihood and use them in our model.
+Additionally, a nice property of the marginal likelihood optimization is that it automatically trades off between
+model complexity and data fit, producing a model that is reasonably simple while still explaining the data reasonably
+well.  See the cpp file comments for more discussion of how/why this works.
+
+In general, we do not want a model with perfect fit and high complexity, since this implies overfit to input noise.
+We also do not want a model with very low complexity and poor data fit: here we are washing the signal out with
+(assumed) noise, so the model is simple but it provides no insight on the data.
+
+This is not magic.  Using GPs as an example, if the covariance function is completely mis-specified, we can blindly
+go through with marginal likelihood optimization, obtain an "optimal" set of hyperparameters, and proceed... never
+realizing that our fundamental assumptions are wrong.  So care is always needed.
+
+**b. LEAVE ONE OUT CROSS VALIDATION (LOO-CV)**
+
+(Rasmussen & Williams, Chp 5.4.2)
+In cross validation, we split the training data, X, into two sets--a sub-training set and a validation set.  Then we
+train a model on the sub-training set and test it on the validation set.  Since the validation set comes from the
+original training data, we can compute the error.  In effect we are examining how well the model explains itself.
+
+Leave One Out CV works by considering n different validation sets, one at a time.  Each point of X takes a turn
+being the sole member of the validation set.  Then for each validation set, we compute a log pseudo-likelihood, measuring
+how probable that validation set is given the remaining training data and model hyperparameters.
+
+Again, we can maximize this quanitity over hyperparameters to help us choose the "right" set for the GP.
+
+"""
+
 import copy
 
 import numpy
@@ -7,6 +60,7 @@ import moe.build.GPP as C_GP
 from moe.optimal_learning.python.cpp_wrappers import cpp_utils
 from moe.optimal_learning.python.cpp_wrappers.covariance import SquareExponential
 from moe.optimal_learning.python.cpp_wrappers.gaussian_process import GaussianProcess
+from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import GaussianProcessMCMC
 
 class GaussianProcessLogLikelihoodMCMC:
 
@@ -159,16 +213,23 @@ class GaussianProcessLogLikelihoodMCMC:
 
         self.is_trained = True
         self._models = []
+        hypers_list = []
+        noises_list = []
         for sample in self.hypers:
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
+            hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             noise = sample[(self.dim+1):]
+            noises_list.append(noise)
             model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)
             self._models.append(model)
+
+        self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
+                                                          self._historical_data, self.derivatives)
 
     def compute_log_likelihood(self, hyps):
         r"""Compute the objective_type measure at the specified hyperparameters.
