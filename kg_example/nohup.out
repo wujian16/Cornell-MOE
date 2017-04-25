@@ -1,4 +1,0 @@
-/fs/home/jw926/.virtualenvs/jian_virtual/lib/python2.7/site-packages/emcee/ensemble.py:335: RuntimeWarning: invalid value encountered in subtract
-  lnpdiff = (self.dim - 1.) * np.log(zz) + newlnprob - lnprob0
-/fs/home/jw926/.virtualenvs/jian_virtual/lib/python2.7/site-packages/emcee/ensemble.py:336: RuntimeWarning: invalid value encountered in greater
-  accept = (lnpdiff > np.log(self._random.rand(len(lnpdiff))))
