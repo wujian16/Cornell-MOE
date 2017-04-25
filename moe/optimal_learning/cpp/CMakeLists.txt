@@ -96,6 +96,7 @@ set(OPTIMAL_LEARNING_CORE_SOURCES
   #gpp_expected_improvement_gpu.cpp
   gpp_knowledge_gradient_optimization.cpp
   gpp_knowledge_gradient_inner_optimization.cpp
+  gpp_knowledge_gradient_mcmc_optimization.cpp
   )
 
 # readonly
@@ -122,6 +123,7 @@ set(OPTIMAL_LEARNING_PYTHON_SOURCES
   gpp_python_common.cpp
   gpp_python_expected_improvement.cpp
   gpp_python_knowledge_gradient.cpp
+  gpp_python_knowledge_gradient_mcmc.cpp
   gpp_python_gaussian_process.cpp
   gpp_python_model_selection.cpp
   gpp_python_test.cpp

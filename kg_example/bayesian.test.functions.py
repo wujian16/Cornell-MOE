@@ -59,20 +59,24 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 # initialize the model
 prior = DefaultPrior(1+dim+len(observations), len(observations), noisy = False)
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 50, burnin_steps = 50, n_hypers = 100)
+                                                           chain_length = 10000, burnin_steps = 10000, n_hypers = 40)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=10, max_num_restarts=2,
+py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
-                                               max_relative_change=0.01, tolerance=1.0e-5)
+                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
+                                               max_relative_change=0.02, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
-                                                 num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
-                                                 max_relative_change=0.01, tolerance=1.0e-5)
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
+                                                 num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
+                                                 max_relative_change=0.02, tolerance=1.0e-5)
+
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
+                                                 num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
+                                                 max_relative_change=0.1, tolerance=1.0e-5)
 
 # minimum of the mean surface
 eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e5))
@@ -100,25 +104,28 @@ for n in xrange(num_iteration):
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 10)
-
-        eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
+        '''
+        eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
         test = cpp_gp.compute_mean_of_points(eval_pts)
         initial_point = eval_pts[np.argmin(test)]
 
         ps_evaluator = PosteriorMean(cpp_gp)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
-        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
+        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 1)
         if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
             report_point = initial_point
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                          (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
+        '''
+
         discrete_pts_list.append(discrete_pts_optima)
 
     ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0])
     ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
-    next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood.models, ps_sgd_optimizer, python_search_domain, discrete_pts_list,
-                                                            py_sgd_params_kg, num_to_sample, num_mc=200, lhc_itr=lhc_search_itr)
+    next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
+                                                            ps_sgd_optimizer, cpp_search_domain, discrete_pts_list,
+                                                            cpp_sgd_params_kg, num_to_sample, num_mc=200, lhc_itr=lhc_search_itr)
     print "KG takes "+str((time.time()-time1)/60)+" mins"
     time1 = time.time()
 
@@ -153,7 +160,7 @@ for n in xrange(num_iteration):
         report_point = initial_point
     report_point = report_point.ravel()
 
-    print "recommended points:"
+    print "recommended points: ",
     print report_point
     print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
     print "KG, best so far {0}".format(objective_func.evaluate_true(report_point)[0])

@@ -8,6 +8,8 @@ The optimization functions are convenient wrappers around the matching C++ calls
 See gpp_knowledge_gradient_optimization.hpp/cpp for further details on knowledge gradient.
 
 """
+import copy
+
 import numpy
 
 import moe.build.GPP as C_GP
@@ -150,6 +152,173 @@ class PosteriorMeanMCMC(OptimizableInterface):
         """We do not currently support computation of the (spatial) hessian of knowledge gradient."""
         raise NotImplementedError('Currently we cannot compute the hessian of knowledge gradient.')
 
+class GaussianProcessMCMC(object):
+
+    r"""Implementation of a pointer to GaussianProcess MCMC object in C++
+    """
+
+    def __init__(self, hyperparameters_list, noise_variance_list, historical_data, derivatives):
+        """Construct a GaussianProcess object that knows how to call C++ for evaluation of member functions.
+
+        :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
+        :type covariance_function: :class:`moe.optimal_learning.python.interfaces.covariance_interface.CovarianceInterface` subclass
+          (e.g., from :mod:`moe.optimal_learning.python.cpp_wrappers.covariance`).
+        :param historical_data: object specifying the already-sampled points, the objective value at those points, and the noise variance associated with each observation
+        :type historical_data: :class:`moe.optimal_learning.python.data_containers.HistoricalData` object
+
+        """
+        self._hyperparameters_list = copy.deepcopy(hyperparameters_list)
+
+        self._num_mcmc = hyperparameters_list.shape[0]
+
+        self._historical_data = copy.deepcopy(historical_data)
+
+        self._noise_variance_list = copy.deepcopy(noise_variance_list)
+
+        self._derivatives = copy.deepcopy(derivatives)
+
+        self._num_derivatives = len(cpp_utils.cppify(self._derivatives))
+
+        # C++ will maintain its own copy of the contents of hyperparameters and historical_data
+        self._gaussian_process_mcmc = C_GP.GaussianProcessMCMC(
+                cpp_utils.cppify(self._hyperparameters_list),
+                cpp_utils.cppify(self._noise_variance_list),
+                cpp_utils.cppify(self._historical_data.points_sampled),
+                cpp_utils.cppify(self._historical_data.points_sampled_value),
+                cpp_utils.cppify(self._derivatives),
+                self._num_mcmc, self._num_derivatives,
+                self._historical_data.dim,
+                self._historical_data.num_sampled,
+        )
+
+    @property
+    def dim(self):
+        """Return the number of spatial dimensions."""
+        return self._historical_data.dim
+
+    @property
+    def num_sampled(self):
+        """Return the number of sampled points."""
+        return self._historical_data.num_sampled
+
+    @property
+    def num_derivatives(self):
+        return self._num_derivatives
+
+    @property
+    def derivatives(self):
+        return numpy.copy(self._derivatives)
+
+    @property
+    def noise_variance_list(self):
+        """
+        Return the noise variance of the observations
+        :return:
+        """
+        return numpy.copy(self._noise_variance_list)
+
+    @property
+    def _points_sampled_value(self):
+        """Return the function values measured at each of points_sampled; see :class:`moe.optimal_learning.python.data_containers.HistoricalData`."""
+        return numpy.copy(self._historical_data.points_sampled_value)
+
+    @property
+    def _points_sampled(self):
+        """return the points sampled"""
+        return numpy.copy(self._historical_data.points_sampled)
+
+    def get_historical_data_copy(self):
+        """Return the data (points, function values, noise) specifying the prior of the Gaussian Process.
+
+        :return: object specifying the already-sampled points, the objective value at those points, and the noise variance associated with each observation
+        :rtype: data_containers.HistoricalData
+
+        """
+        return copy.deepcopy(self._historical_data)
+
+def multistart_knowledge_gradient_mcmc_optimization(
+        kg_optimizer,
+        inner_optimizer,
+        num_multistarts,
+        discrete_pts,
+        num_to_sample,
+        num_pts,
+        randomness=None,
+        max_num_threads=DEFAULT_MAX_NUM_THREADS,
+        status=None,
+):
+    """Solve the q,p-KG problem, returning the optimal set of q points to sample CONCURRENTLY in future experiments.
+
+    .. NOTE:: The following comments are copied from gpp_math.hpp, ComputeOptimalPointsToSample().
+      These comments are copied into
+      :func:`moe.optimal_learning.python.python_version.expected_improvement.multistart_expected_improvement_optimization`
+
+    This is the primary entry-point for EI optimization in the optimal_learning library. It offers our best shot at
+    improving robustness by combining higher accuracy methods like gradient descent with fail-safes like random/grid search.
+
+    Returns the optimal set of q points to sample CONCURRENTLY by solving the q,p-EI problem.  That is, we may want to run 4
+    experiments at the same time and maximize the EI across all 4 experiments at once while knowing of 2 ongoing experiments
+    (4,2-EI). This function handles this use case. Evaluation of q,p-EI (and its gradient) for q > 1 or p > 1 is expensive
+    (requires monte-carlo iteration), so this method is usually very expensive.
+
+    Compared to ComputeHeuristicPointsToSample() (``gpp_heuristic_expected_improvement_optimization.hpp``), this function
+    makes no external assumptions about the underlying objective function. Instead, it utilizes a feature of the
+    GaussianProcess that allows the GP to account for ongoing/incomplete experiments.
+
+    If ``num_to_sample = 1``, this is the same as ComputeOptimalPointsToSampleWithRandomStarts().
+
+    The option of using GPU to compute general q,p-EI via MC simulation is also available. To enable it, make sure you have
+    installed GPU components of MOE, otherwise, it will throw Runtime excpetion.
+
+    :param kg_optimizer: object that optimizes (e.g., gradient descent, newton) EI over a domain
+    :type kg_optimizer: cpp_wrappers.optimization.*Optimizer object
+    :param num_multistarts: number of times to multistart ``ei_optimizer`` (UNUSED, data is in ei_optimizer.optimizer_parameters)
+    :type num_multistarts: int > 0
+    :param num_to_sample: how many simultaneous experiments you would like to run (i.e., the q in q,p-EI)
+    :type num_to_sample: int >= 1
+    :param use_gpu: set to True if user wants to use GPU for MC simulation
+    :type use_gpu: bool
+    :param which_gpu: GPU device ID
+    :type which_gpu: int >= 0
+    :param randomness: RNGs used by C++ to generate initial guesses and as the source of normal random numbers when monte-carlo is used
+    :type randomness: RandomnessSourceContainer (C++ object; e.g., from C_GP.RandomnessSourceContainer())
+    :param max_num_threads: maximum number of threads to use, >= 1
+    :type max_num_threads: int > 0
+    :param status: (output) status messages from C++ (e.g., reporting on optimizer success, etc.)
+    :type status: dict
+    :return: point(s) that maximize the knowledge gradient (solving the q,p-KG problem)
+    :rtype: array of float64 with shape (num_to_sample, ei_optimizer.objective_function.dim)
+
+    """
+    # Create enough randomness sources if none are specified.
+    if randomness is None:
+        randomness = C_GP.RandomnessSourceContainer(max_num_threads)
+        # Set seeds based on less repeatable factors (e.g,. time)
+        randomness.SetRandomizedUniformGeneratorSeed(0)
+        randomness.SetRandomizedNormalRNGSeed(0)
+
+    # status must be an initialized dict for the call to C++.
+    if status is None:
+        status = {}
+
+    best_points_to_sample = C_GP.multistart_knowledge_gradient_mcmc_optimization(
+            kg_optimizer.optimizer_parameters,
+            inner_optimizer.optimizer_parameters,
+            kg_optimizer.objective_function._gaussian_process_mcmc._gaussian_process_mcmc,
+            cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
+            cpp_utils.cppify(numpy.array(discrete_pts)),
+            cpp_utils.cppify(kg_optimizer.objective_function._points_being_sampled),
+            num_pts, num_to_sample, kg_optimizer.objective_function.num_being_sampled,
+            cpp_utils.cppify(numpy.array(kg_optimizer.objective_function._best_so_far_list)),
+            kg_optimizer.objective_function._num_mc_iterations,
+            max_num_threads,
+            randomness,
+            status,
+    )
+
+    # reform output to be a list of dim-dimensional points, dim = len(self.domain)
+    return cpp_utils.uncppify(best_points_to_sample, (num_to_sample, kg_optimizer.objective_function.dim))
+
 
 class KnowledgeGradientMCMC(OptimizableInterface):
 
@@ -168,6 +337,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
 
     def __init__(
             self,
+            gaussian_process_mcmc,
             gaussian_process_list,
             inner_optimizer,
             discrete_pts_list,
@@ -180,7 +350,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         """Construct a KnowledgeGradient object that supports q,p-KG.
         TODO(GH-56): Allow callers to pass in a source of randomness.
         :param gaussian_process: GaussianProcess describing
-        :type gaussian_process: interfaces.gaussian_process_interface.GaussianProcessInterface subclass
+        :type gaussian_process: GaussianProcessMCMC class
         :param discrete_pts: a discrete set of points to approximate the KG
         :type discrete_pts: array of float64 with shape (num_pts, dim)
         :param noise: measurement noise
@@ -195,6 +365,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         :type randomness: (UNUSED)
         """
         self._num_mc_iterations = num_mc_iterations
+        self._gaussian_process_mcmc = gaussian_process_mcmc
         self._gaussian_process_list = gaussian_process_list
         self._num_to_sample = num_to_sample
         self._inner_optimizer = inner_optimizer
@@ -232,7 +403,7 @@ class KnowledgeGradientMCMC(OptimizableInterface):
     @property
     def dim(self):
         """Return the number of spatial dimensions."""
-        return self._gaussian_process_list[0].dim
+        return self._gaussian_process_mcmc.dim
 
     @property
     def num_to_sample(self):
@@ -311,27 +482,23 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         # overrides any data inside ei_evaluator
         num_to_evaluate, num_to_sample, _ = points_to_evaluate.shape
 
-        kg_values_mcmc = numpy.zeros(num_to_evaluate)
-        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
-            kg_values = C_GP.evaluate_KG_at_point_list(
-                    gp._gaussian_process,
-                    self._inner_optimizer.optimizer_parameters,
-                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                    cpp_utils.cppify(discrete_pts),
-                    cpp_utils.cppify(points_to_evaluate),
-                    cpp_utils.cppify(self._points_being_sampled),
-                    num_to_evaluate,
-                    self.discrete,
-                    num_to_sample,
-                    self.num_being_sampled,
-                    best_so_far,
-                    self._num_mc_iterations,
-                    max_num_threads,
-                    randomness,
-                    status,
-            )
-            kg_values_mcmc += numpy.array(kg_values)
-        kg_values_mcmc /= len(self._gaussian_process_list)
+        kg_values_mcmc =  C_GP.evaluate_KG_mcmc_at_point_list(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+                cpp_utils.cppify(self._discrete_pts_list),
+                cpp_utils.cppify(points_to_evaluate),
+                cpp_utils.cppify(self._points_being_sampled),
+                num_to_evaluate,
+                self.discrete,
+                num_to_sample,
+                self.num_being_sampled,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._num_mc_iterations,
+                max_num_threads,
+                randomness,
+                status,
+        )
         return kg_values_mcmc
 
     def compute_knowledge_gradient_mcmc(self, force_monte_carlo=False):
@@ -371,23 +538,22 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         :rtype: float64
 
         """
-        knowledge_gradient_mcmc = 0.0
-        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
-            knowledge_gradient_mcmc += C_GP.compute_knowledge_gradient(
-                    gp._gaussian_process,
-                    self._inner_optimizer.optimizer_parameters,
-                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                    cpp_utils.cppify(discrete_pts),
-                    cpp_utils.cppify(self._points_to_sample),
-                    cpp_utils.cppify(self._points_being_sampled),
-                    self.discrete,
-                    self.num_to_sample,
-                    self.num_being_sampled,
-                    self._num_mc_iterations,
-                    best_so_far,
-                    self._randomness,
-            )
-        return (knowledge_gradient_mcmc/len(self._gaussian_process_list))
+
+        knowledge_gradient_mcmc = C_GP.compute_knowledge_gradient_mcmc(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+                cpp_utils.cppify(self._discrete_pts_list),
+                cpp_utils.cppify(self._points_to_sample),
+                cpp_utils.cppify(self._points_being_sampled),
+                self.discrete,
+                self.num_to_sample,
+                self.num_being_sampled,
+                self._num_mc_iterations,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._randomness,
+        )
+        return knowledge_gradient_mcmc
 
     compute_objective_function = compute_knowledge_gradient_mcmc
 
@@ -418,24 +584,21 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         :rtype: array of float64 with shape (num_to_sample, dim)
 
         """
-        grad_knowledge_gradient_mcmc = numpy.zeros((self.num_to_sample, self.dim))
-        for gp, discrete_pts, best_so_far in zip(self._gaussian_process_list, self._discrete_pts_list, self._best_so_far_list):
-            temp = C_GP.compute_grad_knowledge_gradient(
-                    gp._gaussian_process,
-                    self._inner_optimizer.optimizer_parameters,
-                    cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                    cpp_utils.cppify(discrete_pts),
-                    cpp_utils.cppify(self._points_to_sample),
-                    cpp_utils.cppify(self._points_being_sampled),
-                    self.discrete,
-                    self.num_to_sample,
-                    self.num_being_sampled,
-                    self._num_mc_iterations,
-                    best_so_far,
-                    self._randomness,
-            )
-            grad_knowledge_gradient_mcmc += cpp_utils.uncppify(temp, (self.num_to_sample, self.dim))
-        return (grad_knowledge_gradient_mcmc/len(self._gaussian_process_list))
+        grad_knowledge_gradient_mcmc = C_GP.compute_grad_knowledge_gradient_mcmc(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                self._inner_optimizer.optimizer_parameters,
+                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+                cpp_utils.cppify(self._discrete_pts_list),
+                cpp_utils.cppify(self._points_to_sample),
+                cpp_utils.cppify(self._points_being_sampled),
+                self.discrete,
+                self.num_to_sample,
+                self.num_being_sampled,
+                self._num_mc_iterations,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._randomness,
+        )
+        return grad_knowledge_gradient_mcmc
 
     compute_grad_objective_function = compute_grad_knowledge_gradient_mcmc
 

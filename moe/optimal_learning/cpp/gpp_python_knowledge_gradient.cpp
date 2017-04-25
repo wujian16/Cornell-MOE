@@ -56,7 +56,7 @@ double ComputePosteriorMeanWrapper(const GaussianProcess& gaussian_process,
 }
 
 boost::python::list ComputeGradPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
-                                          const boost::python::list& points_to_sample) {
+                                                    const boost::python::list& points_to_sample) {
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 

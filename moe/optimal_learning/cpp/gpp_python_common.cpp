@@ -49,7 +49,6 @@ void CopyPylistToIntVector(const boost::python::list& input, int size, std::vect
   }
 }
 
-
 void CopyPylistToClosedIntervalVector(const boost::python::list& input, int size, std::vector<ClosedInterval>& output) {
   output.resize(size);
   for (int i = 0; i < size; ++i) {
@@ -75,8 +74,6 @@ boost::python::list IntVectorToPylist(const std::vector<int>& input) {
   }
   return result;
 }
-
-
 
 
 PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
