@@ -125,11 +125,33 @@ void FuturePosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
 
 /*!\rst
   Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
-  header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
-  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
-  generates a set of random starting points and is just here for convenience when better initial guesses are not
-  available.
-  See ComputeOptimalPointsToSampleViaMultistartGradientDescent() for more details.
+  header docs).  Starts a GD run from each point in ``start_point_set``.  The point corresponding to the
+  optimal EI\* is stored in ``best_next_point``.
+
+  \* Multistarting is heuristic for global optimization. EI is not convex so this method may not find the true optimum.
+
+  This function wraps MultistartOptimizer<>::MultistartOptimize() (see ``gpp_optimization.hpp``), which provides the multistarting
+  component. Optimization is done using restarted Gradient Descent, via GradientDescentOptimizer<...>::Optimize() from
+  ``gpp_optimization.hpp``. Please see that file for details on gradient descent and see ``gpp_optimizer_parameters.hpp``
+  for the meanings of the GradientDescentParameters.
+
+  This function (or its wrappers, e.g., ComputeOptimalPointsToSampleWithRandomStarts) are the primary entry-points for
+  gradient descent based EI optimization in the ``optimal_learning`` library.
+
+  Users may prefer to call ComputeOptimalPointsToSample(), which applies other heuristics to improve robustness.
+
+  Currently, during optimization, we recommend that the coordinates of the initial guesses not differ from the
+  coordinates of the optima by more than about 1 order of magnitude. This is a very (VERY!) rough guideline for
+  sizing the domain and num_multistarts; i.e., be wary of sets of initial guesses that cover the space too sparsely.
+
+  Solution is guaranteed to lie within the region specified by ``domain``; note that this may not be a
+  true optima (i.e., the gradient may be substantially nonzero).
+
+  .. WARNING::
+       This function fails ungracefully if NO improvement can be found!  In that case,
+       ``best_next_point`` will always be the first point in ``start_point_set``.
+       ``found_flag`` will indicate whether this occured.
+
   \param
     :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
       that describes the underlying GP
@@ -138,69 +160,70 @@ void FuturePosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
     :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
     :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
       max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
+    :start_point_set[dim][num_to_sample][num_multistarts]: set of initial guesses for MGD (one block of num_to_sample points per multistart)
     :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :num_multistarts: number of points in set of initial guesses
     :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
     :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-EI)
     :best_so_far: value of the best sample so far (must be ``min(points_sampled_value)``)
     :max_int_steps: maximum number of MC iterations
-    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
     :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
       the (pesudo)random source for MC integration
   \output
-    :found_flag[1]: true if best_next_point corresponds to a nonzero EI
-    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
     :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :found_flag[1]: true if ``best_next_point`` corresponds to a nonzero EI
     :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
-                                       double const * to_sample,
-                                       const int num_to_sample,
-                                       int const * to_sample_derivatives,
-                                       int num_derivatives,
-                                       double const * chol,
-                                       double const * train_sample,
-                                       const GradientDescentParameters& optimizer_parameters,
-                                       const DomainType& domain, double const * restrict initial_guess,
-                                       double& best_objective_value, double * restrict best_next_point) {
-  if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
-    return;
+void ComputeOptimalFuturePosteriorMean(
+    const GaussianProcess& gaussian_process, double const * coefficient,
+    double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
+    int num_derivatives, double const * chol, double const * train_sample,
+    const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
+    int max_num_threads, double const * restrict start_point_set,
+    int num_multistarts, double * restrict best_function_value, double * restrict best_next_point) {
+  if (unlikely(num_multistarts <= 0)) {
+    OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
   }
+
+  ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
+
   bool configure_for_gradients = true;
-  OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
-  // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
-  FuturePosteriorMeanEvaluator ps_evaluator(gaussian_process, coefficient, to_sample,
-                                      num_to_sample, to_sample_derivatives,
-                                      num_derivatives, chol, train_sample);
+  FuturePosteriorMeanEvaluator fpm_evaluator(gaussian_process, coefficient, to_sample,
+                                             num_to_sample, to_sample_derivatives,
+                                             num_derivatives, chol, train_sample);
 
-  typename FuturePosteriorMeanEvaluator::StateType ps_state(ps_evaluator, initial_guess, configure_for_gradients);
+  std::vector<typename FuturePosteriorMeanEvaluator::StateType> fpm_state_vector;
+  SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, &fpm_state_vector);
+
+  // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
+  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -1.0, start_point_set);
 
   GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
-  gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
-  ps_state.GetCurrentPoint(best_next_point);
-  best_objective_value = ps_evaluator.ComputeObjectiveFunction(&ps_state);
+  MultistartOptimizer<GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> > multistart_optimizer;
+
+  multistart_optimizer.MultistartOptimize(gd_opt, fpm_evaluator, optimizer_parameters,
+                                          domain, thread_schedule, start_point_set, num_multistarts,
+                                          fpm_state_vector.data(), nullptr, &io_container);
+
+  *best_function_value = io_container.best_objective_value_so_far;
+  std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
-                                                double const * to_sample,
-                                                const int num_to_sample,
-                                                int const * to_sample_derivatives,
-                                                int num_derivatives,
-                                                double const * chol,
-                                                double const * train_sample,
-                                                const GradientDescentParameters& optimizer_parameters,
-                                                const TensorProductDomain& domain, double const * restrict initial_guess,
-                                                double& best_objective_value, double * restrict best_next_point);
+                                                double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
+                                                int num_derivatives, double const * chol, double const * train_sample,
+                                                const GradientDescentParameters& optimizer_parameters, const TensorProductDomain& domain,
+                                                int max_num_threads, double const * restrict start_point_set,
+                                                int num_multistarts, double * restrict best_function_value,
+                                                double * restrict best_next_point);
 template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
-                                                double const * to_sample,
-                                                const int num_to_sample,
-                                                int const * to_sample_derivatives,
-                                                int num_derivatives,
-                                                double const * chol,
-                                                double const * train_sample,
-                                                const GradientDescentParameters& optimizer_parameters,
-                                                const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                                double& best_objective_value, double * restrict best_next_point);
+                                                double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
+                                                int num_derivatives, double const * chol, double const * train_sample,
+                                                const GradientDescentParameters& optimizer_parameters, const SimplexIntersectTensorProductDomain& domain,
+                                                int max_num_threads, double const * restrict start_point_set,
+                                                int num_multistarts, double * restrict best_function_value,
+                                                double * restrict best_next_point);
 }  // end namespace optimal_learning

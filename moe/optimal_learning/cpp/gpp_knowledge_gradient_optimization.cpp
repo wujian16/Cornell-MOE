@@ -147,43 +147,17 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
         }
 
         double best_function_value = 0.0;
-        if (winner_so_far < num_pts_) {
-             ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
-                                               kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
-                                               kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                               discrete_pts_.data() + winner_so_far*dim_,
-                                               best_function_value, kg_state->best_point.data());
-        }
-        else{
-             ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
-                                               kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
-                                               kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                               kg_state->union_of_points.data() + (winner_so_far-num_pts_)*dim_,
-                                               best_function_value, kg_state->best_point.data());
-        }
+        ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
+                                          kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
+                                          kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
+                                          4, kg_state->discretized_set.data(), num_union + num_pts_,
+                                          &best_function_value, kg_state->best_point.data());
         if (best_function_value < best_posterior - improvement_this_step){
             aggregate += improvement_this_step;
         }
         else{
             aggregate += best_posterior + best_function_value;
         }
-        /*
-        double best_mean = 0.0;
-        gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->best_point.data(), 1, nullptr, 0, &best_mean);
-        gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), 1,
-                                                     nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
-
-        TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N', num_union*(1+num_gradients_to_sample), 1,
-                                    num_union*(1+num_gradients_to_sample), kg_state->chol_inverse_cov.data());
-        GeneralMatrixVectorMultiply(kg_state->chol_inverse_cov.data(), 'T',
-                                    kg_state->normals.data(), 1.0, 1.0,
-                                    num_union*(1+num_gradients_to_sample),
-                                    1, num_union*(1+num_gradients_to_sample),
-                                    &best_mean);
-
-        aggregate += best_posterior - best_mean;
-        //aggregate += improvement_this_step;
-        */
     }
     return aggregate/static_cast<double>(num_mc_iterations_);
 }
@@ -313,20 +287,11 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         }
         //printf("iter %d, winner %d\n", i, winner);
         double best_function_value = 0.0;
-        if (winner < num_pts_) {
-             ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
-                                               kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
-                                               kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                               discrete_pts_.data() + winner*dim_,
-                                               best_function_value, kg_state->best_point.data());
-        }
-        else{
-             ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
-                                               kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
-                                               kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                               kg_state->union_of_points.data() + (winner-num_pts_)*dim_,
-                                               best_function_value, kg_state->best_point.data());
-        }
+        ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
+                                          kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
+                                          kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
+                                          4, kg_state->discretized_set.data(), num_union + num_pts_,
+                                          &best_function_value, kg_state->best_point.data());
         //printf("the previous VOI %f, \n", improvement_this_step);
         //printf("the after VOI %f\n", best_posterior + best_function_value);
         if (best_posterior + best_function_value < improvement_this_step && winner >= num_pts_ && winner < num_pts_+kg_state->num_to_sample) {
@@ -422,6 +387,7 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
       gradients(gradients_in, gradients_in+num_gradients_in),
       num_gradients_to_sample(num_gradients_in),
       union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
+      discretized_set(BuildUnionOfPoints(union_of_points.data(), kg_evaluator.discrete_pts_copy().data(), num_union, num_pts, dim)),
       points_to_sample_state(*kg_evaluator.gaussian_process(), union_of_points.data(), num_union, gradients_in, num_gradients_in, num_derivatives),
       normal_rng(normal_rng_in),
       cholesky_to_sample_var(Square(num_union*(1+num_gradients_to_sample))),

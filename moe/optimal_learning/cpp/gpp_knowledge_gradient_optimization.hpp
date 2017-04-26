@@ -384,15 +384,6 @@ struct KnowledgeGradientState final {
     return union_of_points;
   }
 
-/*
-  std::vector<double> mean_value_discrete(double const * discrete_pts,
-                                          int num_pts) noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_pts);
-    gaussian_process_->ComputeMeanOfAdditionalPoints(discrete_pts, num_pts, result.data());
-    return result;
-  }
-*/
-
   int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim*num_to_sample;
   }
@@ -455,6 +446,9 @@ struct KnowledgeGradientState final {
   //! points currently being sampled; this is the union of the points represented by "q" and "p" in q,p-KG
   //! ``points_to_sample`` is stored first in memory, immediately followed by ``points_being_sampled``
   std::vector<double> union_of_points;
+
+  //! discretized set in KG computation
+  std::vector<double> discretized_set;
 
   //! gaussian process state
   GaussianProcess::StateType points_to_sample_state;
