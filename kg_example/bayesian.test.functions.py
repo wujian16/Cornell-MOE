@@ -104,8 +104,8 @@ for n in xrange(num_iteration):
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 10)
-        '''
-        eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
+
+        eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
         test = cpp_gp.compute_mean_of_points(eval_pts)
         initial_point = eval_pts[np.argmin(test)]
@@ -117,7 +117,7 @@ for n in xrange(num_iteration):
             report_point = initial_point
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                          (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
-        '''
+
 
         discrete_pts_list.append(discrete_pts_optima)
 

@@ -292,8 +292,8 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                           kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
                                           4, kg_state->discretized_set.data(), num_union + num_pts_,
                                           &best_function_value, kg_state->best_point.data());
-        //printf("the previous VOI %f, \n", improvement_this_step);
-        //printf("the after VOI %f\n", best_posterior + best_function_value);
+        printf("the previous VOI %f, \n", improvement_this_step);
+        printf("the after VOI %f\n", best_posterior + best_function_value);
         if (best_posterior + best_function_value < improvement_this_step && winner >= num_pts_ && winner < num_pts_+kg_state->num_to_sample) {
             for (int k = 0; k < dim_; ++k) {
                 kg_state->aggregate[(winner-num_pts_)*dim_ + k] -= kg_state->grad_mu[(winner-num_pts_)*dim_ + k];
