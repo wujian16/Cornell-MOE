@@ -602,7 +602,6 @@ class MultistartOptimizer(OptimizerInterface):
                 best_function_value = function_value
                 best_point = self.optimizer.objective_function.current_point
 
-
         return best_point, function_value_list
 
 

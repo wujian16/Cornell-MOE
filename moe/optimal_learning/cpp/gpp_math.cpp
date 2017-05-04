@@ -1826,6 +1826,13 @@ ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(const GaussianProcess
       gaussian_process_(&gaussian_process_in) {
 }
 
+ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(ExpectedImprovementEvaluator&& other)
+    : dim_(other.dim()),
+      num_mc_iterations_(other.num_mc_iterations()),
+      best_so_far_(other.best_so_far()),
+      gaussian_process_(other.gaussian_process()){
+}
+
 /*!\rst
   Let ``Ls * Ls^T = Vars`` and ``w`` = vector of IID normal(0,1) variables
   Then:

@@ -13,7 +13,7 @@
 // Putting this include first prevents pyport from doing something illegal in C++; reference: http://bugs.python.org/issue10910
 #include "Python.h"  // NOLINT(build/include)
 
-#include "gpp_python_knowledge_gradient_mcmc.hpp"
+#include "gpp_python_expected_improvement_mcmc.hpp"
 
 // NOLINT-ing the C, C++ header includes as well; otherwise cpplint gets confused
 #include <string>  // NOLINT(build/include_order)
@@ -26,14 +26,14 @@
 #include <boost/python/extract.hpp>  // NOLINT(build/include_order)
 #include <boost/python/list.hpp>  // NOLINT(build/include_order)
 #include <boost/python/object.hpp>  // NOLINT(build/include_order)
-#include <boost/python/make_constructor.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
 #include "gpp_covariance.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_exception.hpp"
-#include "gpp_knowledge_gradient_mcmc_optimization.hpp"
 #include "gpp_geometry.hpp"
+#include "gpp_knowledge_gradient_mcmc_optimization.hpp"
+#include "gpp_expected_improvement_mcmc_optimization.hpp"
 #include "gpp_math.hpp"
 #include "gpp_optimization.hpp"
 #include "gpp_optimizer_parameters.hpp"
@@ -42,135 +42,72 @@
 namespace optimal_learning {
 
 namespace {
-/*!\rst
-  Surrogate "constructor" for GaussianProcess intended only for use by boost::python.  This aliases the normal C++ constructor,
-  replacing ``double const * restrict`` arguments with ``const boost::python::list&`` arguments.
-\endrst*/
-GaussianProcessMCMC * make_gaussian_process_mcmc(const boost::python::list& hyperparameters_list,
-                                                 const boost::python::list& noise_variance_list,
-                                                 const boost::python::list& points_sampled,
-                                                 const boost::python::list& points_sampled_value,
-                                                 const boost::python::list& derivatives,
-                                                 int num_mcmc, int num_derivatives, int dim, int num_sampled) {
-  const int num_hypers = 1 + 1 +
-                         50*dim + 50 +
-                         //50*50 + 50 +
-                         //50*50 + 50 +
-                         50*2 + 2;
-  std::vector<double> hyperparameters_list_vector(num_mcmc*num_hypers);
-  CopyPylistToVector(hyperparameters_list, num_mcmc*num_hypers, hyperparameters_list_vector);
 
-  std::vector<double> noise_variance_list_vector(num_mcmc*(1+num_derivatives));
-  CopyPylistToVector(noise_variance_list, num_mcmc*(1+num_derivatives), noise_variance_list_vector);
-
-  std::vector<double> points_sampled_vector(dim*num_sampled);
-  CopyPylistToVector(points_sampled, dim*num_sampled, points_sampled_vector);
-
-  std::vector<double> points_sampled_value_vector(num_sampled*(1+num_derivatives));
-  CopyPylistToVector(points_sampled_value, num_sampled*(1+num_derivatives), points_sampled_value_vector);
-
-  std::vector<int> derivatives_vector(num_derivatives);
-  CopyPylistToIntVector(derivatives, num_derivatives, derivatives_vector);
-
-  GaussianProcessMCMC * new_gp_mcmc = new GaussianProcessMCMC(hyperparameters_list_vector.data(), noise_variance_list_vector.data(),
-                                                              num_mcmc, points_sampled_vector.data(), points_sampled_value_vector.data(),
-                                                              derivatives_vector.data(), num_derivatives,
-                                                              dim, num_sampled);
-  for (int i=0;i<num_mcmc;i++){
-      new_gp_mcmc->gaussian_process_lst[i].SetRandomizedSeed(0);
-  }
-  return new_gp_mcmc;
-}
-
-double ComputeKnowledgeGradientMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
-                                           const boost::python::object& optimizer_parameters,
-                                           const boost::python::list& domain_bounds,
-                                           const boost::python::list& discrete_pts,
-                                           const boost::python::list& points_to_sample,
-                                           const boost::python::list& points_being_sampled,
-                                           int num_pts, int num_to_sample, int num_being_sampled,
-                                           int max_int_steps, const boost::python::list& best_so_far,
-                                           RandomnessSourceContainer& randomness_source) {
+double ComputeExpectedImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
+                                             const boost::python::list& points_to_sample,
+                                             const boost::python::list& points_being_sampled,
+                                             int num_to_sample, int num_being_sampled,
+                                             int max_int_steps, const boost::python::list& best_so_far,
+                                             RandomnessSourceContainer& randomness_source) {
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process_mcmc.dim(),
-                                                         num_pts*gaussian_process_mcmc.num_mcmc(), num_derivatives_input);
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
                                                 num_to_sample, num_being_sampled, num_derivatives_input);
 
   bool configure_for_gradients = false;
 
-  std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
-  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
-
   std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
-  TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
+  ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
+                                                best_so_far_list.data(), &evaluator_vector);
 
-  std::vector<typename KnowledgeGradientState<TensorProductDomain>::EvaluatorType> evaluator_vector;
-  KnowledgeGradientMCMCEvaluator<TensorProductDomain> kg_evaluator(gaussian_process_mcmc, input_container_discrete.points_to_sample.data(),
-                                                                   num_pts, max_int_steps, domain, gradient_descent_parameters,
-                                                                   best_so_far_list.data(), &evaluator_vector);
-
-  std::vector<typename KnowledgeGradientEvaluator<TensorProductDomain>::StateType> state_vector;
-  KnowledgeGradientMCMCEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
-                                                                          input_container.points_being_sampled.data(),
-                                                                          input_container.num_to_sample,
-                                                                          input_container.num_being_sampled,
-                                                                          num_pts, gaussian_process_mcmc.derivatives().data(),
-                                                                          gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
-                                                                          randomness_source.normal_rng_vec.data(), &state_vector);
-  return kg_evaluator.ComputeKnowledgeGradient(&kg_state);
+  std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
+  ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                       input_container.points_being_sampled.data(),
+                                                       input_container.num_to_sample,
+                                                       input_container.num_being_sampled,
+                                                       gaussian_process_mcmc.derivatives().data(),
+                                                       gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
+                                                       randomness_source.normal_rng_vec.data(), &state_vector);
+  return ei_evaluator.ComputeExpectedImprovement(&ei_state);
 }
 
-boost::python::list ComputeGradKnowledgeGradientMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
-                                                            const boost::python::object& optimizer_parameters,
-                                                            const boost::python::list& domain_bounds,
-                                                            const boost::python::list& discrete_pts,
-                                                            const boost::python::list& points_to_sample,
-                                                            const boost::python::list& points_being_sampled,
-                                                            int num_pts, int num_to_sample, int num_being_sampled,
-                                                            int max_int_steps, const boost::python::list& best_so_far,
-                                                            RandomnessSourceContainer& randomness_source) {
+boost::python::list ComputeGradExpectedImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
+                                                              const boost::python::list& points_to_sample,
+                                                              const boost::python::list& points_being_sampled,
+                                                              int num_to_sample, int num_being_sampled,
+                                                              int max_int_steps, const boost::python::list& best_so_far,
+                                                              RandomnessSourceContainer& randomness_source) {
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process_mcmc.dim(),
-                                                         num_pts*gaussian_process_mcmc.num_mcmc(), num_derivatives_input);
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
                                                 num_to_sample, num_being_sampled, num_derivatives_input);
 
-  std::vector<double> grad_KG(num_to_sample*input_container.dim);
+  std::vector<double> grad_EI(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
-
-  std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
-  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
 
   std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
-  TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
+  ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
+                                                best_so_far_list.data(), &evaluator_vector);
 
-  std::vector<typename KnowledgeGradientState<TensorProductDomain>::EvaluatorType> evaluator_vector;
-  KnowledgeGradientMCMCEvaluator<TensorProductDomain> kg_evaluator(gaussian_process_mcmc, input_container_discrete.points_to_sample.data(),
-                                                                   num_pts, max_int_steps, domain, gradient_descent_parameters,
-                                                                   best_so_far_list.data(), &evaluator_vector);
+  std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
+  ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                       input_container.points_being_sampled.data(),
+                                                       input_container.num_to_sample,
+                                                       input_container.num_being_sampled,
+                                                       gaussian_process_mcmc.derivatives().data(),
+                                                       gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
+                                                       randomness_source.normal_rng_vec.data(), &state_vector);
+  ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
 
-  std::vector<typename KnowledgeGradientEvaluator<TensorProductDomain>::StateType> state_vector;
-  KnowledgeGradientMCMCEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
-                                                                          input_container.points_being_sampled.data(),
-                                                                          input_container.num_to_sample,
-                                                                          input_container.num_being_sampled,
-                                                                          num_pts, gaussian_process_mcmc.derivatives().data(),
-                                                                          gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
-                                                                          randomness_source.normal_rng_vec.data(), &state_vector);
-  kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_KG.data());
-
-  return VectorToPylist(grad_KG);
+  return VectorToPylist(grad_EI);
 }
 
 /*!\rst
@@ -198,19 +135,16 @@ boost::python::list ComputeGradKnowledgeGradientMCMCWrapper(GaussianProcessMCMC&
     :status: modified on exit to describe whether convergence occurred
     :best_points_to_sample[num_to_sample][dim]: next set of points to evaluate
 \endrst*/
-
 template <typename DomainType>
-void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& optimizer_parameters,
-                                               const boost::python::object& optimizer_parameters_inner,
-                                               GaussianProcessMCMC& gaussian_process_mcmc,
-                                               const PythonInterfaceInputContainer& input_container_discrete,
-                                               const PythonInterfaceInputContainer& input_container,
-                                               const DomainType& domain, OptimizerTypes optimizer_type,
-                                               int num_pts, int num_to_sample, std::vector<double> best_so_far_list,
-                                               int max_int_steps, int max_num_threads,
-                                               RandomnessSourceContainer& randomness_source,
-                                               boost::python::dict& status,
-                                               double * restrict best_points_to_sample) {
+void DispatchExpectedImprovementMCMCOptimization(const boost::python::object& optimizer_parameters,
+                                                 GaussianProcessMCMC& gaussian_process_mcmc,
+                                                 const PythonInterfaceInputContainer& input_container,
+                                                 const DomainType& domain, OptimizerTypes optimizer_type,
+                                                 int num_to_sample, std::vector<double> best_so_far_list,
+                                                 int max_int_steps, int max_num_threads,
+                                                 RandomnessSourceContainer& randomness_source,
+                                                 boost::python::dict& status,
+                                                 double * restrict best_points_to_sample) {
 
   bool found_flag = false;
 
@@ -218,15 +152,13 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
     case OptimizerTypes::kNull: {
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_static);
       // optimizer_parameters must contain an int num_random_samples field, extract it
-      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
-      ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, gradient_descent_parameters_inner, domain, thread_schedule,
+      ComputeEIMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, domain, thread_schedule,
                                                                 input_container.points_being_sampled.data(),
-                                                                input_container_discrete.points_to_sample.data(),
                                                                 num_random_samples, num_to_sample,
                                                                 input_container.num_being_sampled,
-                                                                num_pts, best_so_far_list.data(), max_int_steps,
+                                                                best_so_far_list.data(), max_int_steps,
                                                                 &found_flag, &randomness_source.uniform_generator,
                                                                 randomness_source.normal_rng_vec.data(),
                                                                 best_points_to_sample);
@@ -237,14 +169,13 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
       // optimizer_parameters must contain a optimizer_parameters field
       // of type GradientDescentParameters. extract it
       const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
-      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       bool random_search_only = false;
-      ComputeKGMCMCOptimalPointsToSample(gaussian_process_mcmc, gradient_descent_parameters, gradient_descent_parameters_inner, domain, thread_schedule,
-                                         input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
-                                         num_to_sample, input_container.num_being_sampled, num_pts,
+      ComputeEIMCMCOptimalPointsToSample(gaussian_process_mcmc, gradient_descent_parameters, domain, thread_schedule,
+                                         input_container.points_being_sampled.data(),
+                                         num_to_sample, input_container.num_being_sampled,
                                          best_so_far_list.data(), max_int_steps, random_search_only, num_random_samples, &found_flag,
                                          &randomness_source.uniform_generator, randomness_source.normal_rng_vec.data(), best_points_to_sample);
 
@@ -259,13 +190,11 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
   }  // end switch over optimizer_type
 }
 
-boost::python::list MultistartKnowledgeGradientMCMCOptimizationWrapper(const boost::python::object& optimizer_parameters,
-                                                                       const boost::python::object& optimizer_parameters_inner,
+boost::python::list MultistartExpectedImprovementMCMCOptimizationWrapper(const boost::python::object& optimizer_parameters,
                                                                        GaussianProcessMCMC& gaussian_process_mcmc,
                                                                        const boost::python::list& domain_bounds,
-                                                                       const boost::python::list& discrete_pts,
                                                                        const boost::python::list& points_being_sampled,
-                                                                       int num_pts, int num_to_sample, int num_being_sampled,
+                                                                       int num_to_sample, int num_being_sampled,
                                                                        const boost::python::list& best_so_far, int max_int_steps, int max_num_threads,
                                                                        RandomnessSourceContainer& randomness_source,
                                                                        boost::python::dict& status) {
@@ -283,8 +212,6 @@ boost::python::list MultistartKnowledgeGradientMCMCOptimizationWrapper(const boo
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process_mcmc.dim(),
-                                                         num_pts*gaussian_process_mcmc.num_mcmc(), num_derivatives_input);
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
                                                 num_to_sample_input, num_being_sampled, num_derivatives_input);
 
@@ -302,17 +229,17 @@ boost::python::list MultistartKnowledgeGradientMCMCOptimizationWrapper(const boo
     case DomainTypes::kTensorProduct: {
       TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
 
-      DispatchKnowledgeGradientMCMCOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process_mcmc, input_container_discrete,
-                                                input_container, domain, optimizer_type, num_pts, num_to_sample, best_so_far_list,
-                                                max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
+      DispatchExpectedImprovementMCMCOptimization(optimizer_parameters, gaussian_process_mcmc,
+                                                  input_container, domain, optimizer_type, num_to_sample, best_so_far_list,
+                                                  max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kTensorProduct
     case DomainTypes::kSimplex: {
       SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
 
-      DispatchKnowledgeGradientMCMCOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process_mcmc, input_container_discrete,
-                                                input_container, domain, optimizer_type, num_pts, num_to_sample, best_so_far_list,
-                                                max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
+      DispatchExpectedImprovementMCMCOptimization(optimizer_parameters, gaussian_process_mcmc,
+                                                  input_container, domain, optimizer_type, num_to_sample, best_so_far_list,
+                                                  max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kSimplex
     default: {
@@ -325,13 +252,10 @@ boost::python::list MultistartKnowledgeGradientMCMCOptimizationWrapper(const boo
   return VectorToPylist(best_points_to_sample_C);
 }
 
-boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
-                                                     const boost::python::object& optimizer_parameters,
-                                                     const boost::python::list& domain_bounds,
-                                                     const boost::python::list& discrete_pts,
+boost::python::list EvaluateEIMCMCAtPointListWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
                                                      const boost::python::list& initial_guesses,
                                                      const boost::python::list& points_being_sampled,
-                                                     int num_multistarts, int num_pts, int num_to_sample,
+                                                     int num_multistarts, int num_to_sample,
                                                      int num_being_sampled, const boost::python::list& best_so_far,
                                                      int max_int_steps, int max_num_threads,
                                                      RandomnessSourceContainer& randomness_source,
@@ -347,12 +271,8 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process_mcmc.dim(),
-                                                         num_pts*gaussian_process_mcmc.num_mcmc(), num_derivatives_input);
-
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
                                                 num_to_sample_input, num_being_sampled, num_derivatives_input);
-
 
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
@@ -363,49 +283,23 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
   ThreadSchedule thread_schedule(max_num_threads, omp_sched_static);
   bool found_flag = false;
 
-  std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
-  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
-
   std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
-  TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
-
-  EvaluateKGMCMCAtPointList(gaussian_process_mcmc, gradient_descent_parameters, domain, thread_schedule, initial_guesses_C.data(),
-                            input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
+  EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, initial_guesses_C.data(),
+                            input_container.points_being_sampled.data(),
                             num_multistarts, num_to_sample, input_container.num_being_sampled,
-                            num_pts, best_so_far_list.data(), max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
+                            best_so_far_list.data(), max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
                             result_function_values_C.data(), result_point_C.data());
 
-  status["evaluate_KG_at_point_list"] = found_flag;
+  status["evaluate_EI_at_point_list"] = found_flag;
 
   return VectorToPylist(result_function_values_C);
 }
 }  // end unnamed namespace
 
-void ExportKnowldegeGradientMCMCFunctions() {
-  boost::python::class_<GaussianProcessMCMC, boost::noncopyable>("GaussianProcessMCMC", boost::python::no_init)
-      .def("__init__", boost::python::make_constructor(&make_gaussian_process_mcmc), R"%%(
-    Constructor for a ``GPP.GaussianProcess`` object.
-
-    Seeds internal NormalRNG randomly.
-
-    :param hyperparameters: covariance hyperparameters; see "Details on ..." section at the top of ``BOOST_PYTHON_MODULE``
-    :type hyperparameters: list of len 2; index 0 is a float64 ``\alpha`` (signal variance) and index 1 is the length scales (list of floa64 of length ``dim``)
-    :param points_sampled: points that have already been sampled
-    :type points_sampled: list of float64 with shape (num_sampled, dim)
-    :param points_sampled_value: values of the already-sampled points
-    :type points_sampled_value: list of float64 with shape (num_sampled, )
-    :param noise_variance: the ``\sigma_n^2`` (noise variance) associated w/observation, points_sampled_value
-    :type noise_variance: list of float64 with shape (num_sampled, )
-    :param dim: the spatial dimension of a point (i.e., number of independent params in experiment)
-    :type param: int > 0
-    :param num_sampled: number of already-sampled points
-    :type num_sampled: int > 0
-          )%%");
-
-  boost::python::def("compute_knowledge_gradient_mcmc", ComputeKnowledgeGradientMCMCWrapper, R"%%(
+void ExportExpectedImprovementMCMCFunctions() {
+  boost::python::def("compute_expected_improvement_mcmc", ComputeExpectedImprovementMCMCWrapper, R"%%(
     Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
     use (fast/accurate) analytic evaluation.
@@ -434,7 +328,7 @@ void ExportKnowldegeGradientMCMCFunctions() {
     :rtype: float64 >= 0.0
     )%%");
 
-  boost::python::def("compute_grad_knowledge_gradient_mcmc", ComputeGradKnowledgeGradientMCMCWrapper, R"%%(
+  boost::python::def("compute_grad_expected_improvement_mcmc", ComputeGradExpectedImprovementMCMCWrapper, R"%%(
     Compute the gradient of knowledge gradient evaluated at points_to_sample.
     If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
     use (fast/accurate) analytic evaluation.
@@ -463,7 +357,7 @@ void ExportKnowldegeGradientMCMCFunctions() {
     :rtype: list of float64 with shape (num_to_sample, dim)
     )%%");
 
-  boost::python::def("multistart_knowledge_gradient_mcmc_optimization", MultistartKnowledgeGradientMCMCOptimizationWrapper, R"%%(
+  boost::python::def("multistart_expected_improvement_mcmc_optimization", MultistartExpectedImprovementMCMCOptimizationWrapper, R"%%(
     Optimize expected improvement (i.e., solve q,p-EI) over the specified domain using the specified optimization method.
     Can optimize for num_to_sample new points to sample (i.e., aka "q", experiments to run) simultaneously.
     Allows the user to specify num_being_sampled (aka "p") ongoing/concurrent experiments.
@@ -518,7 +412,7 @@ void ExportKnowldegeGradientMCMCFunctions() {
     :rtype: list of float64 with shape (num_to_sample, dim)
     )%%");
 
-  boost::python::def("evaluate_KG_mcmc_at_point_list", EvaluateKGMCMCAtPointListWrapper, R"%%(
+  boost::python::def("evaluate_EI_mcmc_at_point_list", EvaluateEIMCMCAtPointListWrapper, R"%%(
     Evaluates the expected improvement at each point in initial_guesses; can handle q,p-EI.
     Useful for plotting.
 

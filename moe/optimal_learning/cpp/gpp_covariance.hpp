@@ -312,7 +312,7 @@ class DeepKernel final : public CovarianceInterface {
       :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
       :lengths[dim]: the hyperparameter length scales, one per spatial dimension
   \endrst*/
-  DeepKernel(int dim, double const * restrict lengths) OL_NONNULL_POINTERS;
+  DeepKernel(int dim, double const * restrict hypers) OL_NONNULL_POINTERS;
 
   /*!\rst
     Constructs a SquareExponential object with the specified hyperparameters.
@@ -322,19 +322,19 @@ class DeepKernel final : public CovarianceInterface {
       :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
       :lengths: the hyperparameter length scales, one per spatial dimension
   \endrst*/
-  DeepKernel(int dim, std::vector<double> lengths);
+  DeepKernel(int dim, std::vector<double> hypers);
 
   virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                           double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
-                          double * restrict cov) const noexcept override OL_PURE_FUNCTION OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
 
   virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                               double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return 1 + dim_ +
-           dim_ * 50 + dim_ +
+    return 1 + 1 +
+           dim_ * 50 + 50 +
            50 * 50 + 50 +
            50 * 50 + 50 +
            50 * 1 + 1;
@@ -390,9 +390,9 @@ class DeepKernel final : public CovarianceInterface {
   //! ``\sigma_f^2``, signal variance
   double alpha_;
   //! length scales, one per dimension
-  std::vector<double> lengths_;
+  double lengths_;
   //! square of the length scales, one per dimension
-  std::vector<double> lengths_sq_;
+  double lengths_sq_;
 };
 
 

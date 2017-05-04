@@ -128,6 +128,27 @@ PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python
   CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
 }
 
+
+PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python::list& points_sampled_in,
+                              const boost::python::list& points_sampled_value_in, const boost::python::list& noise_variance_in,
+                              const boost::python::list& points_to_sample_in, const boost::python::list& derivatives_in,
+                              int num_derivatives_in, int dim_in, int num_sampled_in, int num_to_sample_in)
+    : dim(dim_in),
+      num_sampled(num_sampled_in),
+      num_to_sample(num_to_sample_in),
+      num_derivatives(num_derivatives_in),
+      points_sampled(dim*num_sampled),
+      points_sampled_value(num_sampled*(1+num_derivatives_in)),
+      noise_variance(1+num_derivatives_in),
+      points_to_sample(dim*num_to_sample),
+      derivatives(num_derivatives) {
+  CopyPylistToVector(points_sampled_in, dim*num_sampled, points_sampled);
+  CopyPylistToVector(points_sampled_value_in, num_sampled*(1+num_derivatives_in), points_sampled_value);
+  CopyPylistToVector(noise_variance_in, 1+num_derivatives, noise_variance);
+  CopyPylistToVector(points_to_sample_in, dim*num_to_sample, points_to_sample);
+  CopyPylistToIntVector(derivatives_in, num_derivatives, derivatives);
+}
+
 RandomnessSourceContainer::RandomnessSourceContainer(int num_threads)
     : uniform_generator(kUniformDefaultSeed),
       normal_rng_vec(num_threads),

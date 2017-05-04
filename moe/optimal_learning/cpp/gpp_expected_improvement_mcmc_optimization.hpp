@@ -112,8 +112,8 @@
        ginsbourger@emse.fr, leriche@emse.fr, carraro@emse.fr
 \endrst*/
 
-#ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_MCMC_OPTIMIZATION_HPP_
-#define MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_MCMC_OPTIMIZATION_HPP_
+#ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_EXPECTED_IMPROVEMENT_MCMC_OPTIMIZATION_HPP_
+#define MOE_OPTIMAL_LEARNING_CPP_GPP_EXPECTED_IMPROVEMENT_MCMC_OPTIMIZATION_HPP_
 
 #include <algorithm>
 #include <limits>
@@ -130,72 +130,12 @@
 #include "gpp_math.hpp"
 #include "gpp_optimization.hpp"
 #include "gpp_optimizer_parameters.hpp"
-#include "gpp_knowledge_gradient_optimization.hpp"
+#include "gpp_knowledge_gradient_mcmc_optimization.hpp"
 #include "gpp_random.hpp"
 
 namespace optimal_learning {
-struct GaussianProcessMCMC final {
- public:
-    GaussianProcessMCMC(double const * restrict hypers_mcmc,
-                        double const * restrict noises_mcmc,
-                        int num_mcmc, double const * restrict points_sampled_in,
-                        double const * restrict points_sampled_value_in,
-                        int const * restrict derivatives_in,
-                        int num_derivatives_in, int dim_in, int num_sampled_in) OL_NONNULL_POINTERS;
 
-    int num_mcmc() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return num_mcmc_;
-    }
-
-    int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return dim_;
-    }
-
-    int num_sampled() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return num_sampled_;
-    }
-
-    int num_derivatives() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return num_derivatives_;
-    }
-
-    const std::vector<double>& points_sampled() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return points_sampled_;
-    }
-
-    const std::vector<double>& points_sampled_value() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return points_sampled_value_;
-    }
-
-    const std::vector<int>& derivatives() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-      return derivatives_;
-    }
-
-    std::vector<GaussianProcess> gaussian_process_lst;
-
- private:
-  // size information
-  //! number of mcmc samples
-  int num_mcmc_;
-  //! spatial dimension (e.g., entries per point of ``points_sampled``)
-  int dim_;
-  //! number of points in ``points_sampled``
-  int num_sampled_;
-
-  // state variables for prior
-  //! coordinates of already-sampled points, ``X``
-  std::vector<double> points_sampled_;
-  //! function values at points_sampled, ``y``
-  std::vector<double> points_sampled_value_;
-
-  //! derivatives index
-  std::vector<int> derivatives_;
-  //! number of derivatives observations
-  int num_derivatives_;
-};
-
-template <typename DomainType>
-struct KnowledgeGradientMCMCState;
+struct ExpectedImprovementMCMCState;
 /*!\rst
   A class to encapsulate the computation of knowledge gradient and its spatial gradient. This class handles the
   general KG computation case using monte carlo integration; it can support q,p-KG optimization. It is designed to work
@@ -205,10 +145,9 @@ struct KnowledgeGradientMCMCState;
   The random numbers needed for KG computation will be passed as parameters instead of contained as members to make
   multithreading more straightforward.
 \endrst*/
-template <typename DomainType>
-class KnowledgeGradientMCMCEvaluator final {
+class ExpectedImprovementMCMCEvaluator final {
  public:
-  using StateType = KnowledgeGradientMCMCState<DomainType>;
+  using StateType = ExpectedImprovementMCMCState;
   /*!\rst
     Constructs a KnowledgeGradientEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
 
@@ -220,35 +159,21 @@ class KnowledgeGradientMCMCEvaluator final {
       :num_mc_iterations: number of monte carlo iterations
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
-  explicit KnowledgeGradientMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc,
-                                          double const * discrete_pts_lst,
-                                          int num_pts, int num_mc_iterations,
-                                          const DomainType& domain,
-                                          const GradientDescentParameters& optimizer_parameters,
-                                          double const * best_so_far,
-                                          std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> * evaluator_vector);
+  ExpectedImprovementMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc,
+                                   int num_mc_iterations, double const * best_so_far,
+                                   std::vector<typename ExpectedImprovementState::EvaluatorType> * evaluator_vector);
+
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
-  }
-
-  int number_discrete_pts() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return num_pts_;
   }
 
   int num_mcmc() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return num_mcmc_hypers_;
   }
 
-  std::vector<KnowledgeGradientEvaluator<DomainType>> * knowledge_gradient_evaluator_list() const noexcept OL_WARN_UNUSED_RESULT {
-    return knowledge_gradient_evaluator_lst;
-  }
-
-  std::vector<double> discrete_points_list(double const * discrete_pts_lst,
-                                           int num_pts) const noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_pts*dim_*num_mcmc_hypers_);
-    std::copy(discrete_pts_lst, discrete_pts_lst + num_pts*dim_*num_mcmc_hypers_, result.data());
-    return result;
+  std::vector<ExpectedImprovementEvaluator> * expected_improvement_evaluator_list() const noexcept OL_WARN_UNUSED_RESULT {
+    return expected_improvement_evaluator_lst;
   }
 
   std::vector<double> best_so_far_list(double const * best_so_far) const noexcept OL_WARN_UNUSED_RESULT {
@@ -260,15 +185,15 @@ class KnowledgeGradientMCMCEvaluator final {
   /*!\rst
     Wrapper for ComputeKnowledgeGradient(); see that function for details.
   \endrst*/
-  double ComputeObjectiveFunction(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
-    return ComputeKnowledgeGradient(kg_state);
+  double ComputeObjectiveFunction(StateType * ei_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
+    return ComputeExpectedImprovement(ei_state);
   }
 
   /*!\rst
     Wrapper for ComputeGradKnowledgeGradient(); see that function for details.
   \endrst*/
-  void ComputeGradObjectiveFunction(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS {
-    ComputeGradKnowledgeGradient(kg_state, grad_KG);
+  void ComputeGradObjectiveFunction(StateType * ei_state, double * restrict grad_EI) const OL_NONNULL_POINTERS {
+    ComputeGradExpectedImprovement(ei_state, grad_EI);
   }
 
   /*!\rst
@@ -280,7 +205,7 @@ class KnowledgeGradientMCMCEvaluator final {
     \return
       the knowledge gradient from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
   \endrst*/
-  double ComputeKnowledgeGradient(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+  double ComputeExpectedImprovement(StateType * ei_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
 
   /*!\rst
     Computes the (partial) derivatives of the knowledge gradient with respect to each point of ``points_to_sample``.
@@ -297,9 +222,9 @@ class KnowledgeGradientMCMCEvaluator final {
       and ``Xp`` is ``points_being_sampled`` (grad KG from sampling ``points_to_sample`` with
       ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
   \endrst*/
-  void ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS;
+  void ComputeGradExpectedImprovement(StateType * ei_state, double * restrict grad_EI) const OL_NONNULL_POINTERS;
 
-  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(KnowledgeGradientMCMCEvaluator);
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(ExpectedImprovementMCMCEvaluator);
 
  private:
   //! spatial dimension (e.g., entries per point of points_sampled)
@@ -309,24 +234,12 @@ class KnowledgeGradientMCMCEvaluator final {
   //! number of monte carlo iterations
   int num_mc_iterations_;
   //! best (minimum) objective function value (in points_sampled_value)
-
   std::vector<double> best_so_far_;
-
-  const GradientDescentParameters optimizer_parameters_;
-
-  const DomainType domain_;
   //! pointer to gaussian process used in KG computations
   const GaussianProcessMCMC * gaussian_process_mcmc_;
   //! pointer to gaussian process used in KG computations
-  std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> * knowledge_gradient_evaluator_lst;
-  //! the set of points to approximate KG factor
-  std::vector<double> discrete_pts_lst_;
-  //! number of points in discrete_pts
-  const int num_pts_;
+  std::vector<typename ExpectedImprovementState::EvaluatorType> * expected_improvement_evaluator_lst;
 };
-
-extern template class KnowledgeGradientMCMCEvaluator<TensorProductDomain>;
-extern template class KnowledgeGradientMCMCEvaluator<SimplexIntersectTensorProductDomain>;
 
 /*!\rst
   State object for KnowledgeGradientEvaluator.  This tracks the points being sampled in concurrent experiments
@@ -345,9 +258,8 @@ extern template class KnowledgeGradientMCMCEvaluator<SimplexIntersectTensorProdu
 
   See general comments on State structs in ``gpp_common.hpp``'s header docs.
 \endrst*/
-template <typename DomainType>
-struct KnowledgeGradientMCMCState final {
-  using EvaluatorType = KnowledgeGradientMCMCEvaluator<DomainType>;
+struct ExpectedImprovementMCMCState final {
+  using EvaluatorType = ExpectedImprovementMCMCEvaluator;
 
   /*!\rst
     Constructs an KnowledgeGradientMCMCState object with a specified source of randomness for the purpose of computing KG
@@ -373,13 +285,13 @@ struct KnowledgeGradientMCMCState final {
          \* The NormalRNG object must already be seeded.  If multithreaded computation is used for KG, then every state object
          must have a different NormalRNG (different seeds, not just different objects).
   \endrst*/
-  explicit KnowledgeGradientMCMCState(const EvaluatorType& kg_evaluator, double const * restrict points_to_sample,
-                                      double const * restrict points_being_sampled, int num_to_sample_in,
-                                      int num_being_sampled_in, int num_pts_in, int const * restrict gradients_in, int num_gradients_in,
-                                      bool configure_for_gradients, NormalRNGInterface * normal_rng_in,
-                                      std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_vector);
+  ExpectedImprovementMCMCState(const EvaluatorType& ei_evaluator, double const * restrict points_to_sample,
+                               double const * restrict points_being_sampled, int num_to_sample_in,
+                               int num_being_sampled_in, int const * restrict gradients_in, int num_gradients_in,
+                               bool configure_for_gradients, NormalRNGInterface * normal_rng_in,
+                               std::vector<typename ExpectedImprovementEvaluator::StateType> * ei_state_vector);
 
-  KnowledgeGradientMCMCState(KnowledgeGradientMCMCState&& other);
+  ExpectedImprovementMCMCState(ExpectedImprovementMCMCState&& other);
 
   /*!\rst
     Create a vector with the union of points_to_sample and points_being_sampled (the latter is appended to the former).
@@ -445,7 +357,7 @@ struct KnowledgeGradientMCMCState final {
       :kg_evaluator: knowledge gradient evaluator object that specifies the parameters & GP for KG evaluation
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
-  void SetupState(const EvaluatorType& kg_evaluator, double const * restrict points_to_sample);
+  void SetupState(const EvaluatorType& ei_evaluator, double const * restrict points_to_sample);
 
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
@@ -458,8 +370,6 @@ struct KnowledgeGradientMCMCState final {
   const int num_derivatives;
   //! number of points in union_of_points: num_to_sample + num_being_sampled
   const int num_union;
-  //! number of points in discrete_pts
-  const int num_pts;
 
   // gradients index
   std::vector<int> gradients;
@@ -471,12 +381,10 @@ struct KnowledgeGradientMCMCState final {
   std::vector<double> union_of_points;
 
   //! gaussian process state
-  std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_list;
+  std::vector<typename ExpectedImprovementEvaluator::StateType> * ei_state_list;
 
-  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(KnowledgeGradientMCMCState);
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(ExpectedImprovementMCMCState);
 };
-extern template struct KnowledgeGradientMCMCState<TensorProductDomain>;
-extern template struct KnowledgeGradientMCMCState<SimplexIntersectTensorProductDomain>;
 
 /*!\rst
   Set up vector of KnowledgeGradientEvaluator::StateType.
@@ -497,25 +405,24 @@ extern template struct KnowledgeGradientMCMCState<SimplexIntersectTensorProductD
   \output
     :state_vector[max_num_threads]: vector of states containing ``max_num_threads`` properly initialized state objects
 \endrst*/
-template <typename DomainType>
-inline OL_NONNULL_POINTERS void SetupKnowledgeGradientMCMCState(
-    const KnowledgeGradientMCMCEvaluator<DomainType>& kg_evaluator,
+inline OL_NONNULL_POINTERS void SetupExpectedImprovementMCMCState(
+    const ExpectedImprovementMCMCEvaluator& ei_evaluator,
     double const * restrict points_to_sample,
     double const * restrict points_being_sampled,
     int num_to_sample,
     int num_being_sampled,
-    int num_pts, int const * restrict gradients, int num_gradients,
+    int const * restrict gradients, int num_gradients,
     int max_num_threads,
     bool configure_for_gradients,
     NormalRNG * normal_rng,
-    std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_vector,
-    std::vector<typename KnowledgeGradientMCMCEvaluator<DomainType>::StateType> * state_vector) {
+    std::vector<typename ExpectedImprovementEvaluator::StateType> * ei_state_vector,
+    std::vector<typename ExpectedImprovementMCMCEvaluator::StateType> * state_vector) {
   state_vector->reserve(max_num_threads);
   for (int i = 0; i < max_num_threads; ++i) {
     //kg_state_vector.reserve(0);
-    state_vector->emplace_back(kg_evaluator, points_to_sample, points_being_sampled, num_to_sample,
-                               num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
-                               normal_rng + i, kg_state_vector+i);
+    state_vector->emplace_back(ei_evaluator, points_to_sample, points_being_sampled, num_to_sample,
+                               num_being_sampled, gradients, num_gradients, configure_for_gradients,
+                               normal_rng + i, ei_state_vector+i);
   }
 }
 
@@ -551,8 +458,8 @@ inline OL_NONNULL_POINTERS void SetupKnowledgeGradientMCMCState(
     :normal_rng[1]: NormalRNG object will have its state changed due to random draws
     :next_point[dim][num_to_sample]: points yielding the best KG according to gradient descent
 \endrst*/
-template <typename KnowledgeGradientMCMCEvaluator, typename DomainType>
-void RestartedGradientDescentKGMCMCOptimization(const KnowledgeGradientMCMCEvaluator& kg_evaluator,
+template <typename ExpectedImprovementMCMCEvaluator, typename DomainType>
+void RestartedGradientDescentEIMCMCOptimization(const ExpectedImprovementMCMCEvaluator& ei_evaluator,
                                                 const GradientDescentParameters& optimizer_parameters,
                                                 const DomainType& domain, double const * restrict initial_guess,
                                                 double const * restrict points_being_sampled, int num_to_sample,
@@ -561,29 +468,28 @@ void RestartedGradientDescentKGMCMCOptimization(const KnowledgeGradientMCMCEvalu
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
     return;
   }
-  int dim = kg_evaluator.dim();
-  int num_pts = kg_evaluator.number_discrete_pts();
+  int dim = ei_evaluator.dim();
 
-  int num_derivatives = (*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->num_derivatives();
-  std::vector<int> derivatives((*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->derivatives());
+  int num_derivatives = (*ei_evaluator.expected_improvement_evaluator_list())[0].gaussian_process()->num_derivatives();
+  std::vector<int> derivatives((*ei_evaluator.expected_improvement_evaluator_list())[0].gaussian_process()->derivatives());
 
-  std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> kg_state_vector;
+  std::vector<typename ExpectedImprovementEvaluator::StateType> ei_state_vector;
 
-  OL_VERBOSE_PRINTF("Knowledge Gradient Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
+  OL_VERBOSE_PRINTF("Expected Improvement Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
   bool configure_for_gradients = true;
-  typename KnowledgeGradientMCMCEvaluator::StateType kg_state(kg_evaluator, initial_guess,
-                                                              points_being_sampled, num_to_sample,
-                                                              num_being_sampled, num_pts,
-                                                              derivatives.data(), num_derivatives,
-                                                              configure_for_gradients,
-                                                              normal_rng, &kg_state_vector);
+  typename ExpectedImprovementEvaluator::StateType ei_state(ei_evaluator, initial_guess,
+                                                            points_being_sampled, num_to_sample,
+                                                            num_being_sampled,
+                                                            derivatives.data(), num_derivatives,
+                                                            configure_for_gradients,
+                                                            normal_rng, &ei_state_vector);
 
   using RepeatedDomain = RepeatedDomain<DomainType>;
   RepeatedDomain repeated_domain(domain, num_to_sample);
-  GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator, RepeatedDomain> gd_opt;
-  gd_opt.Optimize(kg_evaluator, optimizer_parameters, repeated_domain, &kg_state);
-  kg_state.GetCurrentPoint(next_point);
+  GradientDescentOptimizer<ExpectedImprovementMCMCEvaluator, RepeatedDomain> gd_opt;
+  gd_opt.Optimize(ei_evaluator, optimizer_parameters, repeated_domain, &ei_state);
+  ei_state.GetCurrentPoint(next_point);
 }
 
 /*!\rst
@@ -641,19 +547,16 @@ void RestartedGradientDescentKGMCMCOptimization(const KnowledgeGradientMCMCEvalu
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(
+OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradientDescent(
     GaussianProcessMCMC& gaussian_process_mcmc,
     const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
     const DomainType& domain,
     const ThreadSchedule& thread_schedule,
     double const * restrict start_point_set,
     double const * restrict points_being_sampled,
-    double const * discrete_pts,
     int num_multistarts,
     int num_to_sample,
     int num_being_sampled,
-    int num_pts,
     double const * best_so_far,
     int max_int_steps,
     NormalRNG * normal_rng,
@@ -664,28 +567,27 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
   }
 
   bool configure_for_gradients = true;
-  std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> kg_evaluator_lst;
-  KnowledgeGradientMCMCEvaluator<DomainType> kg_evaluator(gaussian_process_mcmc, discrete_pts, num_pts, max_int_steps,
-                                                          domain, optimizer_parameters_inner, best_so_far, &kg_evaluator_lst);
+  std::vector<typename ExpectedImprovementState::EvaluatorType> ei_evaluator_lst;
+  ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps, best_so_far, &ei_evaluator_lst);
 
-  int num_derivatives = (*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->num_derivatives();
-  std::vector<int> derivatives((*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->derivatives());
+  int num_derivatives = (*ei_evaluator.expected_improvement_evaluator_list())[0].gaussian_process()->num_derivatives();
+  std::vector<int> derivatives((*ei_evaluator.expected_improvement_evaluator_list())[0].gaussian_process()->derivatives());
 
-  std::vector<typename KnowledgeGradientMCMCEvaluator<DomainType>::StateType> state_vector;
-  std::vector<std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType>> kg_state_vector(thread_schedule.max_num_threads);
-  SetupKnowledgeGradientMCMCState(kg_evaluator, start_point_set, points_being_sampled,
-                                  num_to_sample, num_being_sampled, num_pts, derivatives.data(), num_derivatives,
-                                  thread_schedule.max_num_threads, configure_for_gradients,
-                                  normal_rng, kg_state_vector.data(), &state_vector);
+  std::vector<typename ExpectedImprovementMCMCEvaluator::StateType> state_vector;
+  std::vector<std::vector<typename ExpectedImprovementEvaluator::StateType>> ei_state_vector(thread_schedule.max_num_threads);
+  SetupExpectedImprovementMCMCState(ei_evaluator, start_point_set, points_being_sampled,
+                                    num_to_sample, num_being_sampled, derivatives.data(), num_derivatives,
+                                    thread_schedule.max_num_threads, configure_for_gradients,
+                                    normal_rng, ei_state_vector.data(), &state_vector);
 
   // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
+  OptimizationIOContainer io_container(state_vector[0].GetProblemSize(), 0.0, start_point_set);
 
   using RepeatedDomain = RepeatedDomain<DomainType>;
   RepeatedDomain repeated_domain(domain, num_to_sample);
-  GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, RepeatedDomain> gd_opt;
-  MultistartOptimizer<GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, RepeatedDomain> > multistart_optimizer;
-  multistart_optimizer.MultistartOptimize(gd_opt, kg_evaluator, optimizer_parameters,
+  GradientDescentOptimizer<ExpectedImprovementMCMCEvaluator, RepeatedDomain> gd_opt;
+  MultistartOptimizer<GradientDescentOptimizer<ExpectedImprovementMCMCEvaluator, RepeatedDomain> > multistart_optimizer;
+  multistart_optimizer.MultistartOptimize(gd_opt, ei_evaluator, optimizer_parameters,
                                           repeated_domain, thread_schedule, start_point_set,
                                           num_multistarts, state_vector.data(), nullptr, &io_container);
   *found_flag = io_container.found_flag;
@@ -727,52 +629,15 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
       ``initial_guesses``; never dereferenced if nullptr
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
-template <typename DomainType>
-void EvaluateKGMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc,
-                               const GradientDescentParameters& optimizer_parameters_inner,
-                               const DomainType& domain, const ThreadSchedule& thread_schedule,
+void EvaluateEIMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc,
+                               const ThreadSchedule& thread_schedule,
                                double const * restrict initial_guesses,
                                double const * restrict points_being_sampled,
-                               double const * discrete_pts,
                                int num_multistarts, int num_to_sample,
-                               int num_being_sampled, int num_pts, double const * best_so_far,
+                               int num_being_sampled, double const * best_so_far,
                                int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
                                double * restrict function_values,
-                               double * restrict best_next_point) {
-    if (unlikely(num_multistarts <= 0)) {
-      OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
-    }
-
-    using DomainType_dummy = DummyDomain;
-    DomainType_dummy dummy_domain;
-    bool configure_for_gradients = false;
-    std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> kg_evaluator_lst;
-
-    KnowledgeGradientMCMCEvaluator<DomainType> kg_evaluator(gaussian_process_mcmc, discrete_pts, num_pts, max_int_steps,
-                                                            domain, optimizer_parameters_inner, best_so_far, &kg_evaluator_lst);
-
-    int num_derivatives = (*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->num_derivatives();
-    std::vector<int> derivatives((*kg_evaluator.knowledge_gradient_evaluator_list())[0].gaussian_process()->derivatives());
-
-    std::vector<typename KnowledgeGradientMCMCEvaluator<DomainType>::StateType> state_vector;
-    std::vector<std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType>> kg_state_vector(thread_schedule.max_num_threads);
-    SetupKnowledgeGradientMCMCState(kg_evaluator, initial_guesses, points_being_sampled,
-                                    num_to_sample, num_being_sampled, num_pts, derivatives.data(), num_derivatives,
-                                    thread_schedule.max_num_threads, configure_for_gradients,
-                                    normal_rng, kg_state_vector.data(), &state_vector);
-
-    // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
-    OptimizationIOContainer io_container(state_vector[0].GetProblemSize(), -INFINITY, initial_guesses);
-
-    NullOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, DomainType_dummy> null_opt;
-    typename NullOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, DomainType_dummy>::ParameterStruct null_parameters;
-    MultistartOptimizer<NullOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, DomainType_dummy> > multistart_optimizer;
-    multistart_optimizer.MultistartOptimize(null_opt, kg_evaluator, null_parameters,
-                                            dummy_domain, thread_schedule, initial_guesses,
-                                            num_multistarts, state_vector.data(), function_values, &io_container);
-    *found_flag = io_container.found_flag;
-    std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
-}
+                               double * restrict best_next_point);
 
 /*!\rst
   Perform multistart gradient descent (MGD) to solve the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
@@ -810,13 +675,11 @@ void EvaluateKGMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc,
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gaussian_process_mcmc,
+void ComputeEIMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gaussian_process_mcmc,
                                                         const GradientDescentParameters& optimizer_parameters,
-                                                        const GradientDescentParameters& optimizer_parameters_inner,
                                                         const DomainType& domain, const ThreadSchedule& thread_schedule,
                                                         double const * restrict points_being_sampled,
-                                                        double const * discrete_pts,
-                                                        int num_to_sample, int num_being_sampled, int num_pts,
+                                                        int num_to_sample, int num_being_sampled,
                                                         double const * best_so_far,
                                                         int max_int_steps, bool * restrict found_flag,
                                                         UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
@@ -832,16 +695,16 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
 
   for (int i = 0; i < num_multistarts; ++i){
       repeated_domain.GenerateUniformPointsInDomain(grid_size, uniform_generator, temp_points.data());
-      EvaluateKGMCMCAtPointList(gaussian_process_mcmc, optimizer_parameters_inner, domain, thread_schedule, temp_points.data(),
-                                points_being_sampled, discrete_pts, grid_size, num_to_sample,
-                                num_being_sampled, num_pts, best_so_far, max_int_steps, found_flag, normal_rng,
+      EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, temp_points.data(),
+                                points_being_sampled, grid_size, num_to_sample,
+                                num_being_sampled, best_so_far, max_int_steps, found_flag, normal_rng,
                                 function_values.data(), starting_points.data() + i*num_to_sample*gaussian_process_mcmc.dim());
   }
 
-  ComputeKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process_mcmc, optimizer_parameters, optimizer_parameters_inner, domain,
+  ComputeEIMCMCOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process_mcmc, optimizer_parameters, domain,
                                                                  thread_schedule, starting_points.data(),
-                                                                 points_being_sampled, discrete_pts, num_multistarts,
-                                                                 num_to_sample, num_being_sampled, num_pts,
+                                                                 points_being_sampled, num_multistarts,
+                                                                 num_to_sample, num_being_sampled,
                                                                  best_so_far, max_int_steps,
                                                                  normal_rng, found_flag, best_next_point);
 #ifdef OL_WARNING_PRINT
@@ -890,14 +753,12 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
 template <typename DomainType>
-void ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMCMC& gaussian_process_mcmc,
-                                                               const GradientDescentParameters& optimizer_parameters_inner,
+void ComputeEIMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMCMC& gaussian_process_mcmc,
                                                                const DomainType& domain,
                                                                const ThreadSchedule& thread_schedule,
                                                                double const * restrict points_being_sampled,
-                                                               double const * discrete_pts,
                                                                int num_multistarts, int num_to_sample,
-                                                               int num_being_sampled, int num_pts, double const * best_so_far,
+                                                               int num_being_sampled, double const * best_so_far,
                                                                int max_int_steps,
                                                                bool * restrict found_flag,
                                                                UniformRandomGenerator * uniform_generator,
@@ -908,9 +769,9 @@ void ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
   num_multistarts = repeated_domain.GenerateUniformPointsInDomain(num_multistarts, uniform_generator,
                                                                   initial_guesses.data());
 
-  EvaluateKGMCMCAtPointList(gaussian_process_mcmc, optimizer_parameters_inner, domain, thread_schedule, initial_guesses.data(),
-                            points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
-                            num_being_sampled, num_pts, best_so_far, max_int_steps,
+  EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, initial_guesses.data(),
+                            points_being_sampled, num_multistarts, num_to_sample,
+                            num_being_sampled, best_so_far, max_int_steps,
                             found_flag, normal_rng, nullptr, best_next_point);
 }
 
@@ -963,36 +824,32 @@ void ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
     :best_points_to_sample[num_to_sample*dim]: point yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc,
+void ComputeEIMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc,
                                         const GradientDescentParameters& optimizer_parameters,
-                                        const GradientDescentParameters& optimizer_parameters_inner,
                                         const DomainType& domain, const ThreadSchedule& thread_schedule,
                                         double const * restrict points_being_sampled,
-                                        double const * discrete_pts,
                                         int num_to_sample, int num_being_sampled,
-                                        int num_pts, double const * best_so_far,
+                                        double const * best_so_far,
                                         int max_int_steps, bool lhc_search_only,
                                         int num_lhc_samples, bool * restrict found_flag,
                                         UniformRandomGenerator * uniform_generator,
                                         NormalRNG * normal_rng, double * restrict best_points_to_sample);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-extern template void ComputeKGMCMCOptimalPointsToSample(
+extern template void ComputeEIMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled, double const * discrete_pts,
+    double const * restrict points_being_sampled,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double const * best_so_far, int max_int_steps, bool lhc_search_only,
+    double const * best_so_far, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
-extern template void ComputeKGMCMCOptimalPointsToSample(
+extern template void ComputeEIMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const ThreadSchedule& thread_schedule,
-    double const * restrict points_being_sampled, double const * discrete_pts,
+    double const * restrict points_being_sampled,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double const * best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
+    double const * best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
 }  // end namespace optimal_learning
 
-#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_MCMC_OPTIMIZATION_HPP_
+#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_HEURISTIC_EXPECTED_IMPROVEMENT_OPTIMIZATION_HPP_
