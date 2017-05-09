@@ -366,8 +366,8 @@ NormSquaredWithConstInverseWeights(double const * restrict point_one, double con
 \endrst*/
 OL_NONNULL_POINTERS void InitializeDeepKernel(int dim, double& alpha, const std::vector<double>& hypers_in,
                                               double * restrict w_0, double * restrict b_0,
-                                              /*double * restrict w_1, double * restrict b_1,
-                                              double * restrict w_2, double * restrict b_2,*/
+                                              double * restrict w_1, double * restrict b_1,
+                                              double * restrict w_2, double * restrict b_2,
                                               double * restrict w_3, double * restrict b_3,
                                               double& lengths, double& lengths_sq) {
   // validate inputs
@@ -376,29 +376,29 @@ OL_NONNULL_POINTERS void InitializeDeepKernel(int dim, double& alpha, const std:
   }
 
   int num_hypers = 1 + 1 +
-                   50*dim + 50 +
-                   //50*50 + 50 +
-                   //50*50 + 50 +
-                   50*2 + 2;
+                   10*dim + 10 +
+                   10*10 + 10 +
+                   10*10 + 10 +
+                   10*1 + 1;
 
   if (static_cast<unsigned>(num_hypers) != hypers_in.size()) {
     OL_THROW_EXCEPTION(InvalidValueException<int>, "num_hypers (truth) and hypers vector size do not match.", hypers_in.size(), num_hypers);
   }
 
-  std::copy(hypers_in.data(), hypers_in.data() + 50*dim, w_0);
-  std::copy(hypers_in.data() + 50*dim, hypers_in.data() + 50*dim + 50, b_0);
-  /*std::copy(hypers_in.data() + 50*dim + 50, hypers_in.data() + 50*dim + 50 + 50*50, w_1);
-  std::copy(hypers_in.data() + 50*dim + 50 + 50*50, hypers_in.data() + 50*dim + 50 + 50*50 + 50, b_1);
-  std::copy(hypers_in.data() + 50*dim + 50 + 50*50 + 50, hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50, w_2);
-  std::copy(hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50, hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50 + 50, b_2);
-  std::copy(hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50 + 50, hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50 + 50 + 50*2, w_3);
-  std::copy(hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50 + 50 + 50*2, hypers_in.data() + 50*dim + 50 + 50*50 + 50 + 50*50 + 50 + 50*2 + 2, b_3);
-  alpha = hypers_in[50*dim + 50 + 50*50 + 50 + 50*50 + 50 + 50*2 + 2];
-  lengths = hypers_in[50*dim + 50 + 50*50 + 50 + 50*50 + 50 + 50*2 + 2 + 1];*/
-  std::copy(hypers_in.data() + 50*dim + 50, hypers_in.data() + 50*dim + 50 + 50*2, w_3);
+  std::copy(hypers_in.data(), hypers_in.data() + 10*dim, w_0);
+  std::copy(hypers_in.data() + 10*dim, hypers_in.data() + 10*dim + 10, b_0);
+  std::copy(hypers_in.data() + 10*dim + 10, hypers_in.data() + 10*dim + 10 + 10*10, w_1);
+  std::copy(hypers_in.data() + 10*dim + 10 + 10*10, hypers_in.data() + 10*dim + 10 + 10*10 + 10, b_1);
+  std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10, w_2);
+  std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10, b_2);
+  std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, w_3);
+  std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 1, b_3);
+  alpha = hypers_in[10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 1];
+  lengths = hypers_in[10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 1 + 1];
+  /*std::copy(hypers_in.data() + 50*dim + 50, hypers_in.data() + 50*dim + 50 + 50*2, w_3);
   std::copy(hypers_in.data() + 50*dim + 50 + 50*2, hypers_in.data() + 50*dim + 50 + 50*2 + 2, b_3);
   alpha = hypers_in[50*dim + 50 + 50*2 + 2];
-  lengths = hypers_in[50*dim + 50 + 50*2 + 2 + 1];
+  lengths = hypers_in[50*dim + 50 + 50*2 + 2 + 1];*/
 
   if (alpha <= 0.0) {
     OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha, std::numeric_limits<double>::min());
@@ -416,53 +416,49 @@ OL_NONNULL_POINTERS void InitializeDeepKernel(int dim, double& alpha, const std:
 void DeepKernel::Initialize(std::vector<double> hypers) {
   InitializeDeepKernel(dim_, alpha_, hypers,
                        w_0_.data(), b_0_.data(),
-                       /*w_1_.data(), b_1_.data(),
-                       w_2_.data(), b_2_.data(),*/
+                       w_1_.data(), b_1_.data(),
+                       w_2_.data(), b_2_.data(),
                        w_3_.data(), b_3_.data(),
                        lengths_, lengths_sq_);
 }
 
 DeepKernel::DeepKernel(int dim, std::vector<double> hypers)
     : dim_(dim), alpha_(0.0), lengths_(0.0), lengths_sq_(0.0),
-      w_0_(dim_*50), b_0_(50),
-      /*w_1_(50*50), b_1_(50),
-      w_2_(50*50), b_2_(50),*/
-      w_3_(50*2), b_3_(2) {
+      w_0_(dim_*10), b_0_(10),
+      w_1_(10*10), b_1_(10),
+      w_2_(10*10), b_2_(10),
+      w_3_(10), b_3_(1) {
   Initialize(hypers);
 }
 
 DeepKernel::DeepKernel(int dim, double const * restrict hypers)
-    : DeepKernel(dim, std::vector<double>(hypers, hypers + 1 + 1 + 50*dim_ + 50 +
-                                                 /*50*50 + 50 +
-                                                 50*50 + 50 +*/
-                                                 50*2 + 2)) {
+    : DeepKernel(dim, std::vector<double>(hypers, hypers + 2 + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 1)) {
 }
 
 DeepKernel::DeepKernel(const DeepKernel& OL_UNUSED(source)) = default;
 
 void DeepKernel::NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept {
   std::vector<double> layer1(b_0_);
-  //std::vector<double> layer2(b_1_);
-  //std::vector<double> layer3(b_2_);
-
-  GeneralMatrixVectorMultiply(w_0_.data(), 'T', point_one, 1.0, 1.0, dim_, 50, dim_, layer1.data());
-  for (int i=0; i<50; ++i){
+  GeneralMatrixVectorMultiply(w_0_.data(), 'T', point_one, 1.0, 1.0, dim_, 10, dim_, layer1.data());
+  for (int i=0; i<10; ++i){
     layer1[i] = tanh(layer1[i]);
   }
 
-  /*GeneralMatrixVectorMultiply(w_1_.data(), 'T', layer1.data(), 1.0, 1.0, 50, 50, 50, layer2.data());
-  for (int i=0; i<50; ++i){
+  std::vector<double> layer2(b_1_);
+  GeneralMatrixVectorMultiply(w_1_.data(), 'T', layer1.data(), 1.0, 1.0, 10, 10, 10, layer2.data());
+  for (int i=0; i<10; ++i){
     layer2[i] = tanh(layer2[i]);
   }
 
-  GeneralMatrixVectorMultiply(w_2_.data(), 'T', layer2.data(), 1.0, 1.0, 50, 50, 50, layer3.data());
-  for (int i=0; i<50; ++i){
+  std::vector<double> layer3(b_2_);
+  GeneralMatrixVectorMultiply(w_2_.data(), 'T', layer2.data(), 1.0, 1.0, 10, 10, 10, layer3.data());
+  for (int i=0; i<10; ++i){
     layer3[i] = tanh(layer3[i]);
-  }*/
+  }
 
-  std::copy(b_3_.data(), b_3_.data() + 2, projection);
-  GeneralMatrixVectorMultiply(w_3_.data(), 'T', layer1.data(), 1.0, 1.0, 50, 2, 50, projection);
-  for (int i=0; i<2; ++i){
+  std::copy(b_3_.data(), b_3_.data() + 1, projection);
+  GeneralMatrixVectorMultiply(w_3_.data(), 'T', layer3.data(), 1.0, 1.0, 10, 1, 10, projection);
+  for (int i=0; i<1; ++i){
     projection[i] = tanh(projection[i]);
   }
 }
@@ -473,13 +469,13 @@ void DeepKernel::NeuralNetwork(double const * restrict point_one, double * restr
 void DeepKernel::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                             double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                             double * restrict cov) const noexcept {
-  std::vector<double> projection_one(2);
+  std::vector<double> projection_one(1);
   NeuralNetwork(point_one, projection_one.data());
 
-  std::vector<double> projection_two(2);
+  std::vector<double> projection_two(1);
   NeuralNetwork(point_two, projection_two.data());
 
-  const double norm_val = NormSquaredWithConstInverseWeights(projection_one.data(), projection_two.data(), lengths_sq_, 2);
+  const double norm_val = NormSquaredWithConstInverseWeights(projection_one.data(), projection_two.data(), lengths_sq_, 1);
   cov[0] = alpha_*std::exp(-0.5*norm_val);
 }
 
@@ -492,59 +488,58 @@ void DeepKernel::GradCovariance(double const * restrict point_one, int const * r
                                 double * restrict grad_cov) const noexcept {
 
   std::vector<double> layer1(b_0_);
-  //std::vector<double> layer2(b_1_);
-  //std::vector<double> layer3(b_2_);
-
-  GeneralMatrixVectorMultiply(w_0_.data(), 'T', point_one, 1.0, 1.0, dim_, 50, dim_, layer1.data());
-  for (int i=0; i<50; ++i){
+  GeneralMatrixVectorMultiply(w_0_.data(), 'T', point_one, 1.0, 1.0, dim_, 10, dim_, layer1.data());
+  for (int i=0; i<10; ++i){
     layer1[i] = tanh(layer1[i]);
   }
 
-  /*GeneralMatrixVectorMultiply(w_1_.data(), 'T', layer1.data(), 1.0, 1.0, 50, 50, 50, layer2.data());
-  for (int i=0; i<50; ++i){
+  std::vector<double> layer2(b_1_);
+  GeneralMatrixVectorMultiply(w_1_.data(), 'T', layer1.data(), 1.0, 1.0, 10, 10, 10, layer2.data());
+  for (int i=0; i<10; ++i){
     layer2[i] = tanh(layer2[i]);
   }
 
-  GeneralMatrixVectorMultiply(w_2_.data(), 'T', layer2.data(), 1.0, 1.0, 50, 50, 50, layer3.data());
-  for (int i=0; i<50; ++i){
+  std::vector<double> layer3(b_2_);
+  GeneralMatrixVectorMultiply(w_2_.data(), 'T', layer2.data(), 1.0, 1.0, 10, 10, 10, layer3.data());
+  for (int i=0; i<10; ++i){
     layer3[i] = tanh(layer3[i]);
-  }*/
+  }
 
-  std::vector<double> projection_one(2);
-  std::copy(b_3_.data(), b_3_.data() + 2, projection_one.data());
-  GeneralMatrixVectorMultiply(w_3_.data(), 'T', layer1.data(), 1.0, 1.0, 50, 2, 50, projection_one.data());
-  for (int i=0; i<2; ++i){
+  std::vector<double> projection_one(1);
+  std::copy(b_3_.data(), b_3_.data() + 1, projection_one.data());
+  GeneralMatrixVectorMultiply(w_3_.data(), 'T', layer1.data(), 1.0, 1.0, 10, 1, 10, projection_one.data());
+  for (int i=0; i<1; ++i){
     projection_one[i] = tanh(projection_one[i]);
   }
 
-  std::vector<double> projection_two(2);
+  std::vector<double> projection_two(1);
   NeuralNetwork(point_two, projection_two.data());
-  const double norm_val = NormSquaredWithConstInverseWeights(projection_one.data(), projection_two.data(), lengths_sq_, 2);
+  const double norm_val = NormSquaredWithConstInverseWeights(projection_one.data(), projection_two.data(), lengths_sq_, 1);
 
   const double cov = alpha_*std::exp(-0.5*norm_val);
-  std::vector<double> top(2);
-  for (int i=0; i<2; ++i){
+  std::vector<double> top(1);
+  for (int i=0; i<1; ++i){
     top[i] = (projection_two[i]-projection_one[i])/lengths_sq_*cov;
     top[i] *= (1-Square(projection_one[i]));
   }
 
-  std::vector<double> layer_dervi3(50);
-  GeneralMatrixVectorMultiply(w_3_.data(), 'N', top.data(), 1.0, 0.0, 50, 2, 50, layer_dervi3.data());
-  for (int i=0; i<50; ++i){
-    layer_dervi3[i] *= (1-Square(layer1[i]));
+  std::vector<double> layer_dervi3(10);
+  GeneralMatrixVectorMultiply(w_3_.data(), 'N', top.data(), 1.0, 0.0, 10, 1, 10, layer_dervi3.data());
+  for (int i=0; i<10; ++i){
+    layer_dervi3[i] *= (1-Square(layer3[i]));
   }
 
-  /*GeneralMatrixVectorMultiply(w_2_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, 50, 50, 50, layer_dervi3.data());
-  for (int i=0; i<50; ++i){
+  GeneralMatrixVectorMultiply(w_2_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, 10, 10, 10, layer_dervi3.data());
+  for (int i=0; i<10; ++i){
     layer_dervi3[i] *= (1-Square(layer2[i]));
   }
 
-  GeneralMatrixVectorMultiply(w_1_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, 50, 50, 50, layer_dervi3.data());
-  for (int i=0; i<50; ++i){
+  GeneralMatrixVectorMultiply(w_1_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, 10, 10, 10, layer_dervi3.data());
+  for (int i=0; i<10; ++i){
     layer_dervi3[i] *= (1-Square(layer1[i]));
-  }*/
+  }
 
-  GeneralMatrixVectorMultiply(w_0_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, dim_, 50, dim_, grad_cov);
+  GeneralMatrixVectorMultiply(w_0_.data(), 'N', layer_dervi3.data(), 1.0, 0.0, dim_, 10, dim_, grad_cov);
 }
 
 CovarianceInterface * DeepKernel::Clone() const {

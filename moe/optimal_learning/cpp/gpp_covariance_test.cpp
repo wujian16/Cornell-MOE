@@ -759,7 +759,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
   int* derivatives = nullptr;
   int num_derivatives = 0;
 
-  std::vector<double> lengths(dim*50 + 50 + 50*2 +2 + 2);
+  std::vector<double> lengths(dim*2 + 2 + 2);
   double alpha = 2.80723;
 
   UniformRandomGenerator uniform_generator(31415);
@@ -767,7 +767,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
 
   {
     // hand-checked test-case
-    for (int j = 0; j < dim*50 + 50 + 50*2 +2 + 2; ++j) {
+    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
     PingCovarianceClass covariance_evaluator1(lengths, point2, derivatives, num_derivatives, dim);
@@ -782,7 +782,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
 
   {
     // check that at r = x1 - x2 = 0, the gradient is precisely 0
-    for (int j = 0; j < dim*50 + 50 + 50*2 +2 + 2; ++j) {
+    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
     PingCovarianceClass covariance_evaluator2(lengths, point4, derivatives, num_derivatives, dim);
@@ -810,7 +810,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
   for (int i = 0; i < 50; ++i) {
     EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
 
-    for (int j = 0; j < dim*50 + 50 + 50*2 +2 + 2; ++j) {
+    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 

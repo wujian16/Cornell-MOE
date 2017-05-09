@@ -337,7 +337,7 @@ class DeepKernel final : public CovarianceInterface {
            dim_ * 50 + 50 +
            50 * 50 + 50 +
            50 * 50 + 50 +
-           50 * 1 + 1;
+           50 * 2 + 2;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,

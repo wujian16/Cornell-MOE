@@ -39,7 +39,10 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   gaussian_process_lst.reserve(num_mcmc_);
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
-  const int num_hypers = 1 + 1 + 50*dim_ + 50 + 50*2 + 2;
+  const int num_hypers = 1 + 1 + 10*dim_ + 10 +
+                         10*10 + 10 +
+                         10*10 + 10 +
+                         10 + 1;
   for (int i=0; i<num_mcmc_;++i){
     DeepKernel dkl(dim_, std::vector<double>(hypers, hypers + num_hypers));
     gaussian_process_lst.emplace_back(dkl, points_sampled_.data(), points_sampled_value_.data(),
@@ -72,6 +75,7 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
   knowledge_gradient_evaluator_lst(evaluator_vector),
   discrete_pts_lst_(discrete_points_list(discrete_pts_lst, num_pts)),
   num_pts_(num_pts) {
+      printf("number of samples %d\n", num_mcmc_hypers_);
       knowledge_gradient_evaluator_lst->reserve(num_mcmc_hypers_);
       double * discrete_pts = discrete_pts_lst_.data();
       for (int i=0; i<num_mcmc_hypers_; ++i){

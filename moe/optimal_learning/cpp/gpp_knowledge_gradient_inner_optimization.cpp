@@ -29,12 +29,12 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
     double const * train_sample)
     : dim_(gaussian_process_in.dim()),
       gaussian_process_(&gaussian_process_in),
-      coeff_(coeff(coefficient, num_to_sample, num_derivatives)),
       to_sample_(to_sample_points(to_sample, num_to_sample)),
       num_to_sample_(num_to_sample),
       to_sample_derivatives_(derivatives(to_sample_derivatives, num_derivatives)),
       num_derivatives_(num_derivatives),
       chol_(cholesky(chol, num_to_sample, num_derivatives)),
+      coeff_(coeff(coefficient, num_to_sample, num_derivatives)),
       train_sample_(train_sample_precompute(train_sample, num_to_sample, num_derivatives)) {
 }
 
@@ -52,7 +52,6 @@ double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) 
   gaussian_process_->ComputeCovarianceOfPoints(&(ps_state->points_to_sample_state), to_sample_.data(), num_to_sample_,
                                                to_sample_derivatives_.data(), num_derivatives_, true, train_sample_.data(), var_star);
 
-  TriangularMatrixVectorSolve(chol_.data(), 'N', num_to_sample_*(1+num_derivatives_), num_to_sample_*(1+num_derivatives_), var_star);
   to_sample_mean += DotProduct(var_star, coeff_.data(), num_to_sample_*(1+num_derivatives_));
   delete [] var_star;
 
@@ -78,8 +77,6 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
                                                    true, train_sample_.data(), grad_cov);
   std::vector<double> temp(coeff_);
 
-  TriangularMatrixVectorSolve(chol_.data(), 'T', num_to_sample_*(1+num_derivatives_),
-                              num_to_sample_*(1+num_derivatives_), temp.data());
   GeneralMatrixVectorMultiply(grad_cov, 'N', temp.data(), 1.0, 1.0,
                               dim_, num_to_sample_*(1+num_derivatives_),
                               dim_, grad_mu);

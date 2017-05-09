@@ -821,6 +821,7 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
                                                         int max_int_steps, bool * restrict found_flag,
                                                         UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
                                                         double * restrict best_next_point) {
+/*
   int grid_size = 100;
   std::vector<double> starting_points(gaussian_process_mcmc.dim()*optimizer_parameters.num_multistarts*num_to_sample);
   std::vector<double> temp_points(gaussian_process_mcmc.dim()*grid_size*num_to_sample);
@@ -837,7 +838,11 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
                                 num_being_sampled, num_pts, best_so_far, max_int_steps, found_flag, normal_rng,
                                 function_values.data(), starting_points.data() + i*num_to_sample*gaussian_process_mcmc.dim());
   }
-
+*/
+  std::vector<double> starting_points(gaussian_process_mcmc.dim()*optimizer_parameters.num_multistarts*num_to_sample);
+  RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
+  int num_multistarts = repeated_domain.GenerateUniformPointsInDomain(optimizer_parameters.num_multistarts,
+                                                                      uniform_generator, starting_points.data());
   ComputeKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process_mcmc, optimizer_parameters, optimizer_parameters_inner, domain,
                                                                  thread_schedule, starting_points.data(),
                                                                  points_being_sampled, discrete_pts, num_multistarts,

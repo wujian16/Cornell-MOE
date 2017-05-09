@@ -175,13 +175,6 @@ class FuturePosteriorMeanEvaluator final {
     return gaussian_process_;
   }
 
-  std::vector<double> coeff(double const * coefficient,
-                            int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_to_sample*(1+num_derivatives));
-    std::copy(coefficient, coefficient + num_to_sample*(1+num_derivatives), result.data());
-    return result;
-  }
-
   std::vector<double> to_sample_points(double const * to_sample,
                                        int num_to_sample) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> result(num_to_sample*dim_);
@@ -200,6 +193,15 @@ class FuturePosteriorMeanEvaluator final {
                                int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> result(num_to_sample*(1+num_derivatives)*num_to_sample*(1+num_derivatives));
     std::copy(chol, chol + num_to_sample*(1+num_derivatives)*num_to_sample*(1+num_derivatives), result.data());
+    return result;
+  }
+
+  std::vector<double> coeff(double const * coefficient,
+                            int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> result(num_to_sample*(1+num_derivatives));
+    std::copy(coefficient, coefficient + num_to_sample*(1+num_derivatives), result.data());
+    TriangularMatrixVectorSolve(chol_.data(), 'T', num_to_sample_*(1+num_derivatives_),
+                                num_to_sample_*(1+num_derivatives_), result.data());
     return result;
   }
 
@@ -256,9 +258,6 @@ class FuturePosteriorMeanEvaluator final {
   //! pointer to gaussian process used in computations
   const GaussianProcess * gaussian_process_;
 
-  //! sampled Z
-  const std::vector<double> coeff_;
-
   //! points to sample in the next sampling step
   const std::vector<double> to_sample_;
 
@@ -273,6 +272,9 @@ class FuturePosteriorMeanEvaluator final {
 
   //! cholesky factor
   const std::vector<double> chol_;
+
+  //! Chol^-1 * sampled Z
+  const std::vector<double> coeff_;
 
   //! train_sample
   const std::vector<double> train_sample_;

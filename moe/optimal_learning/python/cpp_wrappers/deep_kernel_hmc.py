@@ -12,7 +12,7 @@ import numpy
 import tensorflow as tf
 
 import edward as ed
-from edward.models import MultivariateNormalFull, Normal, Empirical
+from edward.models import MultivariateNormalTriL, Normal, Empirical
 
 from moe.optimal_learning.python.cpp_wrappers.covariance import SquareExponential
 from moe.optimal_learning.python.cpp_wrappers.gaussian_process import GaussianProcess
@@ -23,7 +23,7 @@ class DeepKernelHMC(object):
     r"""Class for computing log likelihood-like measures of deep kernel model fit.
     """
 
-    def __init__(self, historical_data, chain_length = 2*10**4, burnin_steps = 10**4, stride = 100):
+    def __init__(self, historical_data, chain_length = 10**4, burnin_steps = 2*10**3, stride = 100):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
         :type covariance_function: :class:`moe.optimal_learning.python.interfaces.covariance_interface.CovarianceInterface` subclass
@@ -36,6 +36,7 @@ class DeepKernelHMC(object):
         self.burned = False
         self.burnin_steps = burnin_steps
         self.stride_length = stride
+        self.n_nets = 80
 
     @property
     def dim(self):
@@ -82,41 +83,43 @@ class DeepKernelHMC(object):
         Trains the model on the historical data.
         """
         with tf.Graph().as_default():
-            W_0 = Normal(mu=tf.zeros([50, self.dim]), sigma=tf.ones([50, self.dim]))
-            W_1 = Normal(mu=tf.zeros([50, 50]), sigma=tf.ones([50, 50]))
-            W_2 = Normal(mu=tf.zeros([50, 50]), sigma=tf.ones([50, 50]))
-            W_3 = Normal(mu=tf.zeros([2, 50]), sigma=tf.ones([2, 50]))
-            b_0 = Normal(mu=tf.zeros(50), sigma=tf.ones(50))
-            b_1 = Normal(mu=tf.zeros(50), sigma=tf.ones(50))
-            b_2 = Normal(mu=tf.zeros(50), sigma=tf.ones(50))
-            b_3 = Normal(mu=tf.zeros(2), sigma=tf.ones(2))
-            noise = Normal(mu=tf.zeros(1), sigma=tf.ones(1))
+            W_0 = Normal(tf.zeros([10, self.dim]), tf.ones([10, self.dim]))
+            W_1 = Normal(tf.zeros([10, 10]), tf.ones([10, 10]))
+            W_2 = Normal(tf.zeros([10, 10]), tf.ones([10, 10]))
+            W_3 = Normal(tf.zeros([1, 10]), tf.ones([1, 10]))
+            b_0 = Normal(tf.zeros(10), tf.ones(10))
+            b_1 = Normal(tf.zeros(10), tf.ones(10))
+            b_2 = Normal(tf.zeros(10), tf.ones(10))
+            b_3 = Normal(tf.zeros(1), tf.ones(1))
 
-            sigma = Normal(mu=tf.zeros(1), sigma=tf.ones(1))
-            l = Normal(mu=tf.zeros(1), sigma=tf.ones(1))
+            noise = Normal(tf.zeros(1), tf.ones(1))
+            sigma = Normal(tf.zeros(1), tf.ones(1))
+            l = Normal(tf.zeros(1), tf.ones(1))
+
 
             param = [tf.transpose(W_0), b_0,
                      tf.transpose(W_1), b_1,
                      tf.transpose(W_2), b_2,
                      tf.transpose(W_3), b_3,
-                     tf.nn.softplus(noise), tf.nn.softplus(sigma), tf.nn.softplus(l)]
+                     tf.nn.softplus(noise), tf.nn.softplus(sigma),
+                     self.logistic(l, 0.04, 10)]
 
             N = self._points_sampled.shape[0]  # number of data points
 
             X_input = tf.placeholder(tf.float32, [N, self.dim])
-            f = MultivariateNormalFull(mu=tf.constant([numpy.mean(self._points_sampled_value)]*N),
-                                       sigma=self.covariance(param, X_input))
+            f = MultivariateNormalTriL(loc=tf.constant([numpy.mean(self._points_sampled_value)]*N),
+                                       scale_tril=tf.cholesky(self.covariance(param, X_input)))
 
-            qw_0 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50, self.dim])))
-            qw_1 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50, 50])))
-            qw_2 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50, 50])))
-            qw_3 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 2, 50])))
-            qb_0 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50])))
-            qb_1 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50])))
-            qb_2 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 50])))
-            qb_3 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 2])))
+            qw_0 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10, self.dim])))
+            qw_1 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10, 10])))
+            qw_2 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10, 10])))
+            qw_3 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1, 10])))
+            qb_0 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10])))
+            qb_1 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10])))
+            qb_2 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 10])))
+            qb_3 = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1])))
+
             qnoise = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1])))
-
             qsigma = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1])))
             ql = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1])))
 
@@ -132,9 +135,15 @@ class DeepKernelHMC(object):
                                 b_3: qb_3,
                                 noise: qnoise,
                                 sigma: qsigma,
-                                l: ql}, data={X_input: self._points_sampled, f: self._points_sampled_value.ravel()})
+                                l: ql}, data={X_input: self._points_sampled,
+                                              f: self._points_sampled_value.ravel()})
+            # inference = ed.HMC({W_0: qw_0,
+            #                     b_0: qb_0,
+            #                     noise: qnoise,
+            #                     sigma: qsigma,
+            #                     l: ql}, data={X_input: self._points_sampled, f: self._points_sampled_value.ravel()})
 
-            inference.run(step_size = 1e-3)
+            inference.run(step_size = 4*1e-5, n_steps = 10)
 
             qw_0 = qw_0.params[self.burnin_steps:self.chain_length:self.stride_length].eval()
             qw_1 = qw_1.params[self.burnin_steps:self.chain_length:self.stride_length].eval()
@@ -146,7 +155,7 @@ class DeepKernelHMC(object):
             qb_3 = qb_3.params[self.burnin_steps:self.chain_length:self.stride_length].eval()
             qnoise = tf.nn.softplus(qnoise.params[self.burnin_steps:self.chain_length:self.stride_length]).eval()
             qsigma = tf.nn.softplus(qsigma.params[self.burnin_steps:self.chain_length:self.stride_length]).eval()
-            ql = tf.nn.softplus(ql.params[self.burnin_steps:self.chain_length:self.stride_length]).eval()
+            ql = self.logistic(ql.params[self.burnin_steps:self.chain_length:self.stride_length], 0.04, 10).eval()
             sess = ed.get_session()
             if sess is not None:
                 sess.close()
@@ -158,14 +167,122 @@ class DeepKernelHMC(object):
             for n_sample in xrange(self.n_hypers):
                 param = numpy.concatenate([
                          qw_0[n_sample].ravel(), qb_0[n_sample].ravel(),
-                         #qw_1[n_sample].ravel(), qb_1[n_sample].ravel(),
-                         #qw_2[n_sample].ravel(), qb_2[n_sample].ravel(),
+                         qw_1[n_sample].ravel(), qb_1[n_sample].ravel(),
+                         qw_2[n_sample].ravel(), qb_2[n_sample].ravel(),
                          qw_3[n_sample].ravel(), qb_3[n_sample].ravel(),
                          qsigma[n_sample].ravel(), ql[n_sample].ravel()]).astype(numpy.float64)
                 hypers_list.append(param)
                 cov = SquareExponential(param)
                 model = GaussianProcess(cov, qnoise[n_sample].astype(numpy.float64), self._historical_data, [])
-                noises_list.append(qnoise[n_sample].astype(numpy.float64))
+                noises_list.append(1e-6)
+                self._models.append(model)
+            self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
+                                                              self._historical_data, [])
+            self.is_trained = True
+
+    def train_KL(self, **kwargs):
+        """
+        Trains the model on the historical data.
+        """
+        with tf.Graph().as_default():
+            W_0 = Normal(tf.zeros([10, self.dim]), tf.ones([10, self.dim]))
+            W_1 = Normal(tf.zeros([10, 10]), tf.ones([10, 10]))
+            W_2 = Normal(tf.zeros([10, 10]), tf.ones([10, 10]))
+            W_3 = Normal(tf.zeros([1, 10]), tf.ones([1, 10]))
+            b_0 = Normal(tf.zeros(10), tf.ones(10))
+            b_1 = Normal(tf.zeros(10), tf.ones(10))
+            b_2 = Normal(tf.zeros(10), tf.ones(10))
+            b_3 = Normal(tf.zeros(1), tf.ones(1))
+
+            noise = Normal(tf.zeros(1), tf.ones(1))
+            sigma = Normal(tf.zeros(1), tf.ones(1))
+            l = Normal(tf.zeros(1), tf.ones(1))
+
+
+            param = [tf.transpose(W_0), b_0,
+                     tf.transpose(W_1), b_1,
+                     tf.transpose(W_2), b_2,
+                     tf.transpose(W_3), b_3,
+                     tf.nn.softplus(noise), tf.nn.softplus(sigma),
+                     self.logistic(l, 0.04, 10)]
+
+            N = self._points_sampled.shape[0]  # number of data points
+
+            X_input = tf.placeholder(tf.float32, [N, self.dim])
+            f = MultivariateNormalTriL(loc=tf.constant([numpy.mean(self._points_sampled_value)]*N),
+                                       scale_tril=tf.cholesky(self.covariance(param, X_input)))
+
+            qw_0 = Normal(loc=tf.Variable(tf.random_normal([10, self.dim])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10, self.dim]))))
+            qw_1 = Normal(loc=tf.Variable(tf.random_normal([10, 10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10, 10]))))
+            qw_2 = Normal(loc=tf.Variable(tf.random_normal([10, 10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10, 10]))))
+            qw_3 = Normal(loc=tf.Variable(tf.random_normal([1, 10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([1, 10]))))
+            qb_0 = Normal(loc=tf.Variable(tf.random_normal([10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10]))))
+            qb_1 = Normal(loc=tf.Variable(tf.random_normal([10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10]))))
+            qb_2 = Normal(loc=tf.Variable(tf.random_normal([10])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([10]))))
+            qb_3 = Normal(loc=tf.Variable(tf.random_normal([1])),
+                          scale=tf.nn.softplus(tf.Variable(tf.random_normal([1]))))
+
+            qnoise = Normal(loc=tf.Variable(tf.random_normal([1])),
+                            scale=tf.nn.softplus(tf.Variable(tf.random_normal([1]))))
+            qsigma = Normal(loc=tf.Variable(tf.random_normal([1])),
+                            scale=tf.nn.softplus(tf.Variable(tf.random_normal([1]))))
+            ql = Normal(loc=tf.Variable(tf.random_normal([1])),
+                        scale=tf.nn.softplus(tf.Variable(tf.random_normal([1]))))
+
+            # from (N, 1) to (N, )
+            logging.info("Starting sampling")
+            inference = ed.KLqp({W_0: qw_0,
+                                 W_1: qw_1,
+                                 W_2: qw_2,
+                                 W_3: qw_3,
+                                 b_0: qb_0,
+                                 b_1: qb_1,
+                                 b_2: qb_2,
+                                 b_3: qb_3,
+                                 noise: qnoise,
+                                 sigma: qsigma,
+                                 l: ql}, data={X_input: self._points_sampled,
+                                               f: self._points_sampled_value.ravel()})
+
+            inference.run(n_iter=int(2*1e3))
+
+            qw_0 = qw_0.sample(self.n_nets).eval()
+            qw_1 = qw_1.sample(self.n_nets).eval()
+            qw_2 = qw_2.sample(self.n_nets).eval()
+            qw_3 = qw_3.sample(self.n_nets).eval()
+            qb_0 = qb_0.sample(self.n_nets).eval()
+            qb_1 = qb_1.sample(self.n_nets).eval()
+            qb_2 = qb_2.sample(self.n_nets).eval()
+            qb_3 = qb_3.sample(self.n_nets).eval()
+            qnoise = tf.nn.softplus(qnoise.sample(self.n_nets)).eval()
+            qsigma = tf.nn.softplus(qsigma.sample(self.n_nets)).eval()
+            ql = self.logistic(ql.sample(self.n_nets), 0.04, 10).eval()
+            sess = ed.get_session()
+            if sess is not None:
+                sess.close()
+                del sess
+            self.n_hypers = ql.shape[0]
+            self._models = []
+            hypers_list = []
+            noises_list = []
+            for n_sample in xrange(self.n_hypers):
+                param = numpy.concatenate([
+                    qw_0[n_sample].ravel(), qb_0[n_sample].ravel(),
+                    qw_1[n_sample].ravel(), qb_1[n_sample].ravel(),
+                    qw_2[n_sample].ravel(), qb_2[n_sample].ravel(),
+                    qw_3[n_sample].ravel(), qb_3[n_sample].ravel(),
+                    qsigma[n_sample].ravel(), ql[n_sample].ravel()]).astype(numpy.float64)
+                hypers_list.append(param)
+                cov = SquareExponential(param)
+                model = GaussianProcess(cov, qnoise[n_sample].astype(numpy.float64), self._historical_data, [])
+                noises_list.append(1e-6)
                 self._models.append(model)
             self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
                                                               self._historical_data, [])
@@ -180,9 +297,10 @@ class DeepKernelHMC(object):
             with N as the number of points and D is the number of features.
         """
         W_0, b_0, W_1, b_1, W_2, b_2, W_3, b_3, noise, sigma, l = param
+        #>W_0, b_0, noise, sigma, l = param
         h = tf.tanh(tf.matmul(X, W_0) + b_0)
-        #h = tf.tanh(tf.matmul(h, W_1) + b_1)
-        #h = tf.tanh(tf.matmul(h, W_2) + b_2)
+        h = tf.tanh(tf.matmul(h, W_1) + b_1)
+        h = tf.tanh(tf.matmul(h, W_2) + b_2)
         h = tf.tanh(tf.matmul(h, W_3) + b_3)
         return h
 
@@ -197,6 +315,7 @@ class DeepKernelHMC(object):
         :rtype: tensor of float64 with shape (N1, N2)
         """
         W_0, b_0, W_1, b_1, W_2, b_2, W_3, b_3, noise, sigma, l = param
+        #W_0, b_0, noise, sigma, l = param
         points_one = self.neural_network(points_one, param)
         points_one = tf.divide(points_one, l)
         set_sum1 = tf.reduce_sum(tf.square(points_one), 1)
@@ -225,7 +344,8 @@ class DeepKernelHMC(object):
         :rtype: tensor of float64 with shape (N1, N2)
         """
         W_0, b_0, W_1, b_1, W_2, b_2, W_3, b_3, noise, sigma, l = param
-        return noise*tf.constant(numpy.identity(points_one.shape[0]), dtype=tf.float32) + sigma * tf.exp(-0.5 * self.square_dist(param, points_one, points_two))
+        #W_0, b_0, noise, sigma, l = param
+        return 1e-1*tf.constant(numpy.identity(points_one.shape[0]), dtype=tf.float32) + sigma * tf.exp(-0.5 * self.square_dist(param, points_one, points_two))
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.
