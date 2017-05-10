@@ -220,6 +220,7 @@ class GaussianProcessLogLikelihoodMCMC:
             if numpy.any((-10 > sample) + (sample > 10)):
                 continue
             sample = numpy.exp(sample)
+            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             hypers_list.append(cov_hyps)
@@ -252,6 +253,8 @@ class GaussianProcessLogLikelihoodMCMC:
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
+        if not self.noisy:
+            noise = numpy.array((1+self._num_derivatives)*[1.e-6])
 
         if self.prior is not None:
             posterior = self.prior.lnprob(numpy.log(hyps))
