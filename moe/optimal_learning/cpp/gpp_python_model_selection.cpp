@@ -48,6 +48,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                    const boost::python::list& derivatives,
                                    int num_derivatives,
                                    const boost::python::list& noise_variance) {
+/*
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
 
@@ -55,6 +56,18 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
   SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+*/
+  const int num_to_sample = 0;
+  const boost::python::list points_to_sample_dummy;
+  PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+
+  const int num_hypers = 2*dim;
+
+  std::vector<double> hypers(num_hypers);
+  CopyPylistToVector(hyperparameters, num_hypers, hypers);
+
+  AdditiveKernel adk(dim, hypers);
 
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
@@ -62,7 +75,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                                        input_container.points_sampled_value.data(),
                                                        input_container.derivatives.data(), input_container.num_derivatives,
                                                        input_container.dim, input_container.num_sampled);
-      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, sqexp, input_container.noise_variance);
+      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, adk, input_container.noise_variance);
 
       double log_likelihood = log_marginal_eval.ComputeLogLikelihood(log_marginal_state);
       return log_likelihood;
@@ -94,6 +107,7 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
                                                                   const boost::python::list& derivatives,
                                                                   int num_derivatives,
                                                                   const boost::python::list& noise_variance) {
+/*
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
 
@@ -101,15 +115,27 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
   SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+*/
+  const int num_to_sample = 0;
+  const boost::python::list points_to_sample_dummy;
+  PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  std::vector<double> grad_log_likelihood(sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives);
+  const int num_hypers = 2*dim;
+
+  std::vector<double> hypers(num_hypers);
+  CopyPylistToVector(hyperparameters, num_hypers, hypers);
+
+  AdditiveKernel adk(dim, hypers);
+
+  std::vector<double> grad_log_likelihood(adk.GetNumberOfHyperparameters() + 1 + num_derivatives);
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
       LogMarginalLikelihoodEvaluator log_marginal_eval(input_container.points_sampled.data(),
                                                        input_container.points_sampled_value.data(),
                                                        input_container.derivatives.data(), input_container.num_derivatives,
                                                        input_container.dim, input_container.num_sampled);
-      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, sqexp, input_container.noise_variance);
+      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, adk, input_container.noise_variance);
 
       log_marginal_eval.ComputeGradLogLikelihood(&log_marginal_state, grad_log_likelihood.data());
       break;

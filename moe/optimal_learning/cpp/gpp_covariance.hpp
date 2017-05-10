@@ -395,6 +395,101 @@ class DeepKernel final : public CovarianceInterface {
   double lengths_sq_;
 };
 
+/*!\rst
+  Implements the square exponential covariance function:
+  ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
+  where L is the diagonal matrix with i-th diagonal entry ``1/lengths[i]/lengths[i]``
+
+  This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
+
+  See CovarianceInterface for descriptions of the virtual functions.
+\endrst*/
+class AdditiveKernel final : public CovarianceInterface {
+ public:
+
+  /*!\rst
+    Constructs a SquareExponential object with constant length-scale across all dimensions.
+
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
+      :length: the constant length scale to use for all hyperparameter length scales
+  \endrst*/
+  AdditiveKernel(int dim, double alpha, double length);
+
+  /*!\rst
+    Constructs a SquareExponential object with the specified hyperparameters.
+
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
+      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
+  \endrst*/
+  AdditiveKernel(int dim, double const * restrict hypers) OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Constructs a SquareExponential object with the specified hyperparameters.
+
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
+      :lengths: the hyperparameter length scales, one per spatial dimension
+  \endrst*/
+  AdditiveKernel(int dim, std::vector<double> hypers);
+
+  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                          double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+
+  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                              double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
+
+  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim_ * 2;
+  }
+
+  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                            double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
+
+  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
+    for (int i = 0; i < dim_; ++i) {
+      alpha_[i] = hyperparameters[i];
+      lengths_[i] = hyperparameters[i+dim_];
+      lengths_sq_[i] = Square(hyperparameters[i+dim_]);
+    }
+  }
+
+  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS{
+    for (int i = 0; i < dim_; ++i) {
+      hyperparameters[i] = alpha_[i];
+      hyperparameters[i+dim_] = lengths_[i];
+    }
+  }
+
+  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
+
+  OL_DISALLOW_DEFAULT_AND_ASSIGN(AdditiveKernel);
+
+ private:
+  explicit AdditiveKernel(const AdditiveKernel& source);
+
+  /*!\rst
+    Validate and initialize class data members.
+  \endrst*/
+  void Initialize(std::vector<double> hypers);
+
+  //! dimension of the problem
+  int dim_;
+
+  //! ``\sigma_f^2``, signal variance
+  std::vector<double> alpha_;
+  //! length scales, one per dimension
+  std::vector<double> lengths_;
+  //! square of the length scales, one per dimension
+  std::vector<double> lengths_sq_;
+};
 
 ///*!\rst
 //  Special case of the square exponential covariance function where all entries of L must be the same; i.e., all

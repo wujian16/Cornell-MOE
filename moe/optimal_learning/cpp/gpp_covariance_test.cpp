@@ -385,6 +385,117 @@ class PingGradCovarianceHyperparameters final : public PingableMatrixInputVector
   CovarianceClass covariance_;
 };
 
+/*!\rst
+  Supports evaluating a covariance function, covariance.Covariance() and its hyperparameter gradient,
+  covariance.HyperparameterGradCovariance()
+
+  Since we're differentiating against hyperparameters, this class saves off the base set of hyperparameters, living in the
+  class variable covariance (saved off by EvaluateAndStoreAnalyticGradient).  Then evaluation at different hyperparameters
+  (via EvaluateFunction) is supported by building additional local covariance objects.
+
+  The output of coariance is a scalar.
+\endrst*/
+template <typename CovarianceClass>
+class PingGradAdditiveHyperparameters final : public PingableMatrixInputVectorOutputInterface {
+ public:
+  PingGradAdditiveHyperparameters(double const * restrict point1, double const * restrict point2,
+                                    int const * derivatives, int num_derivatives, int dim) OL_NONNULL_POINTERS
+      : dim_(dim),
+        num_hyperparameters_(0),
+        gradients_already_computed_(false),
+        derivatives_(derivatives, derivatives+num_derivatives),
+        num_derivatives_(num_derivatives),
+        point1_(point1, point1 + dim),
+        point2_(point2, point2 + dim),
+        grad_hyperparameter_covariance_((2*dim)*Square(1+num_derivatives)),
+        covariance_(dim, 1.0, 1.0) {
+    num_hyperparameters_ = covariance_.GetNumberOfHyperparameters();
+    grad_hyperparameter_covariance_.resize(num_hyperparameters_*Square(1+num_derivatives));
+  }
+
+  virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
+    *num_rows = num_hyperparameters_;
+    *num_cols = 1;
+  }
+
+  virtual int GetGradientsSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return num_hyperparameters_*GetOutputSize();
+  }
+
+  virtual int GetOutputSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return Square(1+num_derivatives_);
+  }
+
+  virtual void EvaluateAndStoreAnalyticGradient(double const * restrict hyperparameters, double * restrict gradients) noexcept override OL_NONNULL_POINTERS_LIST(2) {
+    if (gradients_already_computed_ == true) {
+      OL_WARNING_PRINTF("WARNING: grad_covariance data already set.  Overwriting...\n");
+    }
+    gradients_already_computed_ = true;
+
+    covariance_.SetHyperparameters(hyperparameters);
+    covariance_.HyperparameterGradCovariance(point1_.data(), derivatives_.data(), num_derivatives_,
+                                             point2_.data(), derivatives_.data(), num_derivatives_, grad_hyperparameter_covariance_.data());
+
+    if (gradients != nullptr) {
+      std::copy(grad_hyperparameter_covariance_.begin(), grad_hyperparameter_covariance_.end(), gradients);
+    }
+  }
+
+  int CheckSymmetry() const OL_WARN_UNUSED_RESULT {
+    if (gradients_already_computed_ == false) {
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingGradCovarianceHyperparameters::CheckSymmetry() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+    }
+    std::vector<double> gradients_transpose(num_hyperparameters_*Square(1+num_derivatives_));
+    covariance_.HyperparameterGradCovariance(point2_.data(), derivatives_.data(), num_derivatives_,
+                                             point1_.data(), derivatives_.data(), num_derivatives_, gradients_transpose.data());
+
+    int total_errors = 0;
+    for (int i = 0; i < num_hyperparameters_; ++i) {
+      for (int m = 0; m < 1+num_derivatives_; ++m){
+          for (int n = 0; n < 1+num_derivatives_; ++n){
+              if (!CheckDoubleWithinRelative(grad_hyperparameter_covariance_[i+m*num_hyperparameters_+n*num_hyperparameters_*(1+num_derivatives_)],
+                                             gradients_transpose[i+n*num_hyperparameters_+m*num_hyperparameters_*(1+num_derivatives_)], 0.0)) {
+                  ++total_errors;
+                  OL_PARTIAL_FAILURE_PRINTF("row %d and col %d and hyper %d\n", m, n, i);
+              }
+          }
+      }
+    }
+    return total_errors;
+  }
+
+  virtual double GetAnalyticGradient(int row_index, int OL_UNUSED(column_index), int output_index) const override OL_WARN_UNUSED_RESULT {
+    if (gradients_already_computed_ == false) {
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingGradCovarianceHyperparameters::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+    }
+
+    return grad_hyperparameter_covariance_[row_index+num_hyperparameters_*output_index];
+  }
+
+  virtual void EvaluateFunction(double const * restrict hyperparameters, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
+    CovarianceClass covariance_local(dim_, hyperparameters);
+
+    covariance_local.Covariance(point1_.data(), derivatives_.data(), num_derivatives_,
+                                point2_.data(), derivatives_.data(), num_derivatives_, function_values);
+  }
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGradAdditiveHyperparameters);
+
+ private:
+  int dim_;
+  int num_hyperparameters_;
+  bool gradients_already_computed_;
+
+  std::vector<int> derivatives_;
+  int num_derivatives_;
+
+  std::vector<double> point1_;
+  std::vector<double> point2_;
+  std::vector<double> grad_hyperparameter_covariance_;
+
+  CovarianceClass covariance_;
+};
+
 /*
 template <typename CovarianceClass>
 class PingHessianCovarianceHyperparameters final : public PingableMatrixInputVectorOutputInterface {
@@ -491,8 +602,8 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDeriva
   int errors_this_iteration = 0;
   int total_errors = 0;
 
-  int* derivatives = new int[3]{0, 1, 2};
-  int num_derivatives = 3;
+  int* derivatives = nullptr;
+  int num_derivatives = 0;
 
   std::vector<double> hyperparameters(num_hyperparameters);
 
@@ -539,8 +650,8 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterGradie
   int total_errors = 0;
   std::vector<double> hyperparameters(num_hyperparameters);
 
-  int* derivatives = new int[3]{0, 1, 2};
-  int num_derivatives = 3;
+  int* derivatives = nullptr;
+  int num_derivatives = 0;
 
   UniformRandomGenerator uniform_generator(31415);
   boost::uniform_real<double> uniform_double(3.0, 5.0);
@@ -558,12 +669,14 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterGradie
     errors_this_iteration = PingDerivative(covariance_evaluator2, hyperparameters.data(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
 
     // wrt alpha
-    if (covariance_evaluator2.GetAnalyticGradient(0, 0, 0) != 1.0) {
-      errors_this_iteration += 1;
+    for (int j = 0; j < dim; ++j) {
+      if (covariance_evaluator2.GetAnalyticGradient(j, 0, 0) != 1.0) {
+        errors_this_iteration += 1;
+      }
     }
 
     // wrt length scales
-    for (int j = 1; j < dim+1; ++j) {
+    for (int j = dim; j < 2*dim; ++j) {
       if (covariance_evaluator2.GetAnalyticGradient(j, 0, 0) != 0.0) {
         errors_this_iteration += 1;
       }
@@ -759,7 +872,12 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
   int* derivatives = nullptr;
   int num_derivatives = 0;
 
-  std::vector<double> lengths(dim*2 + 2 + 2);
+  const int num_hypers = 1 + 1 + 10*dim + 10 +
+                         10*10 + 10 +
+                         10*10 + 10 +
+                         10 + 1;
+
+  std::vector<double> lengths(num_hypers);
   double alpha = 2.80723;
 
   UniformRandomGenerator uniform_generator(31415);
@@ -767,7 +885,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
 
   {
     // hand-checked test-case
-    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
+    for (int j = 0; j < num_hypers; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
     PingCovarianceClass covariance_evaluator1(lengths, point2, derivatives, num_derivatives, dim);
@@ -782,7 +900,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
 
   {
     // check that at r = x1 - x2 = 0, the gradient is precisely 0
-    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
+    for (int j = 0; j < num_hypers; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
     PingCovarianceClass covariance_evaluator2(lengths, point4, derivatives, num_derivatives, dim);
@@ -810,7 +928,112 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTe
   for (int i = 0; i < 50; ++i) {
     EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
 
-    for (int j = 0; j < dim*2 + 2 + 2; ++j) {
+    for (int j = 0; j < num_hypers; ++j) {
+      lengths[j] = uniform_double(uniform_generator.engine);
+    }
+
+    PingCovarianceClass covariance_evaluator(lengths, EI_environment.points_sampled(), derivatives, num_derivatives, EI_environment.dim);
+    covariance_evaluator.EvaluateAndStoreAnalyticGradient(EI_environment.points_to_sample(), nullptr);
+
+    errors_this_iteration = covariance_evaluator.CheckSymmetry();
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("hyperparameter gradients from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
+    }
+
+    errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon,
+                                            tolerance_fine, tolerance_coarse, input_output_ratio);
+
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
+    }
+    total_errors += errors_this_iteration;
+  }
+  delete [] derivatives;
+
+  if (total_errors != 0) {
+    OL_PARTIAL_FAILURE_PRINTF("%s covariance pings failed with %d errors\n", class_name, total_errors);
+  } else {
+    OL_PARTIAL_SUCCESS_PRINTF("%s  covariance pings passed\n", class_name);
+  }
+
+  return total_errors;
+}
+
+/*!\rst
+  Pings the gradient of covariance functions to check their validity.
+  Test cases include a couple of simple hand-checked cases as well as a run
+  of 50 randomly generated tests.
+
+  \return
+    number of pings that failed
+\endrst*/
+
+
+template <typename PingCovarianceClass>
+OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingAdditiveKernelSpatialDerivativesTest(char const * class_name, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
+  const  int dim = 3;
+  double point1[dim] = {0.2, -1.7, 0.91};
+  double point2[dim] = {-2.1, 0.32, 1.12};
+  double point3[dim] = {0.0};
+  double point4[dim] = {0.0};
+  int errors_this_iteration;
+  int total_errors = 0;
+
+  int* derivatives = nullptr;
+  int num_derivatives = 0;
+
+  std::vector<double> lengths(dim*2);
+  double alpha = 2.80723;
+
+  UniformRandomGenerator uniform_generator(31415);
+  boost::uniform_real<double> uniform_double(0.5, 2.5);
+
+  {
+    // hand-checked test-case
+    for (int j = 0; j < dim*2; ++j) {
+      lengths[j] = uniform_double(uniform_generator.engine);
+    }
+    PingCovarianceClass covariance_evaluator1(lengths, point2, derivatives, num_derivatives, dim);
+    covariance_evaluator1.EvaluateAndStoreAnalyticGradient(point1, nullptr);
+    errors_this_iteration = PingDerivative(covariance_evaluator1, point1, epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("on hand-checked case");
+    }
+    total_errors += errors_this_iteration;
+  }
+
+  {
+    // check that at r = x1 - x2 = 0, the gradient is precisely 0
+    for (int j = 0; j < dim*2; ++j) {
+      lengths[j] = uniform_double(uniform_generator.engine);
+    }
+    PingCovarianceClass covariance_evaluator2(lengths, point4, derivatives, num_derivatives, dim);
+    covariance_evaluator2.EvaluateAndStoreAnalyticGradient(point3, nullptr);
+
+    errors_this_iteration = PingDerivative(covariance_evaluator2, point3, epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+    for (int j = 0; j < dim; ++j) {
+      if (covariance_evaluator2.GetAnalyticGradient(j, 0, 0) != 0.0) {
+        errors_this_iteration += 1;
+      }
+    }
+
+    if (errors_this_iteration != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("on zero test case");
+    }
+    total_errors += errors_this_iteration;
+  }
+
+  int num_being_sampled = 0;
+  int num_to_sample = 1;
+  int num_sampled = 1;
+
+  MockExpectedImprovementEnvironment EI_environment;
+
+  for (int i = 0; i < 50; ++i) {
+    EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
+
+    for (int j = 0; j < dim*2; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
@@ -870,6 +1093,16 @@ OL_WARN_UNUSED_RESULT int RunCovarianceSpatialDerivativesTests() {
     }
     total_errors += current_errors;
   }
+
+  {
+    double epsilon_square_exponential[2] = {1.0e-2, 1.0e-3};
+    current_errors = PingAdditiveKernelSpatialDerivativesTest<PingDeepKernelSpatialDerivatives<AdditiveKernel> >("Additive Kernel", epsilon_square_exponential, 4.0e-3, 1.0e-2, 1.0e-18);
+    if (current_errors != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("pinging akl covariance failed with %d errors\n", current_errors);
+    }
+    total_errors += current_errors;
+  }
+
 /*
   {
     double epsilon_matern_nu_1p5[2] = {1.0e-2, 1.0e-3};
@@ -920,6 +1153,15 @@ OL_WARN_UNUSED_RESULT int RunCovarianceHyperparameterDerivativesTests() noexcept
     current_errors = PingCovarianceHyperparameterGradientsTest<PingGradCovarianceHyperparameters<SquareExponential> >("Square Exponential", 4, epsilon_square_exponential_hyperparameters, 4.0e-3, 5.0e-3, 3.0e-14);
     if (current_errors != 0) {
       OL_PARTIAL_FAILURE_PRINTF("pinging sqexp covariance hyperparameters failed with %d errors\n", current_errors);
+    }
+    total_errors += current_errors;
+  }
+
+  {
+    double epsilon_square_exponential_hyperparameters[2] = {9.0e-3, 2.0e-3};
+    current_errors = PingCovarianceHyperparameterGradientsTest<PingGradAdditiveHyperparameters<AdditiveKernel> >("Additive Kernel", 6, epsilon_square_exponential_hyperparameters, 4.0e-3, 5.0e-3, 3.0e-14);
+    if (current_errors != 0) {
+      OL_PARTIAL_FAILURE_PRINTF("pinging akl covariance hyperparameters failed with %d errors\n", current_errors);
     }
     total_errors += current_errors;
   }
