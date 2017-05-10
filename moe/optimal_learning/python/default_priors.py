@@ -11,7 +11,7 @@ from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, \
 
 class DefaultPrior(BasePrior):
 
-    def __init__(self, n_dims, num_noise, noisy=True):
+    def __init__(self, n_dims, num_noise):
         # The number of hyperparameters
         self.n_dims = n_dims
         # The number of noises

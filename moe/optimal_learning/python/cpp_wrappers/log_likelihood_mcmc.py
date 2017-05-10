@@ -115,7 +115,7 @@ class GaussianProcessLogLikelihoodMCMC:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
         else:
             self.rng = rng
-        self.n_hypers = n_hypers
+        self.n_hypers = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -225,11 +225,11 @@ class GaussianProcessLogLikelihoodMCMC:
             cov_hyps = sample[:(self.dim+1)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
-            noise = sample[(self.dim+1):]
             if self.noisy:
-                noises_list.append(noise)
+                noise = sample[(self.dim+1):]
             else:
-                noises_list.append((1+self._num_derivatives)*[1.e-6])
+                noise = numpy.array((1+self._num_derivatives)*[1.e-8])
+            noises_list.append(noise)
             model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)
@@ -254,7 +254,7 @@ class GaussianProcessLogLikelihoodMCMC:
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
         if not self.noisy:
-            noise = numpy.array((1+self._num_derivatives)*[1.e-6])
+            noise = numpy.array((1+self._num_derivatives)*[1.e-8])
 
         if self.prior is not None:
             posterior = self.prior.lnprob(numpy.log(hyps))

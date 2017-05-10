@@ -968,9 +968,18 @@ class ExpectedImprovementEvaluator final {
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
   ExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in, int num_mc_iterations, double best_so_far);
+  ExpectedImprovementEvaluator(ExpectedImprovementEvaluator&& other);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
+  }
+
+  int num_mc_iterations() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return num_mc_iterations_;
+  }
+
+  double best_so_far() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return best_so_far_;
   }
 
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {

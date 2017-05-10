@@ -150,7 +150,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
         ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
                                           kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
                                           kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                          4, kg_state->discretized_set.data(), num_union + num_pts_,
+                                          1, kg_state->discretized_set.data(), num_union + num_pts_,
                                           &best_function_value, kg_state->best_point.data());
         if (best_function_value < best_posterior - improvement_this_step){
             aggregate += improvement_this_step;
@@ -290,7 +290,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
         ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
                                           kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
                                           kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                          4, kg_state->discretized_set.data(), num_union + num_pts_,
+                                          1, kg_state->discretized_set.data(), num_union + num_pts_,
                                           &best_function_value, kg_state->best_point.data());
         if (best_posterior + best_function_value < improvement_this_step && winner >= num_pts_ && winner < num_pts_+kg_state->num_to_sample) {
             for (int k = 0; k < dim_; ++k) {
