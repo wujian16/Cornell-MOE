@@ -85,7 +85,7 @@ class GaussianProcessLogLikelihoodMCMC:
     """
 
     def __init__(self, historical_data, derivatives, prior, chain_length, burnin_steps, n_hypers,
-                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, rng = None):
+                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, noisy = True, rng = None):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
 
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
@@ -109,6 +109,7 @@ class GaussianProcessLogLikelihoodMCMC:
         self.burned = False
         self.burnin_steps = burnin_steps
         self._models = []
+        self.noisy = noisy
 
         if rng is None:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
@@ -216,13 +217,18 @@ class GaussianProcessLogLikelihoodMCMC:
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
+            if numpy.any((-10 > sample) + (sample > 10)):
+                continue
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             noise = sample[(self.dim+1):]
-            noises_list.append(noise)
+            if self.noisy:
+                noises_list.append(noise)
+            else:
+                noises_list.append((1+self._num_derivatives)*[1.e-6])
             model = GaussianProcess(se, noise,
                                     self._historical_data,
                                     self.derivatives)

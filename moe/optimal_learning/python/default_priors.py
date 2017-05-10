@@ -23,10 +23,7 @@ class DefaultPrior(BasePrior):
         self.ln_prior = LognormalPrior(mean=0.0, sigma=1.0)
 
         # Prior for the noise
-        if noisy == False:
-            self.horseshoe = HorseshoePrior(scale=1e-10)
-        else:
-            self.horseshoe = HorseshoePrior(scale=0.1)
+        self.horseshoe = HorseshoePrior(scale=0.1)
 
     def lnprob(self, theta):
         lp = 0
