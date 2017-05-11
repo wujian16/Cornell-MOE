@@ -446,7 +446,7 @@ class AdditiveKernel final : public CovarianceInterface {
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return dim_ * 2;
+    return dim_ * 2 + 2;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -459,6 +459,8 @@ class AdditiveKernel final : public CovarianceInterface {
       lengths_[i] = hyperparameters[i+dim_];
       lengths_sq_[i] = Square(hyperparameters[i+dim_]);
     }
+    var1_ = hyperparameters[2*dim_];
+    var2_ = hyperparameters[2*dim_+1];
   }
 
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS{
@@ -466,6 +468,8 @@ class AdditiveKernel final : public CovarianceInterface {
       hyperparameters[i] = alpha_[i];
       hyperparameters[i+dim_] = lengths_[i];
     }
+    hyperparameters[2*dim_] = var1_;
+    hyperparameters[2*dim_+1] = var2_;
   }
 
   virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
@@ -489,6 +493,8 @@ class AdditiveKernel final : public CovarianceInterface {
   std::vector<double> lengths_;
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
+  double var1_;
+  double var2_;
 };
 
 ///*!\rst

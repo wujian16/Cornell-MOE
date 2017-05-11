@@ -170,14 +170,14 @@ class AdditiveKernelMCMC(object):
         if do_optimize:
             # We have one walker for each hyperparameter configuration
             sampler = emcee.EnsembleSampler(self.n_hypers,
-                                            2*self.dim + self._num_derivatives + 1,
+                                            2*self.dim + 2 + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, 2*self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_hypers, 2*self.dim + 2 + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_hypers)
                 # Run MCMC sampling
@@ -208,7 +208,7 @@ class AdditiveKernelMCMC(object):
                 continue
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
-            cov_hyps = sample[:(2*self.dim)]
+            cov_hyps = sample[:(2*self.dim + 2)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             noise = numpy.array([1e-6]*(1+len(self._derivatives)))
@@ -234,8 +234,8 @@ class AdditiveKernelMCMC(object):
             return -numpy.inf
 
         hyps = numpy.exp(hyps)
-        cov_hyps = hyps[:(2*self.dim)]
-        noise = hyps[(2*self.dim):]
+        cov_hyps = hyps[:(2*self.dim + 2)]
+        noise = hyps[(2*self.dim + 2):]
 
         if self.prior is not None:
             posterior = self.prior.lnprob(numpy.log(hyps))

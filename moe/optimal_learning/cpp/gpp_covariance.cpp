@@ -424,13 +424,13 @@ OL_NONNULL_POINTERS void InitializeDeepKernel(int dim, double& alpha, const std:
 \endrst*/
 OL_NONNULL_POINTERS void InitializeAdditiveKernel(int dim, const std::vector<double>& hypers_in,
                                                   double * restrict alpha_, double * restrict lengths_,
-                                                  double * restrict lengths_sq) {
+                                                  double * restrict lengths_sq, double& var1, double& var2) {
   // validate inputs
   if (dim < 0) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Negative spatial dimension.", dim, 0);
   }
 
-  int num_hypers = 2*dim;
+  int num_hypers = 2*dim + 2;
 
   if (static_cast<unsigned>(num_hypers) != hypers_in.size()) {
     OL_THROW_EXCEPTION(InvalidValueException<int>, "num_hypers (truth) and hypers vector size do not match.", hypers_in.size(), num_hypers);
@@ -438,6 +438,8 @@ OL_NONNULL_POINTERS void InitializeAdditiveKernel(int dim, const std::vector<dou
 
   std::copy(hypers_in.data(), hypers_in.data() + dim, alpha_);
   std::copy(hypers_in.data() + dim, hypers_in.data() + 2*dim, lengths_);
+  var1 = hypers_in[2*dim];
+  var2 = hypers_in[2*dim + 1];
 
   for (int i = 0; i < dim; ++i) {
     if (alpha_[i] <= 0.0) {
@@ -587,21 +589,22 @@ CovarianceInterface * DeepKernel::Clone() const {
 
 void AdditiveKernel::Initialize(std::vector<double> hypers) {
   InitializeAdditiveKernel(dim_, hypers, alpha_.data(),
-                           lengths_.data(), lengths_sq_.data());
+                           lengths_.data(), lengths_sq_.data(),
+                           var1_, var2_);
 }
 
 // testing purpose
 AdditiveKernel::AdditiveKernel(int dim, double alpha, double length)
-    : AdditiveKernel(dim, std::vector<double>(2*dim, length)) {
+    : AdditiveKernel(dim, std::vector<double>(2*dim + 2, length)) {
 }
 
 AdditiveKernel::AdditiveKernel(int dim, std::vector<double> hypers)
-    : dim_(dim), alpha_(dim), lengths_(dim), lengths_sq_(dim) {
+    : dim_(dim), alpha_(dim), lengths_(dim), lengths_sq_(dim), var1_(0.0), var2_(0.0) {
   Initialize(hypers);
 }
 
 AdditiveKernel::AdditiveKernel(int dim, double const * restrict hypers)
-    : AdditiveKernel(dim, std::vector<double>(hypers, hypers + 2*dim)) {
+    : AdditiveKernel(dim, std::vector<double>(hypers, hypers + 2*dim + 2)) {
 }
 
 AdditiveKernel::AdditiveKernel(const AdditiveKernel& OL_UNUSED(source)) = default;
@@ -612,11 +615,15 @@ AdditiveKernel::AdditiveKernel(const AdditiveKernel& OL_UNUSED(source)) = defaul
 void AdditiveKernel::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                                 double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                 double * restrict cov) const noexcept {
-  cov[0] = 0;
+  double sum_kernel=0;
+  double sum_kerne_sq=0;
   for (int i=0; i<dim_; ++i){
     const double norm_val = NormSquaredWithConstInverseWeights(point_one+i, point_two+i, lengths_sq_[i], 1);
-    cov[0] += alpha_[i]*std::exp(-0.5*norm_val);
+    sum_kernel += alpha_[i]*std::exp(-0.5*norm_val);
+    sum_kerne_sq = Square(sum_kernel);
   }
+  double cross_term = 0.5*(Square(sum_kernel)-sum_kerne_sq);
+  cov[0] = var1_*sum_kernel+var2_*cross_term;
 }
 
 /*
@@ -626,10 +633,17 @@ void AdditiveKernel::Covariance(double const * restrict point_one, int const * r
 void AdditiveKernel::GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                                     double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                     double * restrict grad_cov) const noexcept {
+  double sum_kernel=0;
+  std::vector<double> kernel(dim_);
   for (int i = 0; i < dim_; ++i) {
     const double norm_val = NormSquaredWithConstInverseWeights(point_one+i, point_two+i, lengths_sq_[i], 1);
     const double cov = alpha_[i]*std::exp(-0.5*norm_val);
+    kernel[i] = cov;
+    sum_kernel += cov;
     grad_cov[i] = (point_two[i] - point_one[i])/lengths_sq_[i]*cov;
+  }
+  for (int i = 0; i < dim_; ++i) {
+    grad_cov[i] *= var1_ + var2_*(sum_kernel-kernel[i]);
   }
 }
 
@@ -645,13 +659,25 @@ void AdditiveKernel::GradCovariance(double const * restrict point_one, int const
 void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                                   double * restrict grad_hyperparameter_cov) const noexcept {
+  double sum_kernel=0;
+  double sum_kerne_sq=0;
+  std::vector<double> kernel(dim_);
   // deriv wrt alpha does not have the same form as the length terms, special case it
   for (int i = 0; i < dim_; ++i) {
     const double norm_val = NormSquaredWithConstInverseWeights(point_one+i, point_two+i, lengths_sq_[i], 1);
     const double cov = alpha_[i]*std::exp(-0.5*norm_val);
+    kernel[i] = cov;
+    sum_kernel += cov;
+    sum_kerne_sq += Square(cov);
     grad_hyperparameter_cov[i] = cov/alpha_[i];
     grad_hyperparameter_cov[i+dim_] = cov*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
   }
+  for (int i = 0; i < dim_; ++i) {
+    grad_hyperparameter_cov[i] *= var1_ + var2_*(sum_kernel-kernel[i]);
+    grad_hyperparameter_cov[i+dim_] *= var1_ + var2_*(sum_kernel-kernel[i]);
+  }
+  grad_hyperparameter_cov[2*dim_] = sum_kernel;
+  grad_hyperparameter_cov[2*dim_+1] = sum_kerne_sq;
 }
 
 CovarianceInterface * AdditiveKernel::Clone() const {

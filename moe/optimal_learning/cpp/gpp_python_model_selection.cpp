@@ -62,7 +62,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
   PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  const int num_hypers = 2*dim;
+  const int num_hypers = 2*dim + 2;
 
   std::vector<double> hypers(num_hypers);
   CopyPylistToVector(hyperparameters, num_hypers, hypers);
@@ -121,7 +121,7 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
   PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  const int num_hypers = 2*dim;
+  const int num_hypers = 2*dim + 2;
 
   std::vector<double> hypers(num_hypers);
   CopyPylistToVector(hyperparameters, num_hypers, hypers);
