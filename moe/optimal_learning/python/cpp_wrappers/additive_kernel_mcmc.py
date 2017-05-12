@@ -54,7 +54,7 @@ class AdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.stride_length = stride
-        self.n_hypers = max(n_hypers, 2*(2*self._historical_data.dim+3+1+len(self._derivatives)))
+        self.n_hypers = max(n_hypers, 2*(2*self._historical_data.dim+2+1+len(self._derivatives)))
         self.noisy = noisy
 
     @property
@@ -205,10 +205,9 @@ class AdditiveKernelMCMC(object):
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            if numpy.any((-10 > sample) + (sample > 10)):
+            if numpy.any((-5 > sample) + (sample > 5)):
                 continue
             sample = numpy.exp(sample)
-            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(2*self.dim + 2)]
             hypers_list.append(cov_hyps)
@@ -237,7 +236,6 @@ class AdditiveKernelMCMC(object):
         # hyperparameters live on a log scale
         if numpy.any((-5 > hyps) + (hyps > 5)):
             return -numpy.inf
-
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(2*self.dim + 2)]
         noise = hyps[(2*self.dim + 2):]

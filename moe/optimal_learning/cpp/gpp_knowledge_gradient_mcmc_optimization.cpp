@@ -72,7 +72,6 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
   knowledge_gradient_evaluator_lst(evaluator_vector),
   discrete_pts_lst_(discrete_points_list(discrete_pts_lst, num_pts)),
   num_pts_(num_pts) {
-      printf("number of samples %d\n", num_mcmc_hypers_);
       knowledge_gradient_evaluator_lst->reserve(num_mcmc_hypers_);
       double * discrete_pts = discrete_pts_lst_.data();
       for (int i=0; i<num_mcmc_hypers_; ++i){
