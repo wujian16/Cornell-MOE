@@ -616,13 +616,14 @@ void AdditiveKernel::Covariance(double const * restrict point_one, int const * r
                                 double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                 double * restrict cov) const noexcept {
   double sum_kernel=0;
-  double sum_kerne_sq=0;
+  double sum_kernel_sq=0;
   for (int i=0; i<dim_; ++i){
     const double norm_val = NormSquaredWithConstInverseWeights(point_one+i, point_two+i, lengths_sq_[i], 1);
-    sum_kernel += alpha_[i]*std::exp(-0.5*norm_val);
-    sum_kerne_sq = Square(sum_kernel);
+    const double cov = alpha_[i]*std::exp(-0.5*norm_val);
+    sum_kernel += cov;
+    sum_kernel_sq += Square(cov);
   }
-  double cross_term = 0.5*(Square(sum_kernel)-sum_kerne_sq);
+  double cross_term = 0.5*(Square(sum_kernel)-sum_kernel_sq);
   cov[0] = var1_*sum_kernel+var2_*cross_term;
 }
 
@@ -660,7 +661,7 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
                                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                                   double * restrict grad_hyperparameter_cov) const noexcept {
   double sum_kernel=0;
-  double sum_kerne_sq=0;
+  double sum_kernel_sq=0;
   std::vector<double> kernel(dim_);
   // deriv wrt alpha does not have the same form as the length terms, special case it
   for (int i = 0; i < dim_; ++i) {
@@ -668,7 +669,7 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
     const double cov = alpha_[i]*std::exp(-0.5*norm_val);
     kernel[i] = cov;
     sum_kernel += cov;
-    sum_kerne_sq += Square(cov);
+    sum_kernel_sq += Square(cov);
     grad_hyperparameter_cov[i] = cov/alpha_[i];
     grad_hyperparameter_cov[i+dim_] = cov*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
   }
@@ -676,8 +677,9 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
     grad_hyperparameter_cov[i] *= var1_ + var2_*(sum_kernel-kernel[i]);
     grad_hyperparameter_cov[i+dim_] *= var1_ + var2_*(sum_kernel-kernel[i]);
   }
+  double cross_term = 0.5*(Square(sum_kernel)-sum_kernel_sq);
   grad_hyperparameter_cov[2*dim_] = sum_kernel;
-  grad_hyperparameter_cov[2*dim_+1] = sum_kerne_sq;
+  grad_hyperparameter_cov[2*dim_+1] = cross_term;
 }
 
 CovarianceInterface * AdditiveKernel::Clone() const {

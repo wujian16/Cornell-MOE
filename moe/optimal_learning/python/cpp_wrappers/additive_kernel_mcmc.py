@@ -27,8 +27,8 @@ class AdditiveKernelMCMC(object):
     r"""Class for computing log likelihood-like measures of deep kernel model fit.
     """
 
-    def __init__(self, historical_data, derivatives, prior=None, chain_length=1e4, burnin_steps=2e3, n_hypers=20,
-                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, stride = 100, rng = None):
+    def __init__(self, historical_data, derivatives, prior=None, chain_length=1e4, burnin_steps=2e3, n_hypers=10,
+                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, stride = 100, rng = None, noisy=False):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
         :type covariance_function: :class:`moe.optimal_learning.python.interfaces.covariance_interface.CovarianceInterface` subclass
@@ -54,7 +54,8 @@ class AdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.stride_length = stride
-        self.n_hypers = max(n_hypers, 2*(2*self._historical_data.dim+1+len(self._derivatives)))
+        self.n_hypers = max(n_hypers, 2*(2*self._historical_data.dim+3+1+len(self._derivatives)))
+        self.noisy = noisy
 
     @property
     def dim(self):
@@ -207,11 +208,15 @@ class AdditiveKernelMCMC(object):
             if numpy.any((-10 > sample) + (sample > 10)):
                 continue
             sample = numpy.exp(sample)
+            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(2*self.dim + 2)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
-            noise = numpy.array([1e-6]*(1+len(self._derivatives)))
+            if self.noisy:
+                noise = sample[(2*self.dim + 2):]
+            else:
+                noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
             noises_list.append(noise)
             model = GaussianProcess(se, noise,
                                     self._historical_data,
@@ -230,13 +235,14 @@ class AdditiveKernelMCMC(object):
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-10 > hyps) + (hyps > 10)):
+        if numpy.any((-5 > hyps) + (hyps > 5)):
             return -numpy.inf
 
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(2*self.dim + 2)]
         noise = hyps[(2*self.dim + 2):]
-
+        if not self.noisy:
+            noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
         if self.prior is not None:
             posterior = self.prior.lnprob(numpy.log(hyps))
             return posterior + C_GP.compute_log_likelihood(

@@ -101,7 +101,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("GPU tests passed\n");
   }
   total_errors += error;
-
+*/
   error = RunLogLikelihoodPingTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("LogLikelihood ping tests failed\n");
@@ -109,7 +109,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("LogLikelihood ping tests\n");
   }
   total_errors += error;
-
+/*
   error = RunRandomPointGeneratorTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("various random sampling\n");
