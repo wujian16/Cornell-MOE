@@ -129,7 +129,6 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
         }
         // compute KG_this_step_from_far = cholesky * normals   as  KG = cholesky * normal
         // b/c normals currently held in KG_this_step_from_var
-
         GeneralMatrixVectorMultiply(kg_state->inverse_cholesky_covariance.data(), 'T',
                                     kg_state->normals.data(), 1.0, 0.0,
                                     num_union*(1+num_gradients_to_sample),
@@ -262,10 +261,8 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
     }
 
     for (int i = 0; i < num_mc_iterations_; ++i) {
-        //double *norm = new double[num_union*(1+num_gradients_to_sample)]();
         for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-            //norm[j] = (*(kg_state->normal_rng))();
-            kg_state->normals[j] = (*(kg_state->normal_rng))();//norm[j];
+            kg_state->normals[j] = (*(kg_state->normal_rng))();
         }
         // compute KG_this_step_from_far = cholesky * normals   as  KG = inverse_cholesky_covariance^T * normal
         GeneralMatrixVectorMultiply(kg_state->inverse_cholesky_covariance.data(), 'T',
@@ -275,7 +272,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                     num_union*(1+num_gradients_to_sample),
                                     kg_state->KG_this_step_from_var.data());
 
-        //delete[] norm;
         double improvement_this_step = -INFINITY;
         int winner = num_pts_ + num_union + 1;  // an out of-bounds initial value
         for (int j = 0; j < num_pts_+num_union; ++j) {
@@ -285,13 +281,14 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                 winner = j;
             }
         }
-        //printf("iter %d, winner %d\n", i, winner);
+
         double best_function_value = 0.0;
         ComputeOptimalFuturePosteriorMean(*gaussian_process_, kg_state->normals.data(), kg_state->union_of_points.data(), num_union,
                                           kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
                                           kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
                                           1, kg_state->discretized_set.data(), num_union + num_pts_,
                                           &best_function_value, kg_state->best_point.data());
+        //printf("Improvement after Opt %f\n", best_posterior + best_function_value - improvement_this_step);
         if (best_posterior + best_function_value < improvement_this_step && winner >= num_pts_ && winner < num_pts_+kg_state->num_to_sample) {
             for (int k = 0; k < dim_; ++k) {
                 kg_state->aggregate[(winner-num_pts_)*dim_ + k] -= kg_state->grad_mu[(winner-num_pts_)*dim_ + k];
@@ -316,8 +313,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                               kg_state->best_point.begin());
                 }
             }
-            //double best_mean = 0.0;
-            //gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->best_point.data(), 1, nullptr, 0, &best_mean);
 
             gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), 1,
                                                          nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
@@ -328,17 +323,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                                                             kg_state->chol_inverse_cov.data(),
                                                                             kg_state->best_point.data(), 1, false, nullptr,
                                                                             kg_state->grad_chol_inverse_cov.data());
-            /*
-            TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N', num_union*(1+num_gradients_to_sample), 1,
-                                        num_union*(1+num_gradients_to_sample), kg_state->chol_inverse_cov.data());
-
-            GeneralMatrixVectorMultiply(kg_state->chol_inverse_cov.data(), 'T',
-                                        kg_state->normals.data(), 1.0, 1.0,
-                                        num_union*(1+num_gradients_to_sample),
-                                        1, num_union*(1+num_gradients_to_sample),
-                                        &best_mean);
-            printf("the after VOI %f\n", best_mean);
-            */
             // int winner = 0;
             // let L_{d,i,j,k} = grad_chol_decomp, d over dim_, i, j over num_union, k over num_to_sample
             // we want to compute: agg_dx_{d,k} = L_{d,i,j=winner,k} * normals_i

@@ -5,9 +5,7 @@ Created on Oct 14, 2015
 '''
 import numpy as np
 
-from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, \
-    LognormalPrior, HorseshoePrior, NormalPrior
-
+from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, HorseshoePrior, NormalPrior
 
 class DefaultPrior(BasePrior):
 
@@ -17,10 +15,10 @@ class DefaultPrior(BasePrior):
         # The number of noises
         self.num_noise = num_noise
         # Prior for the Matern52 lengthscales
-        self.tophat = TophatPrior(-10, 5)
+        self.tophat = TophatPrior(-10, 2)
 
         # Prior for the covariance amplitude
-        self.ln_prior = NormalPrior(mean=0.0, sigma=1.0e4)
+        self.ln_prior = NormalPrior(mean=0.0, sigma=1.0)
 
         # Prior for the noise
         self.horseshoe = HorseshoePrior(scale=0.1)

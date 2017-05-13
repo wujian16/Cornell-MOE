@@ -292,7 +292,6 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
       break;
     }
   }  // end switch over domain_type
-
   return VectorToPylist(best_points_to_sample_C);
 }
 
