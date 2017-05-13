@@ -3,10 +3,10 @@ import numpy
 class BraninNoNoise(object):
     def __init__(self):
         self._dim = 2
-        self._search_domain = numpy.array([[-15,15],[-15,15]])
-        self._hyper_domain = numpy.array([[10., 100.], [0.1, 15.], [0.1, 15.],
-                                          [0.01, 0.05], [0.01, 0.05], [0.01, 0.05]])
-        self._num_init_pts = 6
+        self._search_domain = numpy.array([[0, 15],[-5,15]])
+        self._hyper_domain = numpy.array([[1e-6, 1e6], [1e-6, 1e6], [1e-6, 1e6],
+                                          [1e-6, 1e6], [1e-6, 1e6], [1e-6, 1e6]])
+        self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
 

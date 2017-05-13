@@ -33,7 +33,7 @@ num_to_sample = int(argv[0])
 lhc_search_itr = int(argv[1])
 job_id = int(argv[2])
 
-num_func_eval = 150
+num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 objective_func = obj_functions.BraninNoNoise()
@@ -57,25 +57,22 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
                                             objective_func._sample_var) for num, pt in enumerate(init_pts)])
 
 # initialize the model
-prior = DefaultPrior(1+dim+len(observations), len(observations), noisy = False)
+prior = DefaultPrior(1+dim+len(observations), len(observations))
+# noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 10000, burnin_steps = 10000, n_hypers = 40)
+                                                           chain_length = 10000, burnin_steps = 10000, n_hypers = 8, noisy=False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_kg = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
-                                               max_relative_change=0.1, tolerance=1.0e-5)
-
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=20, max_num_restarts=2,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
                                                max_relative_change=0.02, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
-                                                 num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=1,
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.02,
                                                  max_relative_change=0.02, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
-                                                 num_steps_averaged=15, gamma=0.7, pre_mult=0.1,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=100, max_num_steps=20, max_num_restarts=1,
+                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.1,
                                                  max_relative_change=0.1, tolerance=1.0e-5)
 
 # minimum of the mean surface
@@ -118,14 +115,13 @@ for n in xrange(num_iteration):
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                          (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
 
-
         discrete_pts_list.append(discrete_pts_optima)
 
     ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0])
     ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                             ps_sgd_optimizer, cpp_search_domain, discrete_pts_list,
-                                                            cpp_sgd_params_kg, num_to_sample, num_mc=200, lhc_itr=lhc_search_itr)
+                                                            cpp_sgd_params_kg, num_to_sample, num_mc=100, lhc_itr=lhc_search_itr)
     print "KG takes "+str((time.time()-time1)/60)+" mins"
     time1 = time.time()
 
@@ -163,4 +159,4 @@ for n in xrange(num_iteration):
     print "recommended points: ",
     print report_point
     print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
-    print "KG, best so far {0}".format(objective_func.evaluate_true(report_point)[0])
+    print "KG, VOI {0}, best so far {1}".format(voi, objective_func.evaluate_true(report_point)[0])
