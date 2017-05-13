@@ -563,14 +563,16 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
                            points_to_sample_state->num_gradients_to_sample,
                            points_to_sample_state->K_star.data());
 
-  if (points_to_sample_state->num_derivatives > 0) {
+  if (points_to_sample_state->precomputed){
     // to save on duplicate storage, precompute K^-1 * Ks
     std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
               points_to_sample_state->K_inv_times_K_star.begin());
     CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1),
                                      points_to_sample_state->num_to_sample*(points_to_sample_state->num_gradients_to_sample+1),
                                      points_to_sample_state->K_inv_times_K_star.data());
+  }
 
+  if (points_to_sample_state->num_derivatives > 0) {
     double * restrict gKs_temp = points_to_sample_state->grad_K_star.data();
     double * restrict grad_cov_temp = new double[dim_*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)]();
     // also precompute C_{d,k,i} = \pderiv{Ks_{k,i}}{Xs_{d,i}}, stored in grad_K_star_
@@ -648,8 +650,7 @@ void GaussianProcess::ComputeMeanOfAdditionalPoints(double const * discrete_pts,
       }
   }
 
-  GeneralMatrixVectorMultiply(kt.data(), 'T', K_inv_y_.data(),
-                              1.0, 1.0, num_sampled_*(num_derivatives_+1),
+  GeneralMatrixVectorMultiply(kt.data(), 'T', K_inv_y_.data(), 1.0, 1.0, num_sampled_*(num_derivatives_+1),
                               num_pts*(num_gradients_discrete_pts+1), num_sampled_*(num_derivatives_+1),
                               mean_of_points);
 }
@@ -715,43 +716,40 @@ void GaussianProcess::ComputeCovarianceOfPoints(StateType * points_to_sample_sta
                                              points_to_sample_state->gradients.data(), num_gradients_to_sample,
                                              gradients_discrete_pts, num_gradients_discrete_pts,
                                              var_star);
-
-  if (precomputed == false) {
-    // Compute K_t
-    double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1)]();
-    BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, kt);
-
-    // following block computes Vars -= V^T*V, with the exact method depending on what quantities were precomputed
-    if (unlikely(points_to_sample_state->num_derivatives == 0)) {
-      std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
-                points_to_sample_state->V.begin());
-
-      // V := L^-1 * K_star
-      TriangularMatrixMatrixSolve(K_chol_.data(), 'N', num_sampled_*(num_derivatives_+1), num_to_sample*(num_gradients_to_sample+1),
-                                  num_sampled_*(num_derivatives_+1),
-                                  points_to_sample_state->V.data());
-
-      // W := L^-1 * K_t
-      TriangularMatrixMatrixSolve(K_chol_.data(), 'N', num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1),
-                                  num_sampled_*(num_derivatives_+1), kt);
-
-      // compute V^T W = (L^-1 * Ks)^T * (L^-1 * Kt).
-      GeneralMatrixMatrixMultiply(points_to_sample_state->V.data(), 'T', kt,
-                                  -1.0, 1.0, num_to_sample*(num_gradients_to_sample+1),
-                                  num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
-    } else {
-      // compute as Ks^T * (K\ Ks), the 2nd term of which has been precomputed
-      // this is cheaper than computing V^T * V when K \ Ks is already available
-      GeneralMatrixMatrixMultiply(points_to_sample_state->K_inv_times_K_star.data(), 'T',
-                                  kt, -1.0, 1.0, num_to_sample*(num_gradients_to_sample+1),
-                                  num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
-    }
-    delete[] kt;
-  }
-  else{
+  if (precomputed){
     GeneralMatrixMatrixMultiply(points_to_sample_state->K_star.data(), 'T',
                                 ktd, -1.0, 1.0, num_to_sample*(num_gradients_to_sample+1),
                                 num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
+  }
+  else {
+    // Compute K_t
+    double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1)]();
+    BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, kt);
+    if (points_to_sample_state->precomputed){
+        // compute as Ks^T * (K\ Ks), the 2nd term of which has been precomputed
+        // this is cheaper than computing V^T * V when K \ Ks is already available
+        GeneralMatrixMatrixMultiply(points_to_sample_state->K_inv_times_K_star.data(), 'T',
+                                    kt, -1.0, 1.0, num_to_sample*(num_gradients_to_sample+1),
+                                    num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
+    } else {
+        std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
+                  points_to_sample_state->V.begin());
+
+        // V := L^-1 * K_star
+        TriangularMatrixMatrixSolve(K_chol_.data(), 'N', num_sampled_*(num_derivatives_+1), num_to_sample*(num_gradients_to_sample+1),
+                                    num_sampled_*(num_derivatives_+1),
+                                    points_to_sample_state->V.data());
+
+        // W := L^-1 * K_t
+        TriangularMatrixMatrixSolve(K_chol_.data(), 'N', num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1),
+                                    num_sampled_*(num_derivatives_+1), kt);
+
+        // compute V^T W = (L^-1 * Ks)^T * (L^-1 * Kt).
+        GeneralMatrixMatrixMultiply(points_to_sample_state->V.data(), 'T', kt,
+                                    -1.0, 1.0, num_to_sample*(num_gradients_to_sample+1),
+                                    num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
+    }
+    delete [] kt;
   }
 }
 
@@ -790,7 +788,6 @@ void GaussianProcess::ComputeTrain(double const * restrict discrete_pts,
    BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, var_star);
    CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), var_star);
 }
-
 
 /*!\rst
   Mathematically, we are computing Vars (Var_star), the GP variance.  Vars is defined at the top of this file (Equation 3)
@@ -860,7 +857,7 @@ void GaussianProcess::ComputeVarianceOfPoints(StateType * points_to_sample_state
                            gradients_to_sample_part2, num_gradients_to_sample_part2, cov_temp_part2);
 
   // following block computes Vars -= V^T*V, with the exact method depending on what quantities were precomputed
-  if (unlikely(points_to_sample_state->num_derivatives == 0)) {
+  if (unlikely(points_to_sample_state->precomputed == false)) {
     std::copy(points_to_sample_state->K_star.begin(), points_to_sample_state->K_star.end(),
               points_to_sample_state->V.begin());
 
@@ -1015,7 +1012,6 @@ void GaussianProcess::ComputeGradCovarianceOfPointsPerPoint(StateType * points_t
   std::vector<double> grad_cov_temp(dim_*(num_gradients_to_sample+1)*(num_gradients_discrete_pts+1), 0.0);
   int row = 0;
   int col = 0;
-
   // Fill the p-th block column of the output (p = diff_index); we will then copy this into the p-th block column.
   for (int j = 0; j < num_pts; ++j) {
       // Compute the leading term: \pderiv{K_ss{i=p,j}}{Xs_{d,p}}.
@@ -1787,11 +1783,12 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
 PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process,
                                          double const * restrict points_to_sample_in,
                                          int num_to_sample_in, int const * restrict gradients_in,
-                                         int num_gradients_to_sample_in, int num_derivatives_in)
+                                         int num_gradients_to_sample_in, int num_derivatives_in, bool precomputed_in /*=true*/)
     : dim(gaussian_process.dim()),
       num_sampled(gaussian_process.num_sampled()),
       num_to_sample(num_to_sample_in),
       num_derivatives(num_derivatives_in),
+      precomputed(precomputed_in),
       gradients(gradients_in, gradients_in+num_gradients_to_sample_in),
       num_gradients_to_sample(num_gradients_to_sample_in),
       num_gradients_sampled(gaussian_process.num_derivatives()),
@@ -1803,6 +1800,22 @@ PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process
   SetupState(gaussian_process, points_to_sample_in, num_to_sample_in, num_gradients_to_sample_in, num_derivatives_in);
 }
 
+/*PointsToSampleState::PointsToSampleState(const PointsToSampleState&& other)
+    : dim(other.dim),
+      num_sampled(other.num_sampled),
+      num_to_sample(other.num_to_sample),
+      num_derivatives(other.num_derivatives),
+      precomputed(other.precomputed),
+      gradients(other.gradients),
+      num_gradients_to_sample(other.num_gradients_to_sample),
+      num_gradients_sampled(other.num_gradients_sampled),
+      points_to_sample(other.points_to_sample),
+      K_star(other.K_star),
+      grad_K_star(other.grad_K_star),
+      V(other.V),
+      K_inv_times_K_star(other.K_inv_times_K_star) {
+}*/
+
 PointsToSampleState::PointsToSampleState(PointsToSampleState&& OL_UNUSED(other)) = default;
 
 ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in,
@@ -1811,6 +1824,13 @@ ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(const GaussianProcess
       num_mc_iterations_(num_mc_iterations),
       best_so_far_(best_so_far),
       gaussian_process_(&gaussian_process_in) {
+}
+
+ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(ExpectedImprovementEvaluator&& other)
+    : dim_(other.dim()),
+      num_mc_iterations_(other.num_mc_iterations()),
+      best_so_far_(other.best_so_far()),
+      gaussian_process_(other.gaussian_process()){
 }
 
 /*!\rst

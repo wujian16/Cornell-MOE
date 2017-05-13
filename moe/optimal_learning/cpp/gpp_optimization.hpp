@@ -657,6 +657,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimization(
     domain.LimitUpdate(gd_parameters.max_relative_change, next_point.data(), step.data());
     // take the step
     for (int j = 0; j < problem_size; ++j) {
+      //printf("dim %d, step %f\n", j, step[j]);
       next_point[j] += step[j];
     }
 
@@ -1230,8 +1231,7 @@ class MultistartOptimizer final {
   void MultistartOptimize(const Optimizer& optimizer, const ObjectiveFunctionEvaluator& objective_evaluator,
                           const ParameterStruct& optimizer_parameters, const DomainType& domain,
                           const ThreadSchedule& thread_schedule, double const * restrict initial_guesses,
-                          int num_multistarts,
-                          typename ObjectiveFunctionEvaluator::StateType * objective_state_vector,
+                          int num_multistarts, typename ObjectiveFunctionEvaluator::StateType * objective_state_vector,
                           double * restrict function_values, OptimizationIOContainer * restrict io_container) {
     const int problem_size = objective_state_vector[0].GetProblemSize();
 
@@ -1281,7 +1281,6 @@ class MultistartOptimizer final {
 
           // compute objective at the new potential optimum; note Optimize() guarantees optimum point is already in state
           objective_value = objective_evaluator.ComputeObjectiveFunction(objective_state_vector + thread_id);
-          //printf("current value %f \n", objective_value);
 
           if (unlikely(function_values != nullptr)) {
             function_values[i] = objective_value;

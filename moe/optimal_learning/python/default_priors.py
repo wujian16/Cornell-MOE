@@ -5,28 +5,23 @@ Created on Oct 14, 2015
 '''
 import numpy as np
 
-from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, \
-    LognormalPrior, HorseshoePrior
-
+from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, HorseshoePrior, NormalPrior
 
 class DefaultPrior(BasePrior):
 
-    def __init__(self, n_dims, num_noise, noisy=True):
+    def __init__(self, n_dims, num_noise):
         # The number of hyperparameters
         self.n_dims = n_dims
         # The number of noises
         self.num_noise = num_noise
         # Prior for the Matern52 lengthscales
-        self.tophat = TophatPrior(-2, 2)
+        self.tophat = TophatPrior(-10, 2)
 
         # Prior for the covariance amplitude
-        self.ln_prior = LognormalPrior(mean=0.0, sigma=1.0)
+        self.ln_prior = NormalPrior(mean=0.0, sigma=1.0)
 
         # Prior for the noise
-        if noisy == False:
-            self.horseshoe = HorseshoePrior(scale=1e-10)
-        else:
-            self.horseshoe = HorseshoePrior(scale=0.1)
+        self.horseshoe = HorseshoePrior(scale=0.1)
 
     def lnprob(self, theta):
         lp = 0

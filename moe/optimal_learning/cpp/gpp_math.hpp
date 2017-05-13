@@ -299,6 +299,8 @@ class GaussianProcess final {
                   int num_derivatives_in,
                   int dim_in, int num_sampled_in) OL_NONNULL_POINTERS;
 
+  GaussianProcess(const GaussianProcess& source);
+
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
   }
@@ -671,8 +673,8 @@ class GaussianProcess final {
 
   OL_DISALLOW_DEFAULT_AND_ASSIGN(GaussianProcess);
 
- protected:
-  explicit GaussianProcess(const GaussianProcess& source);
+// protected:
+//  explicit GaussianProcess(const GaussianProcess& source);
 
  private:
   void BuildCovarianceMatrixWithNoiseVariance() noexcept;
@@ -871,7 +873,7 @@ struct PointsToSampleState final {
   PointsToSampleState(const GaussianProcess& gaussian_process,
                       double const * restrict points_to_sample_in,
                       int num_to_sample_in, int const * restrict gradients_in,
-                      int num_gradients_in, int num_derivatives_in) OL_NONNULL_POINTERS;
+                      int num_gradients_in, int num_derivatives_in, bool precomputed_in = true) OL_NONNULL_POINTERS;
 
   PointsToSampleState(PointsToSampleState&& other);
 
@@ -898,6 +900,9 @@ struct PointsToSampleState final {
   void SetupState(const GaussianProcess& gaussian_process, double const * restrict points_to_sample_in,
                   int num_to_sample_in, int num_gradients_in, int num_derivatives_in) OL_NONNULL_POINTERS;
 
+  //! pointer to gaussian process used in EI computations
+  const GaussianProcess * gaussian_process;
+
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
   const int dim;
   //! number of points alerady sampled
@@ -909,13 +914,15 @@ struct PointsToSampleState final {
   //! points_to_sample[:][0:num_derivatives]; 0 means no gradient computation will be performed
   int num_derivatives;
 
+  // precompute k_inv_k_star
+  bool precomputed;
+
   // gradients index
   std::vector<int> gradients;
   // the number of gradients observations
   int num_gradients_to_sample;
 
   int num_gradients_sampled;
-
 
   // state variables for predictive component
   //! points to make predictions about, ``Xs``
@@ -961,9 +968,18 @@ class ExpectedImprovementEvaluator final {
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
   ExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in, int num_mc_iterations, double best_so_far);
+  ExpectedImprovementEvaluator(ExpectedImprovementEvaluator&& other);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
+  }
+
+  int num_mc_iterations() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return num_mc_iterations_;
+  }
+
+  double best_so_far() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return best_so_far_;
   }
 
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
