@@ -7,6 +7,9 @@ How qKG is related to MOE?
 5. We provide one example of optimizing Branin function using qKG in the folder kg_example.
 6. The project is under active development. We are revising all the comments in the code, which will be ready soon.
 
+# Introduction:
+![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
+
 <p align="center">
     <img src="https://github.com/yelp/MOE/raw/master/moe/static/img/MOE_full_logo.png" alt="MOE Logo">
 </p>
