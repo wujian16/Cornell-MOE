@@ -1,14 +1,14 @@
 What is qKG?
 ====
-1. qKG is built upon MOE[1], which was open sourced by Yelp.
+1. qKG is built upon[MOE][1], which was open sourced by Yelp.
 2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
-4. We implement the Bayesian treatment of hyperparamters in GP, which makes both our Bayesian optimization algorithms more robust.
+4. We implement the Bayesian treatment of hyperparamters in GP, which makes our batch Bayesian optimization algorithms more robust.
 5. We provide one example of optimizing Branin function using qKG in the folder qkg_examples, more examples are coming.
 6. The project is under active development. We are revising all the comments in the code, which will be ready soon. Any bug report or issue is welcome!
 
 # Introduction:
-Below we show a small demon of qKG on a 1-d synthetic function with the batch size q=2. The right hand side shows the fitted statistical model and the points suggested by qKG; the left hand side is the heatmap demonstrating the acquisition function according to qKG criteria.
+Below we show a small demon of qKG on a 1-d synthetic function with the batch size q=2. The right hand side shows the fitted statistical model and the points suggested by qKG, note that the function evaluation is subject to noise; the left hand side is the heatmap visualizing the acquisition function according to qKG criteria.
 ![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
 
 qKG implements a library of batch Bayesian optimization algorithms, it internally works by:
@@ -22,20 +22,20 @@ Externally you can use MOE through the [The Python interface]. Please refer to t
 
 # Step-by-step Install
 
-We recommend install from source (please see [Install Documentation][7] for details). Below we provides step-by-step instruction for installing qKG on a AWS ES2 with Ubuntu operating system.
+We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS ES2 with Ubuntu operating system.
+
+# Citation
+
+If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
 
 # Running MOE/qKG
-
 ## Within Python
-
 See the example in kg_example.
 
 # Contributing
-
 See [Contributing Documentation][8]
 
 # License
-
 qKG/MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 [0]: https://www.youtube.com/watch?v=CC6qvzWp9_A
