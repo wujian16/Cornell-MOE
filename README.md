@@ -23,6 +23,14 @@ Externally you can use MOE through the [The Python interface]. Please refer to t
 # Step-by-step Install
 
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS ES2 with Ubuntu operating system.
+** step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
+$ apt-get update
+$ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
+
+** step 2, we recommend install qKG/MOE in the virtual environment
+$ pip install virtualenv
+$ virtualenv --no-site-packages ENV_NAME
+
 
 # Citation
 
