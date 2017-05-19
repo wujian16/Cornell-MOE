@@ -1,6 +1,6 @@
 What is qKG?
 ====
-1. qKG is built upon[MOE][1], which was open sourced by Yelp.
+1. qKG is built upon [MOE][1], which was open sourced by Yelp.
 2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP, which makes our batch Bayesian optimization algorithms more robust.
