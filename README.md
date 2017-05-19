@@ -26,13 +26,17 @@ We recommend install from source (please see [Install Documentation][7] for deta
 
 ** step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
+```bash
 $ apt-get update
 $ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
+```
 
 ** step 2, we recommend install qKG/MOE in the virtual environment
+
+```bash
 $ pip install virtualenv
 $ virtualenv --no-site-packages ENV_NAME
-
+```
 
 # Citation
 
