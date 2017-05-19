@@ -8,7 +8,7 @@ What is qKG?
 6. The project is under active development. We are revising all the comments in the code, which will be ready soon. Any bug report or issue is welcome!
 
 # Introduction:
-Below we show a small demon of qKG on a 1-d synthetic function with the batch size q=2. The right hand side shows the fitted statistical model and the points suggested by qKG, note that the function evaluation is subject to noise; the left hand side is the heatmap visualizing the acquisition function according to qKG criteria.
+Below we show a small demo of qKG on a 1-d synthetic function with the batch size q=2. The right hand side shows the fitted statistical model and the points suggested by qKG, note that the function evaluation is subject to noise; the left hand side is the heatmap visualizing the acquisition function according to qKG criteria.
 ![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
 
 qKG implements a library of batch Bayesian optimization algorithms, it internally works by:
