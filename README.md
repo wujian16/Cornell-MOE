@@ -22,7 +22,7 @@ Externally you can use MOE through the [The Python interface]. Please refer to t
 
 # Step-by-step Install
 
-We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS ES2 with Ubuntu operating system.
+We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
 
 # Citation
 
