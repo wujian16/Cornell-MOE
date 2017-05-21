@@ -38,6 +38,30 @@ $ pip install virtualenv
 $ virtualenv --no-site-packages ENV_NAME
 ```
 
+** step 3, set the correct environment variables for compiling the cpp code. One need to create a script with the content as follows, then source it.
+```bash
+export MOE_CC_PATH=/path/to/your/gcc && export MOE_CXX_PATH=/path/to/your/g++
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/path/to/where/Python.h/is/found -D MOE_PYTHON_LIBRARY=/path/to/python/shared/library/object"
+```
+For example, the script that we use on a AWS EC2 with Ubuntu OS is as follows
+```bash
+#!/bin/bash
+
+export MOE_CC_PATH=/usr/bin/gcc
+export MOE_CXX_PATH=/usr/bin/g++
+
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/usr/include/python2.7 -D MOE_PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0"
+```
+
+*** step 4, finish the installment in the virtualenv.
+```bash
+$ source ENV_NAME/bin/activate
+$ git clone https://github.com/Yelp/MOE.git
+$ cd MOE
+$ pip install -r requirements.txt
+$ python setup.py install
+```
+
 # Citation
 
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
