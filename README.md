@@ -18,11 +18,48 @@ qKG implements a library of batch Bayesian optimization algorithms, it internall
 3. Finding the set of points of highest gain (by batch Expected Improvement (qEI) or batch knowledge gradient (qKG))
 4. Returning the points to sample, then repeat
 
-Externally you can use MOE through the [The Python interface]. Please refer to the example in the file bayesian.test.functions.py in the folder qkg_examples.
+Externally you can use qKG/MOE through the the Python interface. Please refer to the example in the file bayesian.test.functions.py in the folder qkg_examples.
 
-# Step-by-step Install
+# Step-by-Step Install
+We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
 
-We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
+** step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
+
+```bash
+$ apt-get update
+$ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
+```
+
+** step 2, we recommend install qKG/MOE in the virtual environment
+
+```bash
+$ pip install virtualenv
+$ virtualenv --no-site-packages ENV_NAME
+```
+
+** step 3, set the correct environment variables for compiling the cpp code. One need to create a script with the content as follows, then source it.
+```bash
+export MOE_CC_PATH=/path/to/your/gcc && export MOE_CXX_PATH=/path/to/your/g++
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/path/to/where/Python.h/is/found -D MOE_PYTHON_LIBRARY=/path/to/python/shared/library/object"
+```
+For example, the script that we use on a AWS EC2 with Ubuntu OS is as follows
+```bash
+#!/bin/bash
+
+export MOE_CC_PATH=/usr/bin/gcc
+export MOE_CXX_PATH=/usr/bin/g++
+
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/usr/include/python2.7 -D MOE_PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0"
+```
+
+*** step 4, finish the installment in the virtualenv.
+```bash
+$ source ENV_NAME/bin/activate
+$ git clone https://github.com/wujian16/qKG.git
+$ cd qKG
+$ pip install -r requirements.txt
+$ python setup.py install
+```
 
 # Citation
 
@@ -30,7 +67,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
 
 # Running MOE/qKG
 ## Within Python
-See the example in kg_example.
+See the example in the folder qkg_examples. One can run the bayesian.test.functions.py following the instruction there. The black-box functions that we would like to optimize is defined in obj_functions.py. One can also define their own function there.
 
 # Contributing
 See [Contributing Documentation][8]
