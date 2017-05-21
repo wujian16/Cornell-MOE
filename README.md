@@ -20,7 +20,7 @@ qKG implements a library of batch Bayesian optimization algorithms, it internall
 
 Externally you can use MOE through the [The Python interface]. Please refer to the example in the file bayesian.test.functions.py in the folder qkg_examples.
 
-# Step-by-step Install
+# Step-by-Step Install
 
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provides a step-by-step instruction to install qKG/MOE on a AWS ES2 with Ubuntu operating system.
 
@@ -68,7 +68,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
 
 # Running MOE/qKG
 ## Within Python
-See the example in kg_example.
+See the example in the folder qkg_examples. One can run the bayesian.test.functions.py following the instruction there. The black-box functions that we would like to optimize is defined in obj_functions.py. One can also define their own function there.
 
 # Contributing
 See [Contributing Documentation][8]
