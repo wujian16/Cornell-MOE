@@ -56,8 +56,8 @@ export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/usr/include/python2.7 -D MOE_P
 *** step 4, finish the installment in the virtualenv.
 ```bash
 $ source ENV_NAME/bin/activate
-$ git clone https://github.com/Yelp/MOE.git
-$ cd MOE
+$ git clone https://github.com/wujian16/qKG.git
+$ cd qKG
 $ pip install -r requirements.txt
 $ python setup.py install
 ```
