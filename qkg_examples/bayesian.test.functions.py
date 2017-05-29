@@ -25,7 +25,7 @@ import obj_functions
 
 # arguments for calling this script:
 # python synthetic.test.functions.py [num_to_sample] [num_lhc] [job_id]
-# example: python bayesian.test.functions.py 10 1000 1
+# example: python bayesian.test.functions.py 4 1000 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -60,7 +60,7 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 prior = DefaultPrior(1+dim+len(observations), len(observations))
 # noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 2000, burnin_steps = 1000, n_hypers = 5, noisy = False)
+                                                           chain_length = 2000, burnin_steps = 1000, n_hypers = 4, noisy = False)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
