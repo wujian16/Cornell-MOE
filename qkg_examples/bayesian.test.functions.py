@@ -60,20 +60,20 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 prior = DefaultPrior(1+dim+len(observations), len(observations))
 # noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 10000, burnin_steps = 10000, n_hypers = 8, noisy=False)
+                                                           chain_length = 2000, burnin_steps = 1000, n_hypers = 5, noisy = False)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
-                                               max_relative_change=0.02, tolerance=1.0e-5)
+                                               max_relative_change=0.5, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=1,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.02,
-                                                 max_relative_change=0.02, tolerance=1.0e-5)
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=30, max_num_restarts=1,
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.05,
+                                                 max_relative_change=0.5, tolerance=1.0e-5)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=100, max_num_steps=20, max_num_restarts=1,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.1,
-                                                 max_relative_change=0.1, tolerance=1.0e-5)
+                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.5,
+                                                 max_relative_change=1.0, tolerance=1.0e-5)
 
 # minimum of the mean surface
 eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e5))
@@ -98,9 +98,11 @@ for n in xrange(num_iteration):
     )
     time1 = time.time()
     discrete_pts_list = []
+    discrete = python_search_domain.generate_uniform_random_points_in_domain(100)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
-        init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
-        discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 10)
+        #init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
+        #discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 100)
+        discrete_pts_optima = np.array(discrete)
 
         eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled), (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim))
@@ -109,9 +111,10 @@ for n in xrange(num_iteration):
 
         ps_evaluator = PosteriorMean(cpp_gp)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
-        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 1)
+        report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
         if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
             report_point = initial_point
+
         discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                          (discrete_pts_optima.shape[0] + 1, cpp_gp.dim))
 

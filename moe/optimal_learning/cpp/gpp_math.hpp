@@ -220,6 +220,16 @@
 
 namespace optimal_learning {
 
+void BuildMixCovarianceMatrix(const CovarianceInterface& covariance,
+                              double const * restrict points_sampled,
+                              double const * restrict points_to_sample,
+                              int dim, int num_sampled, int num_to_sample,
+                              int const * restrict derivatives_sampled,
+                              int num_derivatives_sampled,
+                              int const * restrict derivatives_to_sample,
+                              int num_derivatives_to_sample,
+                              double * restrict cov_matrix) noexcept;
+
 struct ThreadSchedule;
 struct PointsToSampleState;
 
@@ -327,6 +337,14 @@ class GaussianProcess final {
 
   const std::vector<int>& derivatives() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return derivatives_;
+  }
+
+  double get_mean() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return mean_;
+  }
+
+  const std::vector<double>& get_K_inv_y() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return K_inv_y_;
   }
 
   /*!\rst
@@ -596,7 +614,7 @@ class GaussianProcess final {
         e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
-      :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the invers of the cholesky-factored
+      :grad_var[dim][num_to_sample][num_pts + num_to_sample][state->num_derivatives]: gradient of the invers of the cholesky-factored
         variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
   \endrst*/
@@ -626,14 +644,14 @@ class GaussianProcess final {
         e.g., from the cholesky factorization of ``ComputeVarianceOfPoints``
     \output
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState; only temporary state may be mutated
-      :grad_chol[dim][num_to_sample][num_to_sample][state->num_derivatives]: gradient of the invers of the cholesky-factored
+      :grad_var[dim][num_to_sample][num_pts][state->num_derivatives]: gradient of the invers of the cholesky-factored
         variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
   \endrst*/
   void ComputeGradInverseCholeskyCovarianceOfPoints(StateType * points_to_sample_state,
                                                   double const * restrict chol_var,
                                                   double const * restrict grad_chol,
-                                                  double const * restrict cov,
+                                                  double const * restrict chol_inv_times_cov,
                                                   double const * restrict discrete_pts,
                                                   int num_pts, bool precomputed, double const * ktd,
                                                   double * restrict grad_inverse_chol) const noexcept;
@@ -675,6 +693,8 @@ class GaussianProcess final {
 
 // protected:
 //  explicit GaussianProcess(const GaussianProcess& source);
+  //! covariance class (for computing covariance and its gradients)
+  std::unique_ptr<CovarianceInterface> covariance_ptr_;
 
  private:
   void BuildCovarianceMatrixWithNoiseVariance() noexcept;
@@ -706,11 +726,10 @@ class GaussianProcess final {
         k = ``diff_index``
   \endrst*/
 
-  void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state,
-                                             int diff_index,
-                                             double const * restrict discrete_pts,
-                                             int num_pts, int const * restrict gradients_discrete_pts,
-                                             int num_gradients_discrete_pts, double const * kt,
+  void ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
+                                             double const * restrict discrete_pts, int num_pts,
+                                             int const * restrict gradients_discrete_pts,
+                                             int num_gradients_discrete_pts, bool precomputed, double const * kt,
                                              double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
@@ -761,7 +780,8 @@ class GaussianProcess final {
                                                           double const * restrict var,
                                                           double const * restrict cov,
                                                           double const * restrict discrete_pts,
-                                                          int num_pts, double const * kt, double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
+                                                          int num_pts, bool precomputed, double const * kt,
+                                                          double * restrict grad_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Computes the gradient of the invers of the cholesky factorization of the variance of this GP with respect to the
@@ -786,9 +806,10 @@ class GaussianProcess final {
   void ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
                                                           double const * restrict chol_var,
                                                           double const * restrict grad_chol_pt,
-                                                          double const * restrict cov,
+                                                          double const * restrict chol_inv_times_cov,
                                                           double const * restrict discrete_pts,
-                                                          int num_pts, double const * kt, double * restrict grad_inverse_chol) const noexcept OL_NONNULL_POINTERS;
+                                                          int num_pts, bool precomputed, double const * kt,
+                                                          double * restrict grad_inverse_chol) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
     Recomputes (including resizing as needed) the derived quantities in this class.
@@ -805,8 +826,6 @@ class GaussianProcess final {
   double mean_;
 
   // state variables for prior
-  //! covariance class (for computing covariance and its gradients)
-  std::unique_ptr<CovarianceInterface> covariance_ptr_;
   //! coordinates of already-sampled points, ``X``
   std::vector<double> points_sampled_;
   //! function values at points_sampled, ``y``
@@ -873,7 +892,8 @@ struct PointsToSampleState final {
   PointsToSampleState(const GaussianProcess& gaussian_process,
                       double const * restrict points_to_sample_in,
                       int num_to_sample_in, int const * restrict gradients_in,
-                      int num_gradients_in, int num_derivatives_in, bool precomputed_in = true) OL_NONNULL_POINTERS;
+                      int num_gradients_in, int num_derivatives_in,
+                      bool precomputed_in = true, bool precomputed_grad_K_inv_times_K_star_in = false) OL_NONNULL_POINTERS;
 
   PointsToSampleState(PointsToSampleState&& other);
 
@@ -898,7 +918,8 @@ struct PointsToSampleState final {
         points_to_sample[:][0:num_derivatives]; 0 means no gradient computation will be performed.
   \endrst*/
   void SetupState(const GaussianProcess& gaussian_process, double const * restrict points_to_sample_in,
-                  int num_to_sample_in, int num_gradients_in, int num_derivatives_in) OL_NONNULL_POINTERS;
+                  int num_to_sample_in, int num_gradients_in, int num_derivatives_in,
+                  bool precomputed_in = true, bool precomputed_grad_K_inv_times_K_star_in = false) OL_NONNULL_POINTERS;
 
   //! pointer to gaussian process used in EI computations
   const GaussianProcess * gaussian_process;
@@ -914,8 +935,10 @@ struct PointsToSampleState final {
   //! points_to_sample[:][0:num_derivatives]; 0 means no gradient computation will be performed
   int num_derivatives;
 
-  // precompute k_inv_k_star
+  //! precompute K_inv_K_star
   bool precomputed;
+  //!precompute grad_K_inv_K_star
+  bool precomputed_grad_K_inv_times_K_star;
 
   // gradients index
   std::vector<int> gradients;
@@ -933,6 +956,8 @@ struct PointsToSampleState final {
   std::vector<double> K_star;
   //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``, dimension: dim*num_sampled*num_derivatives
   std::vector<double> grad_K_star;
+  //! the gradient of K_inv_times_K_star wrt ``Xs``, dimension: dim*num_sampled*derivatives
+  std::vector<double> grad_K_inv_times_K_star;
   //! the variance matrix (output from the GP)
   std::vector<double> V;
   //! ``K^{-1} Ks`` (computed without taking an inverse)

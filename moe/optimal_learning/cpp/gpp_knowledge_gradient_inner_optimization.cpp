@@ -33,9 +33,8 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
       num_to_sample_(num_to_sample),
       to_sample_derivatives_(derivatives(to_sample_derivatives, num_derivatives)),
       num_derivatives_(num_derivatives),
-      chol_(cholesky(chol, num_to_sample, num_derivatives)),
-      coeff_(coeff(coefficient, num_to_sample, num_derivatives)),
-      train_sample_(train_sample_precompute(train_sample, num_to_sample, num_derivatives)) {
+      coeff_(coeff(coefficient, chol, num_to_sample, num_derivatives)),
+      coeff_combined_(coeff_combine(coeff_.data(), train_sample, num_to_sample, num_derivatives)) {
 }
 
 /*!\rst
@@ -45,15 +44,18 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
   See Ginsbourger, Le Riche, and Carraro.
 \endrst*/
 double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) const {
-  double to_sample_mean = 0;
-  gaussian_process_->ComputeMeanOfPoints(ps_state->points_to_sample_state, &to_sample_mean);
+  double to_sample_mean = gaussian_process_->get_mean();
+  int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
+  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations,
+                              1, num_observations, &to_sample_mean);
 
-  double * var_star = new double[num_to_sample_*(1+num_derivatives_)]();
-  gaussian_process_->ComputeCovarianceOfPoints(&(ps_state->points_to_sample_state), to_sample_.data(), num_to_sample_,
-                                               to_sample_derivatives_.data(), num_derivatives_, true, train_sample_.data(), var_star);
+  std::vector<double> temp(num_to_sample_*(1+num_derivatives_));
+  // Vars = Kst
+  optimal_learning::BuildMixCovarianceMatrix(*gaussian_process_->covariance_ptr_, ps_state->points_to_sample_state.points_to_sample.data(),
+                                             to_sample_.data(), dim_, 1, num_to_sample_, nullptr, 0, to_sample_derivatives_.data(),
+                                             num_derivatives_, temp.data());
 
-  to_sample_mean += DotProduct(var_star, coeff_.data(), num_to_sample_*(1+num_derivatives_));
-  delete [] var_star;
+  to_sample_mean += DotProduct(temp.data(), coeff_.data(), num_to_sample_*(1+num_derivatives_));
 
   return -to_sample_mean;
 }
@@ -66,24 +68,22 @@ double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) 
   See Ginsbourger, Le Riche, and Carraro.
 \endrst*/
 void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
-    StateType * ps_state,
-    double * restrict grad_PS) const {
-  double * grad_mu = ps_state->grad_mu.data();
-  gaussian_process_->ComputeGradMeanOfPoints(ps_state->points_to_sample_state, grad_mu);
+    StateType * ps_state, double * restrict grad_PS) const {
+  std::vector<double> temp(dim_*num_to_sample_*(1+num_derivatives_));
+  for (int i = 0; i < num_to_sample_; ++i){
+    gaussian_process_->covariance_ptr_->GradCovariance(ps_state->points_to_sample_state.points_to_sample.data(), nullptr, 0,
+                                                       to_sample_.data() + i*dim_, to_sample_derivatives_.data(), num_derivatives_,
+                                                       temp.data() + i*dim_*(1 + num_derivatives_));
+  }
+  GeneralMatrixVectorMultiply(temp.data(), 'N', coeff_.data(), 1.0, 0.0,
+                              dim_, num_to_sample_*(1+num_derivatives_), dim_, grad_PS);
 
-  double * grad_cov = new double[dim_*num_to_sample_*(1+num_derivatives_)]();
-  gaussian_process_->ComputeGradCovarianceOfPoints(&(ps_state->points_to_sample_state), to_sample_.data(),
-                                                   num_to_sample_, to_sample_derivatives_.data(), num_derivatives_,
-                                                   true, train_sample_.data(), grad_cov);
-  std::vector<double> temp(coeff_);
-
-  GeneralMatrixVectorMultiply(grad_cov, 'N', temp.data(), 1.0, 1.0,
-                              dim_, num_to_sample_*(1+num_derivatives_),
-                              dim_, grad_mu);
-  delete [] grad_cov;
+  int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
+  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
+                              dim_, num_observations, dim_, grad_PS);
 
   for (int i = 0; i < dim_; ++i) {
-    grad_PS[i] = -grad_mu[i];
+    grad_PS[i] = -grad_PS[i];
   }
 }
 
@@ -94,7 +94,7 @@ void FuturePosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator
 
   // evaluate derived quantities
   points_to_sample_state.SetupState(*ps_evaluator.gaussian_process(), point_to_sample.data(),
-                                    num_to_sample, 0, num_derivatives);
+                                    num_to_sample, 0, num_derivatives, false, false);
 }
 
 FuturePosteriorMeanState::FuturePosteriorMeanState(
@@ -105,8 +105,7 @@ FuturePosteriorMeanState::FuturePosteriorMeanState(
       num_derivatives(configure_for_gradients ? num_to_sample : 0),
       point_to_sample(point_to_sample_in, point_to_sample_in + dim),
       points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample,
-                             nullptr, 0, num_derivatives, false),
-      grad_mu(dim*num_derivatives) {
+                             nullptr, 0, num_derivatives, false, false) {
 }
 
 FuturePosteriorMeanState::FuturePosteriorMeanState(FuturePosteriorMeanState&& OL_UNUSED(other)) = default;
@@ -195,7 +194,7 @@ void ComputeOptimalFuturePosteriorMean(
   SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, &fpm_state_vector);
 
   // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -1.0, start_point_set);
+  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
 
   GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
   MultistartOptimizer<GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> > multistart_optimizer;

@@ -280,6 +280,60 @@
 
 namespace optimal_learning {
 
+/*!\rst
+  .. NOTE:: These comments have been copied into build_mix_covariance_matrix in python_version/python_utils.py.
+
+  Compute the "mix" covariance matrix, ``Ks``, of ``X`` and ``Xs`` (``points_sampled`` and ``points_to_sample``, respectively).
+  Matrix is computed as:
+
+  ``A_{i,j} = covariance(X_i, Xs_j).``
+
+  Result is not guaranteed to be SPD and need not even be square.
+
+  Generally, this is called from other functions with "points_sampled" and "points_to_sample" as the
+  input lists and not any arbitrary list of points; hence the very specific input name.  But this
+  is not a requirement.
+
+  Point lists cannot contain duplicates with each other or within themselves.
+
+  \param
+    :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
+    :points_sampled[dim][num_sampled]: list of points, ``X``
+    :points_to_sample[dim][num_to_sample]: list of points, ``Xs``
+    :dim: spatial dimension of a point
+    :num_sampled: number of points in points_sampled
+    :num_to_sample: number of points in points_to_sample
+  \output
+    :cov_matrix[num_sampled*(num_derivatives_sampled+1)][num_to_sample*(num_derivatives_to_sample+1)]: computed "mix" covariance matrix
+\endrst*/
+OL_NONNULL_POINTERS void BuildMixCovarianceMatrix(const CovarianceInterface& covariance,
+                                                  double const * restrict points_sampled,
+                                                  double const * restrict points_to_sample,
+                                                  int dim, int num_sampled, int num_to_sample,
+                                                  int const * restrict derivatives_sampled,
+                                                  int num_derivatives_sampled,
+                                                  int const * restrict derivatives_to_sample,
+                                                  int num_derivatives_to_sample,
+                                                  double * restrict cov_matrix) noexcept {
+  // calculate the covariance matrix defined in gpp_covariance.hpp
+  double * cov_temp = new double[(num_derivatives_sampled+1)*(num_derivatives_to_sample+1)]();
+  for (int j = 0; j < num_to_sample; ++j) { //col
+    for (int i = 0; i < num_sampled; ++i) { //row
+      covariance.Covariance(points_sampled + i*dim, derivatives_sampled, num_derivatives_sampled,
+                            points_to_sample + j*dim, derivatives_to_sample, num_derivatives_to_sample,
+                            cov_temp);
+      for (int m = 0; m < num_derivatives_sampled+1; ++m){
+          for (int n = 0; n < num_derivatives_to_sample+1; ++n){
+              int row = i*(num_derivatives_sampled+1) + m;
+              int col = j*(num_derivatives_to_sample+1) + n;
+              cov_matrix[row+col*num_sampled*(num_derivatives_sampled+1)] = cov_temp[m+n*(num_derivatives_sampled+1)];
+          }
+      }
+    }
+  }
+  delete [] cov_temp;
+}
+
 namespace {  // utilities for A_{k,j,i}*x_j and building covariance matrices
 
 /*!\rst
@@ -393,61 +447,6 @@ OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const Covariance
               if (row == col){
                   cov_matrix[row+col*num_sampled*(num_derivatives+1)] += noise_variance[m];
               }
-          }
-      }
-    }
-  }
-  delete [] cov_temp;
-}
-
-
-/*!\rst
-  .. NOTE:: These comments have been copied into build_mix_covariance_matrix in python_version/python_utils.py.
-
-  Compute the "mix" covariance matrix, ``Ks``, of ``X`` and ``Xs`` (``points_sampled`` and ``points_to_sample``, respectively).
-  Matrix is computed as:
-
-  ``A_{i,j} = covariance(X_i, Xs_j).``
-
-  Result is not guaranteed to be SPD and need not even be square.
-
-  Generally, this is called from other functions with "points_sampled" and "points_to_sample" as the
-  input lists and not any arbitrary list of points; hence the very specific input name.  But this
-  is not a requirement.
-
-  Point lists cannot contain duplicates with each other or within themselves.
-
-  \param
-    :covariance: the CovarianceFunction object encoding assumptions about the GP's behavior on our data
-    :points_sampled[dim][num_sampled]: list of points, ``X``
-    :points_to_sample[dim][num_to_sample]: list of points, ``Xs``
-    :dim: spatial dimension of a point
-    :num_sampled: number of points in points_sampled
-    :num_to_sample: number of points in points_to_sample
-  \output
-    :cov_matrix[num_sampled*(num_derivatives_sampled+1)][num_to_sample*(num_derivatives_to_sample+1)]: computed "mix" covariance matrix
-\endrst*/
-OL_NONNULL_POINTERS void BuildMixCovarianceMatrix(const CovarianceInterface& covariance,
-                                                  double const * restrict points_sampled,
-                                                  double const * restrict points_to_sample,
-                                                  int dim, int num_sampled, int num_to_sample,
-                                                  int const * restrict derivatives_sampled,
-                                                  int num_derivatives_sampled,
-                                                  int const * restrict derivatives_to_sample,
-                                                  int num_derivatives_to_sample,
-                                                  double * restrict cov_matrix) noexcept {
-  // calculate the covariance matrix defined in gpp_covariance.hpp
-  double * cov_temp = new double[(num_derivatives_sampled+1)*(num_derivatives_to_sample+1)]();
-  for (int j = 0; j < num_to_sample; ++j) { //col
-    for (int i = 0; i < num_sampled; ++i) { //row
-      covariance.Covariance(points_sampled + i*dim, derivatives_sampled, num_derivatives_sampled,
-                            points_to_sample + j*dim, derivatives_to_sample, num_derivatives_to_sample,
-                            cov_temp);
-      for (int m = 0; m < num_derivatives_sampled+1; ++m){
-          for (int n = 0; n < num_derivatives_to_sample+1; ++n){
-              int row = i*(num_derivatives_sampled+1) + m;
-              int col = j*(num_derivatives_to_sample+1) + n;
-              cov_matrix[row+col*num_sampled*(num_derivatives_sampled+1)] = cov_temp[m+n*(num_derivatives_sampled+1)];
           }
       }
     }
@@ -571,30 +570,43 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
                                      points_to_sample_state->num_to_sample*(points_to_sample_state->num_gradients_to_sample+1),
                                      points_to_sample_state->K_inv_times_K_star.data());
   }
-
+  // if we needs to taking derivative w.r.t. points_to_sample
   if (points_to_sample_state->num_derivatives > 0) {
     double * restrict gKs_temp = points_to_sample_state->grad_K_star.data();
     double * restrict grad_cov_temp = new double[dim_*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)]();
-    // also precompute C_{d,k,i} = \pderiv{Ks_{k,i}}{Xs_{d,i}}, stored in grad_K_star_
+    // also precompute C_{d,k,i} = \pderiv{Ks_{k,i}}{Xs_{d,i}}, stored in grad_K_star
     for (int i = 0; i < points_to_sample_state->num_derivatives; ++i) { // dim * num_sample_ * num_derivatives
       for (int j = 0; j < num_sampled_; ++j) {
         covariance_ptr_->GradCovariance(points_to_sample_state->points_to_sample.data() + i*dim_, points_to_sample_state->gradients.data(),
                                         points_to_sample_state->num_gradients_to_sample,
                                         points_sampled_.data() + j*dim_, derivatives_.data(), num_derivatives_,
                                         grad_cov_temp);
-        for (int m=0; m < points_to_sample_state->num_gradients_to_sample+1; ++m){
-            for (int n=0; n < num_derivatives_+1; ++n){
-                int row = n + j*(num_derivatives_+1);
-                int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
-                for (int d = 0; d <dim_; ++d){
-                    gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
-                            grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
-                }
+        for (int m = 0; m < points_to_sample_state->num_gradients_to_sample+1; ++m){
+            for (int n = 0; n < num_derivatives_+1; ++n){
+              int row = n + j*(num_derivatives_+1);
+              int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
+              for (int d = 0; d <dim_; ++d){
+                gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
+                       grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
+              }
             }
         }
       }
     }
     delete [] grad_cov_temp;
+
+    if (points_to_sample_state->precomputed_grad_K_inv_times_K_star){
+      const int row = num_sampled_*(num_derivatives_+1);
+      const int col = points_to_sample_state->num_derivatives*(points_to_sample_state->num_gradients_to_sample+1);
+      double * restrict gKs_temp = points_to_sample_state->grad_K_star.data();
+      double * restrict g_kinv_Ks_temp = points_to_sample_state->grad_K_inv_times_K_star.data();
+      for (int index = 0; index < col; index++){
+        std::vector<double> transpose_temp(row*dim_, 0.0);
+        MatrixTranspose(gKs_temp + index*row*dim_, dim_, row, transpose_temp.data());
+        CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), row, dim_, transpose_temp.data());
+        MatrixTranspose(transpose_temp.data(), row, dim_, g_kinv_Ks_temp + index*dim_*row);
+      }
+    }
   }
 }
 
@@ -976,9 +988,10 @@ void GaussianProcess::ComputeVarianceOfPoints(StateType * points_to_sample_state
 \endrst*/
 
 void GaussianProcess::ComputeGradCovarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
-                                                            double const * restrict discrete_pts,
-                                                            int num_pts, int const * restrict gradients_discrete_pts,
-                                                            int num_gradients_discrete_pts, double const * kt,
+                                                            double const * restrict discrete_pts, int num_pts,
+                                                            int const * restrict gradients_discrete_pts,
+                                                            int num_gradients_discrete_pts,
+                                                            bool precomputed, double const * kt,
                                                             double * restrict grad_var) const noexcept {
   const int num_to_sample = points_to_sample_state->num_to_sample;
   const int num_gradients_to_sample = points_to_sample_state->num_gradients_to_sample;
@@ -990,24 +1003,29 @@ void GaussianProcess::ComputeGradCovarianceOfPointsPerPoint(StateType * points_t
   // Retrieve C_{l,j} = K^-1_{l,k} * Ks_{k,j}, from C stored in K_inv_times_K_star
   // Retrieve \pderiv{Ks_{l,i=p}}{Xs_{d,p}} from state struct (stored as A_{d,l,p}), use in matrix product
   // Result is computed as: A_{d,l,p} * C_{l,j}.  (Again, recall that p is fixed, so this output is over a matrix indexed {d,j}.)
-//  // Compute K_t
-//  double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1)]();
-//  BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, kt);
-
-//  // Compute K^-1 * K_t
-//  CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), kt);
   double * temp = new double[dim_*num_pts*(num_gradients_discrete_pts+1)*(num_gradients_to_sample+1)]();
 
-  int index = 0;
-  for (int i=0; i<num_gradients_to_sample+1; ++i){
-      index = diff_index*(num_gradients_to_sample+1) + i;
-      GeneralMatrixMatrixMultiply(points_to_sample_state->grad_K_star.data() +
-                                  index*dim_*num_sampled_*(num_derivatives_+1), 'N', kt, 1.0, 0.0,
-                                  dim_, num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), temp);
-      temp += dim_*num_pts*(num_gradients_discrete_pts+1);
+  if (precomputed){
+    int index = 0;
+    for (int i=0; i<num_gradients_to_sample+1; ++i){
+        index = diff_index*(num_gradients_to_sample+1) + i;
+        GeneralMatrixMatrixMultiply(points_to_sample_state->grad_K_star.data() +
+                                    index*dim_*num_sampled_*(num_derivatives_+1), 'N', kt, 1.0, 0.0,
+                                    dim_, num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), temp);
+        temp += dim_*num_pts*(num_gradients_discrete_pts+1);
+    }
+  }
+  else{
+    int index = 0;
+    for (int i=0; i<num_gradients_to_sample+1; ++i){
+        index = diff_index*(num_gradients_to_sample+1) + i;
+        GeneralMatrixMatrixMultiply(points_to_sample_state->grad_K_inv_times_K_star.data() +
+                                    index*dim_*num_sampled_*(num_derivatives_+1), 'N', kt, 1.0, 0.0,
+                                    dim_, num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), temp);
+        temp += dim_*num_pts*(num_gradients_discrete_pts+1);
+    }
   }
   temp -= dim_*num_pts*(num_gradients_discrete_pts+1)*(num_gradients_to_sample+1);
-  //delete[] kt;
 
   std::vector<double> grad_cov_temp(dim_*(num_gradients_to_sample+1)*(num_gradients_discrete_pts+1), 0.0);
   int row = 0;
@@ -1050,25 +1068,34 @@ void GaussianProcess::ComputeGradCovarianceOfPoints(StateType * points_to_sample
                      dim_*num_pts*(num_gradients_discrete_pts+1);
 
     if (precomputed == false) {
-        // Compute K_t
-        double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1)]();
-        BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, kt);
-        // Compute K^-1 * K_t
-        CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), kt);
-
+      // Compute K_t
+      double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1)]();
+      BuildMixCovarianceMatrix(discrete_pts, num_pts, gradients_discrete_pts, num_gradients_discrete_pts, kt);
+      if(points_to_sample_state->precomputed_grad_K_inv_times_K_star) {
         for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
             ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, k, discrete_pts, num_pts,
                                                   gradients_discrete_pts, num_gradients_discrete_pts,
-                                                  kt, grad_var);
+                                                  false, kt, grad_var);
             grad_var += block_size;
         }
-        delete [] kt;
+      }
+      else {
+        // Compute K^-1 * K_t
+        CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts*(num_gradients_discrete_pts+1), kt);
+        for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
+            ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, k, discrete_pts, num_pts,
+                                                  gradients_discrete_pts, num_gradients_discrete_pts,
+                                                  true, kt, grad_var);
+            grad_var += block_size;
+        }
+      }
+      delete [] kt;
     }
     else{
         for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
             ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, k, discrete_pts, num_pts,
                                                   gradients_discrete_pts, num_gradients_discrete_pts,
-                                                  ktd, grad_var);
+                                                  true, ktd, grad_var);
             grad_var += block_size;
         }
     }
@@ -1381,7 +1408,8 @@ void GaussianProcess::ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateTy
                                                                          double const * restrict var,
                                                                          double const * restrict cov,
                                                                          double const * restrict discrete_pts,
-                                                                         int num_pts, double const * kt, double * restrict grad_chol) const noexcept {
+                                                                         int num_pts, bool precomputed, double const * kt,
+                                                                         double * restrict grad_chol) const noexcept {
     int num_to_sample = points_to_sample_state->num_to_sample;
     int num_to_sample_gradients = num_to_sample*(1+points_to_sample_state->num_gradients_to_sample);
 
@@ -1389,7 +1417,8 @@ void GaussianProcess::ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateTy
     ComputeGradCholeskyVarianceOfPointsPerPoint(points_to_sample_state, diff_index, chol_var, grad_chol_temp.data());
 
     std::vector<double> grad_cov(num_to_sample_gradients * (num_pts+num_to_sample_gradients) * dim_);
-    ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, diff_index, discrete_pts, num_pts, nullptr, 0, kt, grad_cov.data());
+    ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, diff_index, discrete_pts, num_pts, nullptr, 0,
+                                          precomputed, kt, grad_cov.data());
     ComputeGradVarianceOfPointsPerPoint(points_to_sample_state, diff_index, grad_cov.data()+num_to_sample_gradients*num_pts*dim_);
     for (int i = 0; i < dim_; ++i) {
          //part 1
@@ -1463,23 +1492,31 @@ void GaussianProcess::ComputeGradInverseCholeskyVarianceOfPoints(StateType * poi
                    dim_*(num_pts+points_to_sample_state->num_to_sample);
 
   if (precomputed == false) {
-      // Compute K_t
-      double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts]();
-      BuildMixCovarianceMatrix(discrete_pts, num_pts, nullptr, 0, kt);
-      // Compute K^-1 * K_t
-      CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts, kt);
-
+    // Compute K_t
+    double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts]();
+    BuildMixCovarianceMatrix(discrete_pts, num_pts, nullptr, 0, kt);
+    if(points_to_sample_state->precomputed_grad_K_inv_times_K_star) {
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
         ComputeGradInverseCholeskyVarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, var, cov,
-                                                           discrete_pts, num_pts, kt, grad_chol);
+                                                           discrete_pts, num_pts, false, kt, grad_chol);
         grad_chol += block_size;
       }
-      delete [] kt;
+    }
+    else {
+      // Compute K^-1 * K_t
+      CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts, kt);
+      for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
+        ComputeGradInverseCholeskyVarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, var, cov,
+                                                           discrete_pts, num_pts, true, kt, grad_chol);
+        grad_chol += block_size;
+      }
+    }
+    delete [] kt;
   }
   else{
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
         ComputeGradInverseCholeskyVarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, var, cov,
-                                                           discrete_pts, num_pts, ktd, grad_chol);
+                                                           discrete_pts, num_pts, true, ktd, grad_chol);
         grad_chol += block_size;
       }
   }
@@ -1491,15 +1528,17 @@ Compute the derivatives of the inverse of the cholesky factor wrt to the points 
 void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(StateType * points_to_sample_state, int diff_index,
                                                                          double const * restrict chol_var,
                                                                          double const * restrict grad_chol_pt,
-                                                                         double const * restrict cov,
+                                                                         double const * restrict chol_inv_times_cov,
                                                                          double const * restrict discrete_pts,
-                                                                         int num_pts, double const * kt, double * restrict grad_inverse_chol) const noexcept {
+                                                                         int num_pts, bool precomputed, double const * kt,
+                                                                         double * restrict grad_inverse_chol) const noexcept {
     int num_to_sample = points_to_sample_state->num_to_sample;
     int num_to_sample_gradients = num_to_sample*(1+points_to_sample_state->num_gradients_to_sample);
-
     std::vector<double> grad_cov(num_to_sample_gradients * num_pts * dim_);
 
-    ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, diff_index, discrete_pts, num_pts, nullptr, 0, kt, grad_cov.data());
+    ComputeGradCovarianceOfPointsPerPoint(points_to_sample_state, diff_index, discrete_pts, num_pts, nullptr, 0,
+                                          precomputed, kt, grad_cov.data());
+
     for (int i = 0; i < dim_; ++i) {
          //part 1
          double* temp = new double[num_to_sample_gradients*num_pts]();
@@ -1510,7 +1549,7 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(State
              }
          }
 
-         TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients,num_pts,num_to_sample_gradients,temp);
+         TriangularMatrixMatrixSolve(chol_var,'N', num_to_sample_gradients, num_pts, num_to_sample_gradients, temp);
 
          //part 2
          // let L_{d,i,j,k} = grad_chol_decomp, d over dim_, i, j over num_union, k over num_to_sample
@@ -1525,18 +1564,8 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(State
          }
          TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_to_sample_gradients, num_to_sample_gradients, temp_chol);
 
-         double* temp_cov = new double[num_to_sample_gradients*num_pts]();
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_pts; ++l){
-                 temp_cov[j+l*num_to_sample_gradients] = cov[j+l*num_to_sample_gradients];
-             }
-         }
+         GeneralMatrixMatrixMultiply(temp_chol, 'N', chol_inv_times_cov, -1.0, 1.0, num_to_sample_gradients, num_to_sample_gradients, num_pts, temp);
 
-         TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_pts, num_to_sample_gradients, temp_cov);
-
-         GeneralMatrixMatrixMultiply(temp_chol, 'N', temp_cov, -1.0, 1.0, num_to_sample_gradients, num_to_sample_gradients, num_pts, temp);
-
-         delete[] temp_cov;
          delete[] temp_chol;
          for (int j = 0; j < num_to_sample_gradients; ++j){
              for (int l = 0; l < num_pts; ++l){
@@ -1554,32 +1583,41 @@ Compute the derivatives of the inverse of the cholesky factor wrt to the points 
 void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPoints(StateType * points_to_sample_state,
                                                                  double const * restrict chol_var,
                                                                  double const * restrict grad_chol,
-                                                                 double const * restrict cov,
+                                                                 double const * restrict chol_inv_times_cov,
                                                                  double const * restrict discrete_pts,
                                                                  int num_pts, bool precomputed, double const * ktd,
                                                                  double * restrict grad_inverse_chol) const noexcept {
   int block_size = (points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1)* dim_*num_pts;
 
   if (precomputed == false) {
-      // Compute K_t
-      double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts]();
-      BuildMixCovarianceMatrix(discrete_pts, num_pts, nullptr, 0, kt);
-      // Compute K^-1 * K_t
-      CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts, kt);
-
+    // Compute K_t
+    double * kt = new double[num_sampled_*(num_derivatives_+1)*num_pts]();
+    BuildMixCovarianceMatrix(discrete_pts, num_pts, nullptr, 0, kt);
+    if(points_to_sample_state->precomputed_grad_K_inv_times_K_star) {
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
         double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1))*dim_;
-        ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, cov,
-                                                           discrete_pts, num_pts, kt, grad_inverse_chol);
+        ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, chol_inv_times_cov,
+                                                             discrete_pts, num_pts, false, kt, grad_inverse_chol);
         grad_inverse_chol += block_size;
       }
-      delete [] kt;
-  }
-  else{
+    }
+    else {
+      // Compute K^-1 * K_t
+      CholeskyFactorLMatrixMatrixSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), num_pts, kt);
       for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
         double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1))*dim_;
-        ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, cov,
-                                                           discrete_pts, num_pts, ktd, grad_inverse_chol);
+        ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, chol_inv_times_cov,
+                                                             discrete_pts, num_pts, true, kt, grad_inverse_chol);
+        grad_inverse_chol += block_size;
+      }
+    }
+    delete [] kt;
+  }
+  else {
+      for (int k = 0; k < points_to_sample_state->num_derivatives; ++k) {
+        double const * restrict grad_chol_pt = grad_chol + k*Square((points_to_sample_state->num_to_sample)*(points_to_sample_state->num_gradients_to_sample+1))*dim_;
+        ComputeGradInverseCholeskyCovarianceOfPointsPerPoint(points_to_sample_state, k, chol_var, grad_chol_pt, chol_inv_times_cov,
+                                                             discrete_pts, num_pts, true, ktd, grad_inverse_chol);
         grad_inverse_chol += block_size;
       }
   }
@@ -1682,7 +1720,6 @@ int GaussianProcess::SamplePointsFromGP(double const * restrict points_to_sample
     for (int i = 0; i < num_sample; ++i){
         results[i] += random_sample[i];
     }
-    //return std::sqrt(gpp_variance) * normal_rng_() + std::sqrt(noise_variance_this_point)*normal_rng_();  // first draw has mean 0
   } else {
     int num_derivatives = 0;
     StateType points_to_sample_state(*this, points_to_sample, num_sample, nullptr, 0, num_derivatives);
@@ -1694,7 +1731,6 @@ int GaussianProcess::SamplePointsFromGP(double const * restrict points_to_sample
     for (int i = 0; i < num_sample; ++i){
         results[i] += gpp_mean[i] + random_sample[i];
     }
-    //return gpp_mean + std::sqrt(gpp_variance) * normal_rng_() + std::sqrt(noise_variance_this_point)*normal_rng_();
   }
   delete [] random_sample;
   delete [] gpp_mean;
@@ -1750,7 +1786,14 @@ GaussianProcess * GaussianProcess::Clone() const {
 }
 
 void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, double const * restrict points_to_sample_in,
-                                     int num_to_sample_in, int num_gradients_to_sample_in, int num_derivatives_in) {
+                                     int num_to_sample_in, int num_gradients_to_sample_in, int num_derivatives_in,
+                                     bool precomputed_in /*=true*/, bool precomputed_grad_K_inv_times_K_star_in /*= false*/) {
+  if (precomputed != precomputed_in){
+    precomputed = precomputed_in;
+  }
+  if (precomputed_grad_K_inv_times_K_star != precomputed_grad_K_inv_times_K_star_in){
+    precomputed_grad_K_inv_times_K_star = precomputed_grad_K_inv_times_K_star_in;
+  }
   // resize data depending on to sample points
   if (unlikely(num_to_sample != num_to_sample_in || num_derivatives != num_derivatives_in || num_gradients_to_sample != num_gradients_to_sample_in)) {
     // update sizes
@@ -1761,6 +1804,7 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
     points_to_sample.resize(dim*num_to_sample);
     K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     grad_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
+    grad_K_inv_times_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
     V.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     K_inv_times_K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
   }
@@ -1770,6 +1814,7 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
     num_sampled = gaussian_process.num_sampled();
     K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     grad_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
+    grad_K_inv_times_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
     V.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     K_inv_times_K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
   }
@@ -1783,18 +1828,21 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
 PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process,
                                          double const * restrict points_to_sample_in,
                                          int num_to_sample_in, int const * restrict gradients_in,
-                                         int num_gradients_to_sample_in, int num_derivatives_in, bool precomputed_in /*=true*/)
+                                         int num_gradients_to_sample_in, int num_derivatives_in,
+                                         bool precomputed_in /*=true*/, bool precomputed_grad_K_inv_times_K_star_in /*= false*/)
     : dim(gaussian_process.dim()),
       num_sampled(gaussian_process.num_sampled()),
       num_to_sample(num_to_sample_in),
       num_derivatives(num_derivatives_in),
       precomputed(precomputed_in),
+      precomputed_grad_K_inv_times_K_star(precomputed_grad_K_inv_times_K_star_in),
       gradients(gradients_in, gradients_in+num_gradients_to_sample_in),
       num_gradients_to_sample(num_gradients_to_sample_in),
       num_gradients_sampled(gaussian_process.num_derivatives()),
       points_to_sample(dim*num_to_sample),
       K_star((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))),
       grad_K_star(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim),
+      grad_K_inv_times_K_star(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim),
       V((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))),
       K_inv_times_K_star((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))) {
   SetupState(gaussian_process, points_to_sample_in, num_to_sample_in, num_gradients_to_sample_in, num_derivatives_in);
@@ -2000,7 +2048,7 @@ void ExpectedImprovementState::SetCurrentPoint(const EvaluatorType& ei_evaluator
 
   // evaluate derived quantities for the GP
   points_to_sample_state.SetupState(*ei_evaluator.gaussian_process(), union_of_points.data(),
-                                    num_union, 0, num_derivatives);
+                                    num_union, 0, num_derivatives, (num_derivatives>0));
 }
 
 ExpectedImprovementState::ExpectedImprovementState(const EvaluatorType& ei_evaluator,
@@ -2014,7 +2062,7 @@ ExpectedImprovementState::ExpectedImprovementState(const EvaluatorType& ei_evalu
       num_derivatives(configure_for_gradients ? num_to_sample : 0),
       num_union(num_to_sample + num_being_sampled),
       union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
-      points_to_sample_state(*ei_evaluator.gaussian_process(), union_of_points.data(), num_union, nullptr, 0, num_derivatives),
+      points_to_sample_state(*ei_evaluator.gaussian_process(), union_of_points.data(), num_union, nullptr, 0, num_derivatives, configure_for_gradients),
       normal_rng(normal_rng_in),
       to_sample_mean(num_union),
       grad_mu(dim*num_derivatives),
