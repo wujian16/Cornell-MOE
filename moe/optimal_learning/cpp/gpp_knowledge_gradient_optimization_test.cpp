@@ -180,7 +180,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     bool configure_for_gradients = true;
 
     KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                                        num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
+                                                                        num_to_sample_, num_being_sampled_, kg_evaluator_.num_mc_iterations(), gradients_.data(),
                                                                         num_gradients_, configure_for_gradients, &normal_rng);
 
     kg_evaluator_.ComputeGradKnowledgeGradient(&kg_state, grad_KG_.data());
@@ -203,8 +203,8 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
     bool configure_for_gradients = false;
 
     KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator_, points_to_sample, points_being_sampled_.data(),
-                                                                       num_to_sample_, num_being_sampled_, num_pts_, gradients_.data(),
-                                                                       num_gradients_, configure_for_gradients, &normal_rng);
+                                                                        num_to_sample_, num_being_sampled_, kg_evaluator_.num_mc_iterations(), gradients_.data(),
+                                                                        num_gradients_, configure_for_gradients, &normal_rng);
     *function_values = kg_evaluator_.ComputeKnowledgeGradient(&kg_state);
   }
 
@@ -418,8 +418,9 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
                                       max_relative_change, tolerance);
   ClosedInterval * domain_bounds = new ClosedInterval[dim];
   for (int i=0; i<dim; ++i){
-      domain_bounds[i] = ClosedInterval(-5.0, 5.0);
+    domain_bounds[i] = ClosedInterval(-5.0, 5.0);
   }
+  delete [] domain_bounds;
   TensorProductDomain domain(domain_bounds, dim);
   // seed randoms
   UniformRandomGenerator uniform_generator(314);
@@ -427,7 +428,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   //UniformRandomGenerator uniform_generator(2718);
   boost::uniform_real<double> uniform_double(0.5, 2.5);
 
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 10; ++i) {
     KG_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_gradients);
     //std::vector<double> noise_variance(num_sampled, 0.0003);
     for (int j = 0; j < dim; ++j) {
@@ -543,7 +544,7 @@ int PingKGGeneralTest() {
 
   total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  total_errors += PingKGTest<PingKnowledgeGradient>(10, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  total_errors += PingKGTest<PingKnowledgeGradient>(8, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 

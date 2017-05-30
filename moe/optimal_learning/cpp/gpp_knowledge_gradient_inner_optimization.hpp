@@ -189,26 +189,25 @@ class FuturePosteriorMeanEvaluator final {
     return result;
   }
 
-  std::vector<double> cholesky(double const * chol,
-                               int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_to_sample*(1+num_derivatives)*num_to_sample*(1+num_derivatives));
-    std::copy(chol, chol + num_to_sample*(1+num_derivatives)*num_to_sample*(1+num_derivatives), result.data());
-    return result;
-  }
-
-  std::vector<double> coeff(double const * coefficient,
+  std::vector<double> coeff(double const * coefficient, double const * chol,
                             int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> result(num_to_sample*(1+num_derivatives));
     std::copy(coefficient, coefficient + num_to_sample*(1+num_derivatives), result.data());
-    TriangularMatrixVectorSolve(chol_.data(), 'T', num_to_sample_*(1+num_derivatives_),
+    TriangularMatrixVectorSolve(chol, 'T', num_to_sample_*(1+num_derivatives_),
                                 num_to_sample_*(1+num_derivatives_), result.data());
     return result;
   }
 
-  std::vector<double> train_sample_precompute(double const * train_sample, int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
-    int num_sampled_derivatives = gaussian_process_->num_sampled()*(1+gaussian_process_->num_derivatives());
-    std::vector<double> result(num_sampled_derivatives*num_to_sample*(1+num_derivatives));
-    std::copy(train_sample, train_sample + num_sampled_derivatives*num_to_sample*(1+num_derivatives), result.data());
+  std::vector<double> coeff_combine(double const * coefficient, double const * train_sample,
+                                    int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> temp(num_to_sample*(1+num_derivatives));
+    std::copy(coefficient, coefficient + num_to_sample*(1+num_derivatives), temp.data());
+
+    std::vector<double> result(gaussian_process_->get_K_inv_y());
+    int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
+    GeneralMatrixVectorMultiply(train_sample, 'N', temp.data(), -1.0, 1.0,
+                                num_observations, num_to_sample*(1+num_derivatives),
+                                num_observations, result.data());
     return result;
   }
 
@@ -270,14 +269,9 @@ class FuturePosteriorMeanEvaluator final {
   //! number of derivatives
   const int num_derivatives_;
 
-  //! cholesky factor
-  const std::vector<double> chol_;
-
-  //! Chol^-1 * sampled Z
+  //! transpose(Chol)^-1 * (sampled Z)
   const std::vector<double> coeff_;
-
-  //! train_sample
-  const std::vector<double> train_sample_;
+  const std::vector<double> coeff_combined_;
 };
 
 /*!\rst
@@ -357,10 +351,6 @@ struct FuturePosteriorMeanState final {
 
   //! gaussian process state
   GaussianProcess::StateType points_to_sample_state;
-
-  // temporary storage: preallocated space used by OnePotentialSampleExpectedImprovementEvaluator's member functions
-  //! the gradient of the GP mean evaluated at point_to_sample, wrt point_to_sample
-  std::vector<double> grad_mu;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(FuturePosteriorMeanState);
 };

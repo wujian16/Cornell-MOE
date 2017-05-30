@@ -4,7 +4,7 @@ What is qKG?
 2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide one example of optimizing Branin function using qKG in the folder qkg_examples, more examples are coming.
+5. We provide several examples of optimizing synthetic functions using qKG in the folder qkg_examples, more examples are coming.
 6. The project is under active development. We are revising all the comments in the code, which will be ready soon. Any bug report or issue is welcome!
 
 # Introduction:
@@ -18,7 +18,7 @@ qKG implements a library of batch Bayesian optimization algorithms, it internall
 3. Finding the set of points of highest gain (by batch Expected Improvement (qEI) or batch knowledge gradient (qKG))
 4. Returning the points to sample, then repeat
 
-Externally you can use qKG/MOE through the the Python interface. Please refer to the example in the file bayesian.test.functions.py in the folder qkg_examples.
+Externally you can use qKG/MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
 
 # Step-by-Step Install
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
@@ -67,7 +67,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
 
 # Running MOE/qKG
 ## Within Python
-See the example in the folder qkg_examples. One can run the bayesian.test.functions.py following the instruction there. The black-box functions that we would like to optimize is defined in obj_functions.py. One can also define their own function there.
+See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize is defined in obj_functions.py. One can also define their own function there.
 
 # Contributing
 See [Contributing Documentation][8]

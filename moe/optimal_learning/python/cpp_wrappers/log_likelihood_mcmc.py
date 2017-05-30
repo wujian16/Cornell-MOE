@@ -115,7 +115,8 @@ class GaussianProcessLogLikelihoodMCMC:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
         else:
             self.rng = rng
-        self.n_hypers = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
+        self.n_hypers = n_hypers
+        self.n_chains = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -182,27 +183,24 @@ class GaussianProcessLogLikelihoodMCMC:
 
         if do_optimize:
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_hypers,
-                                            1 + self.dim + self._num_derivatives + 1,
+            sampler = emcee.EnsembleSampler(self.n_chains, 1 + self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, 1 + self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 1 + self.dim + self._num_derivatives + 1)
                 else:
-                    self.p0 = self.prior.sample_from_prior(self.n_hypers)
+                    self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
-                self.p0, _, _ = sampler.run_mcmc(self.p0,
-                                                 self.burnin_steps,
+                self.p0, _, _ = sampler.run_mcmc(self.p0, self.burnin_steps,
                                                  rstate0=self.rng)
 
                 self.burned = True
 
             # Start sampling
-            pos, _, _ = sampler.run_mcmc(self.p0,
-                                         self.chain_length,
+            pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
                                          rstate0=self.rng)
 
             # Save the current position, it will be the start point in
@@ -210,7 +208,7 @@ class GaussianProcessLogLikelihoodMCMC:
             self.p0 = pos
 
             # Take the last samples from each walker
-            self.hypers = sampler.chain[:, -1]
+            self.hypers = sampler.chain[numpy.random.choice(self.n_chains, self.n_hypers), -1]
 
         self.is_trained = True
         self._models = []

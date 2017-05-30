@@ -15,7 +15,7 @@ class DefaultPrior(BasePrior):
         # The number of noises
         self.num_noise = num_noise
         # Prior for the Matern52 lengthscales
-        self.tophat = TophatPrior(-5, 2)
+        self.tophat = TophatPrior(-2, 3)
 
         # Prior for the covariance amplitude
         self.ln_prior = NormalPrior(mean=0.0, sigma=1.0)

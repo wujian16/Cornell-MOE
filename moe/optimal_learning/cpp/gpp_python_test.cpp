@@ -72,9 +72,9 @@ int RunCppTestsWrapper() {
 
   error = RunKGInnerTests();
   if (error != 0) {
-    OL_FAILURE_PRINTF("KG tests failed\n");
+    OL_FAILURE_PRINTF("KG inner tests failed\n");
   } else {
-    OL_SUCCESS_PRINTF("KG tests\n");
+    OL_SUCCESS_PRINTF("KG inner tests\n");
   }
   total_errors += error;
 
