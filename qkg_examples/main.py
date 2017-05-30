@@ -13,7 +13,7 @@ from moe.optimal_learning.python.data_containers import HistoricalData, SamplePo
 from moe.optimal_learning.python.geometry_utils import ClosedInterval
 from moe.optimal_learning.python.repeated_domain import RepeatedDomain
 from moe.optimal_learning.python.default_priors import DefaultPrior
-from moe.optimal_learning.python.random_features import sample_from_global_optima
+#from moe.optimal_learning.python.random_features import sample_from_global_optima
 
 from moe.optimal_learning.python.python_version.domain import TensorProductDomain as pythonTensorProductDomain
 from moe.optimal_learning.python.python_version.optimization import GradientDescentParameters as pyGradientDescentParameters
@@ -67,7 +67,7 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restar
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
                                                max_relative_change=0.5, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=5, max_num_restarts=1,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=10, max_num_restarts=1,
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.1,
                                                  max_relative_change=0.5, tolerance=1.0e-5)
 
@@ -98,7 +98,7 @@ for n in xrange(num_iteration):
     )
     time1 = time.time()
     discrete_pts_list = []
-    discrete = python_search_domain.generate_uniform_random_points_in_domain(100)
+    discrete = python_search_domain.generate_uniform_random_points_in_domain(200)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         #init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         #discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 100)

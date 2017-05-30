@@ -10,6 +10,7 @@
 #include <memory>
 
 #include <stdlib.h>
+#include <queue>
 
 #include "gpp_common.hpp"
 #include "gpp_domain.hpp"
@@ -193,14 +194,43 @@ void ComputeOptimalFuturePosteriorMean(
   std::vector<typename FuturePosteriorMeanEvaluator::StateType> fpm_state_vector;
   SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, &fpm_state_vector);
 
-  // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
+  std::vector<double> future_mean_starting(num_multistarts);
+  for (int i=0; i<num_multistarts; ++i){
+    fpm_state_vector[0].SetCurrentPoint(fpm_evaluator, start_point_set + i*gaussian_process.dim());
+    future_mean_starting[i] = fpm_evaluator.ComputePosteriorMean(&fpm_state_vector[0]);
+  }
+
+  std::priority_queue<std::pair<double, int>> q;
+  int k = 10; // number of indices we need
+  for (int i = 0; i < future_mean_starting.size(); ++i) {
+    if (i < k){
+      q.push(std::pair<double, int>(-future_mean_starting[i], i));
+    }
+    else{
+      if (q.top().first > -future_mean_starting[i]){
+        q.pop();
+        q.push(std::pair<double, int>(-future_mean_starting[i], i));
+      }
+    }
+  }
+
+  std::vector<double> top_k_starting(10*gaussian_process.dim());
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<gaussian_process.dim(); ++d){
+      top_k_starting[i*gaussian_process.dim() + d] = start_point_set[ki*gaussian_process.dim() + d];
+    }
+    q.pop();
+  }
+
+  // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
+  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -INFINITY, top_k_starting.data());
 
   GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
   MultistartOptimizer<GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> > multistart_optimizer;
 
   multistart_optimizer.MultistartOptimize(gd_opt, fpm_evaluator, optimizer_parameters,
-                                          domain, thread_schedule, start_point_set, num_multistarts,
+                                          domain, thread_schedule, top_k_starting.data(), k,
                                           fpm_state_vector.data(), nullptr, &io_container);
 
   *best_function_value = io_container.best_objective_value_so_far;
