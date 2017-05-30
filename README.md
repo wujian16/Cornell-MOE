@@ -18,7 +18,7 @@ qKG implements a library of batch Bayesian optimization algorithms, it internall
 3. Finding the set of points of highest gain (by batch Expected Improvement (qEI) or batch knowledge gradient (qKG))
 4. Returning the points to sample, then repeat
 
-Externally you can use qKG/MOE through the the Python interface. Please refer to the example in the file bayesian.test.functions.py in the folder qkg_examples.
+Externally you can use qKG/MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
 
 # Step-by-Step Install
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
