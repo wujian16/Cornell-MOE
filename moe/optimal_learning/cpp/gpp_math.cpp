@@ -1848,22 +1848,6 @@ PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process
   SetupState(gaussian_process, points_to_sample_in, num_to_sample_in, num_gradients_to_sample_in, num_derivatives_in);
 }
 
-/*PointsToSampleState::PointsToSampleState(const PointsToSampleState&& other)
-    : dim(other.dim),
-      num_sampled(other.num_sampled),
-      num_to_sample(other.num_to_sample),
-      num_derivatives(other.num_derivatives),
-      precomputed(other.precomputed),
-      gradients(other.gradients),
-      num_gradients_to_sample(other.num_gradients_to_sample),
-      num_gradients_sampled(other.num_gradients_sampled),
-      points_to_sample(other.points_to_sample),
-      K_star(other.K_star),
-      grad_K_star(other.grad_K_star),
-      V(other.V),
-      K_inv_times_K_star(other.K_inv_times_K_star) {
-}*/
-
 PointsToSampleState::PointsToSampleState(PointsToSampleState&& OL_UNUSED(other)) = default;
 
 ExpectedImprovementEvaluator::ExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in,
@@ -2062,7 +2046,8 @@ ExpectedImprovementState::ExpectedImprovementState(const EvaluatorType& ei_evalu
       num_derivatives(configure_for_gradients ? num_to_sample : 0),
       num_union(num_to_sample + num_being_sampled),
       union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
-      points_to_sample_state(*ei_evaluator.gaussian_process(), union_of_points.data(), num_union, nullptr, 0, num_derivatives, configure_for_gradients),
+      points_to_sample_state(*ei_evaluator.gaussian_process(), union_of_points.data(), num_union,
+                             nullptr, 0, num_derivatives, configure_for_gradients),
       normal_rng(normal_rng_in),
       to_sample_mean(num_union),
       grad_mu(dim*num_derivatives),

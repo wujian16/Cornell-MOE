@@ -25,7 +25,7 @@ import obj_functions
 
 # arguments for calling this script:
 # python synthetic.test.functions.py [num_to_sample] [num_lhc] [job_id]
-# example: python bayesian.test.functions.py 4 1000 1
+# example: python main.py 4 1000 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -67,12 +67,12 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restar
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
                                                max_relative_change=0.5, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=30, max_num_restarts=1,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.05,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=5, max_num_restarts=1,
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.1,
                                                  max_relative_change=0.5, tolerance=1.0e-5)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=100, max_num_steps=20, max_num_restarts=1,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.5,
+                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.4,
                                                  max_relative_change=1.0, tolerance=1.0e-5)
 
 # minimum of the mean surface
