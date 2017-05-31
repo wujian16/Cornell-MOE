@@ -78,6 +78,65 @@ class DeepKernelHMC(object):
         ex = tf.exp(-x)
         return a + (b - a) / (1. + ex)
 
+    def train_MLP(self):
+        """
+        Trains the model on the historical data.
+        """
+        with tf.Graph().as_default():
+            # Parameters
+            learning_rate = 0.001
+            training_epochs = 15
+            batch_size = 100
+            display_step = 1
+
+            qw_0 = tf.Variable(tf.random_normal([10, self.dim]))
+            qw_1 = tf.Variable(tf.random_normal([10, 10]))
+            qw_2 = tf.Variable(tf.random_normal([10, 10]))
+            qw_3 = tf.Variable(tf.random_normal([1, 10]))
+            qb_0 = tf.Variable(tf.random_normal([10]))
+            qb_1 = tf.Variable(tf.random_normal([10]))
+            qb_2 = tf.Variable(tf.random_normal([10]))
+            qb_3 = tf.Variable(tf.random_normal([1]))
+
+            N = self._points_sampled.shape[0]  # number of data points
+
+            x = tf.placeholder(tf.float64, [None, self.dim])
+            y = tf.placeholder(tf.float64, [None, 1])
+            param = [qw_0, qw_1, qw_2, qw_3, qb_0, qb_1, qb_2, qb_3]
+
+            # Construct model
+            pred = self.neural_network(x, param)
+            # Define loss and optimizer
+            cost = tf.reduce_mean(tf.square(tf.subtract(y, pred)))
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+            # Initializing the variables
+            init = tf.global_variables_initializer()
+
+            # Launch the graph
+            with tf.Session() as sess:
+                sess.run(init)
+
+                # Training cycle
+                for epoch in xrange(training_epochs):
+                    avg_cost = 0.
+                    total_batch = int(N/batch_size)
+                    # Loop over all batches
+                    for i in xrange(total_batch):
+                        batch_x, batch_y = self._points_sampled[i*batch_size:min((i+1)*batch_size, N)], self._points_sampled_value[i*batch_size:min((i+1)*batch_size, N)]
+                        # Run optimization op (backprop) and cost op (to get loss value)
+                        _, c = sess.run([optimizer, cost], feed_dict={x: batch_x,
+                                                                      y: batch_y})
+                        # Compute average loss
+                        avg_cost += c / total_batch
+                    # Display logs per epoch step
+                    if epoch % display_step == 0:
+                        print("Epoch:", '%04d' % (epoch+1), "cost=", \
+                              "{:.9f}".format(avg_cost))
+                print("Optimization Finished!")
+
+
+
     def train(self, **kwargs):
         """
         Trains the model on the historical data.
@@ -296,8 +355,8 @@ class DeepKernelHMC(object):
             Input data points. The dimensionality of X is (N, D),
             with N as the number of points and D is the number of features.
         """
-        W_0, b_0, W_1, b_1, W_2, b_2, W_3, b_3, noise, sigma, l = param
-        #>W_0, b_0, noise, sigma, l = param
+        #W_0, b_0, W_1, b_1, W_2, b_2, W_3, b_3, noise, sigma, l = param
+        W_0, W_1, W_2, W_3, b_0, b_1, b_2, b_3 = param
         h = tf.tanh(tf.matmul(X, W_0) + b_0)
         h = tf.tanh(tf.matmul(h, W_1) + b_1)
         h = tf.tanh(tf.matmul(h, W_2) + b_2)
