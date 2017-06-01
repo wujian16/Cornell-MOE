@@ -44,17 +44,31 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                    const boost::python::list& points_sampled_value,
                                    int dim, int num_sampled,
                                    LogLikelihoodTypes objective_type,
-                                   const boost::python::list& hyperparameters,
+                                   const boost::python::list& nn_hyperparameters,
+                                   const boost::python::list& ak_hyperparameters,
                                    const boost::python::list& derivatives,
-                                   int num_derivatives,
-                                   const boost::python::list& noise_variance) {
+                                   int num_derivatives, const boost::python::list& noise_variance) {
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+  PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  const int num_nn_hypers = 10*dim + 10 +
+                            10*10 + 10 +
+                            10*10 + 10;
+
+  const int num_ak_hypers = 2*10;
+
+  std::vector<double> nn_hypers(num_nn_hypers);
+  CopyPylistToVector(nn_hyperparameters, num_nn_hypers, nn_hypers);
+
+  std::vector<double> ak_hypers(num_ak_hypers);
+  CopyPylistToVector(ak_hyperparameters, num_ak_hypers, ak_hypers);
+
+  std::vector<double> hypers(num_ak_hypers + num_ak_hypers);
+  std::copy(nn_hypers.begin(), nn_hypers.end(), hypers.begin());
+  std::copy(ak_hypers.begin(), ak_hypers.end(), hypers.data()+num_nn_hypers);
+  DeepAdditiveKernel dak(dim, hypers);
 
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
@@ -62,7 +76,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
                                                        input_container.points_sampled_value.data(),
                                                        input_container.derivatives.data(), input_container.num_derivatives,
                                                        input_container.dim, input_container.num_sampled);
-      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, sqexp, input_container.noise_variance);
+      LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, dak, input_container.noise_variance);
 
       double log_likelihood = log_marginal_eval.ComputeLogLikelihood(log_marginal_state);
       return log_likelihood;

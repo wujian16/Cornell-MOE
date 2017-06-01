@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "gpp_common.hpp"
+#include "gpp_exception.hpp"
 
 namespace optimal_learning {
 
@@ -286,6 +287,115 @@ class SquareExponential final : public CovarianceInterface {
   int dim_;
   //! ``\sigma_f^2``, signal variance
   double alpha_;
+  //! length scales, one per dimension
+  std::vector<double> lengths_;
+  //! square of the length scales, one per dimension
+  std::vector<double> lengths_sq_;
+};
+
+/*!\rst
+  Implements the deep additive covariance functionw with 10 deep features
+  See CovarianceInterface for descriptions of the virtual functions.
+\endrst*/
+class DeepAdditiveKernel final : public CovarianceInterface {
+ public:
+
+  /*!\rst
+    Constructs a SquareExponential object with the specified hyperparameters.
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
+      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
+  \endrst*/
+  DeepAdditiveKernel(int dim, double const * restrict hypers) OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Constructs a SquareExponential object with the specified hyperparameters.
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
+      :lengths: the hyperparameter length scales, one per spatial dimension
+  \endrst*/
+  DeepAdditiveKernel(int dim, std::vector<double> hypers);
+
+  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                          double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+
+  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                              double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
+
+  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim_ * 10 + 10 +
+           10 * 10 + 10 +
+           10 * 10 + 10 +
+           10 * 2;
+  }
+
+  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                            double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS{
+    OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha_[0], std::numeric_limits<double>::min());
+  }
+
+  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
+      std::copy(hyperparameters.data(), hyperparameters.data() + 10*dim, w_0_);
+      std::copy(hyperparameters.data() + 10*dim, hyperparameters.data() + 10*dim + 10, b_0_);
+      std::copy(hyperparameters.data() + 10*dim + 10, hyperparameters.data() + 10*dim + 10 + 10*10, w_1_);
+      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10, b_1_);
+      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10,
+                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10, w_2_);
+      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10,
+                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10, b_2_);
+      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10,
+                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, alpha_);
+      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10,
+                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 10, lengths_);
+      for (int i = 0; i < dim_; ++i) {
+        lengths_sq_[i] = Square(lengths_[i]);
+      }
+  }
+
+  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
+      std::copy(w_0_.data(), w_0_.data() + 10*dim, hyperparameters.data());
+      std::copy(b_0_.data() + 10*dim, b_0_.data() + 10, hyperparameters.data() + 10*dim);
+      std::copy(w_1_.data(), w_1_.data() + 10*10, hyperparameters.data() + 10*dim + 10);
+      std::copy(b_1_.data(), b_1_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10);
+      std::copy(w_2_.data(), w_2_.data() + 10*10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10);
+      std::copy(b_2_.data(), b_2_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10);
+      std::copy(alpha_.data(), alpha_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10);
+      std::copy(length_.data(), length_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10);
+  }
+
+  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
+
+  OL_DISALLOW_DEFAULT_AND_ASSIGN(DeepAdditiveKernel);
+
+ private:
+  explicit DeepAdditiveKernel(const DeepAdditiveKernel& source);
+
+  /*!\rst
+    Validate and initialize class data members.
+  \endrst*/
+  void Initialize(std::vector<double> hypers);
+
+  /*!\rst
+    deep neural network projection
+  \endrst*/
+  void NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept OL_NONNULL_POINTERS;
+
+  //! dimension of the problem
+  int dim_;
+  //! hyperparameters for neural network
+  std::vector<double> w_0_;
+  std::vector<double> b_0_;
+  std::vector<double> w_1_;
+  std::vector<double> b_1_;
+  std::vector<double> w_2_;
+  std::vector<double> b_2_;
+  //! ``\sigma_f^2``, signal variance
+  std::vector<double> alpha_;
   //! length scales, one per dimension
   std::vector<double> lengths_;
   //! square of the length scales, one per dimension

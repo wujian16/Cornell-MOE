@@ -47,12 +47,19 @@ GaussianProcess * make_gaussian_process(const boost::python::list& hyperparamete
                                         int num_derivatives, int dim, int num_sampled) {
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
-  PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
+  PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  const int num_hypers = 10*dim + 10 +
+                         10*10 + 10 +
+                         10*10 + 10 +
+                         10 + 10;
 
-  GaussianProcess * new_gp = new GaussianProcess(sqexp, input_container.points_sampled.data(),
+  std::vector<double> hypers(num_hypers);
+  CopyPylistToVector(hyperparameters, num_hypers, hypers);
+
+  DeepAdditiveKernel dak(dim, hypers);
+  GaussianProcess * new_gp = new GaussianProcess(dak, input_container.points_sampled.data(),
                                                  input_container.points_sampled_value.data(),
                                                  input_container.noise_variance.data(),
                                                  input_container.derivatives.data(), input_container.num_derivatives,
