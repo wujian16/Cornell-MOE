@@ -43,9 +43,9 @@ class RosenbrockNoNoise(object):
 
 
     def evaluate_true(self, x):
-        """ Global minimum is 0 at (1, 1)
+        """ Global minimum is 0 at (1, 1, 1)
 
-            :param x[2]: 2-dimension numpy array
+            :param x[3]: 3-dimension numpy array
         """
         value = 0.0
         for i in range(self._dim-1):
