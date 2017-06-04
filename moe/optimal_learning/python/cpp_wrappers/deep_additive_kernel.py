@@ -110,9 +110,10 @@ class DeepAdditiveKernelMCMC(object):
         with tf.Graph().as_default():
             # Parameters
             learning_rate = 0.01
-            training_epochs = 1000
+            momentum = 0.9
+            training_epochs = 1e4
             batch_size = 10
-            display_step = 100
+            display_step = 1000
 
             qw_0 = tf.Variable(tf.random_normal([10, self.dim]))
             qw_1 = tf.Variable(tf.random_normal([10, 10]))
@@ -134,7 +135,7 @@ class DeepAdditiveKernelMCMC(object):
             pred = self.neural_network(x, param)
             # Define loss and optimizer
             cost = tf.reduce_mean(tf.square(tf.subtract(y, pred)))
-            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+            optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=momentum).minimize(cost)
 
             # Initializing the variables
             init = tf.global_variables_initializer()
