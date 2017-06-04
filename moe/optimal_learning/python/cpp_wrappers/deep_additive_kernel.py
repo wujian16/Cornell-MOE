@@ -56,7 +56,7 @@ class DeepAdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.n_hypers = n_hypers
-        self.n_chains = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
+        self.n_chains = max(n_hypers, 2*(2*10+1+self._num_derivatives))
         self._nn_hypers = None
 
     @property
@@ -85,6 +85,14 @@ class DeepAdditiveKernelMCMC(object):
         return self._historical_data.points_sampled_noise_variance
 
     @property
+    def derivatives(self):
+        return self._derivatives
+
+    @property
+    def num_derivatives(self):
+        return self._num_derivatives
+
+    @property
     def models(self):
         return self._models
 
@@ -101,10 +109,10 @@ class DeepAdditiveKernelMCMC(object):
         """
         with tf.Graph().as_default():
             # Parameters
-            learning_rate = 0.001
-            training_epochs = 15
-            batch_size = 100
-            display_step = 1
+            learning_rate = 0.01
+            training_epochs = 1000
+            batch_size = 10
+            display_step = 100
 
             qw_0 = tf.Variable(tf.random_normal([10, self.dim]))
             qw_1 = tf.Variable(tf.random_normal([10, 10]))
@@ -177,14 +185,14 @@ class DeepAdditiveKernelMCMC(object):
         if do_optimize:
             self.train_MLP()
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_chains, 2*self.dim + self._num_derivatives + 1,
+            sampler = emcee.EnsembleSampler(self.n_chains, 2*10 + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, 2*self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 2*10 + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
@@ -213,9 +221,9 @@ class DeepAdditiveKernelMCMC(object):
                 continue
             sample = numpy.exp(sample)
             print sample
-            # Instantiate a GP for each hyperparameter configuration
-            hypers_list.append(self._nn_hypers)
+            # Instantiate a GP for each hyperparameter configurations
             cov_hyps = sample[:20]
+            cov_hyps = numpy.concatenate([self._nn_hypers, cov_hyps])
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             if self.noisy:

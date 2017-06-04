@@ -340,32 +340,32 @@ class DeepAdditiveKernel final : public CovarianceInterface {
   }
 
   virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-      std::copy(hyperparameters.data(), hyperparameters.data() + 10*dim, w_0_);
-      std::copy(hyperparameters.data() + 10*dim, hyperparameters.data() + 10*dim + 10, b_0_);
-      std::copy(hyperparameters.data() + 10*dim + 10, hyperparameters.data() + 10*dim + 10 + 10*10, w_1_);
-      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10, b_1_);
-      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10,
-                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10, w_2_);
-      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10,
-                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10, b_2_);
-      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10,
-                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, alpha_);
-      std::copy(hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10,
-                hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 10, lengths_);
+      std::copy(hyperparameters, hyperparameters + 10*dim_, w_0_.data());
+      std::copy(hyperparameters + 10*dim_, hyperparameters + 10*dim_ + 10, b_0_.data());
+      std::copy(hyperparameters + 10*dim_ + 10, hyperparameters + 10*dim_ + 10 + 10*10, w_1_.data());
+      std::copy(hyperparameters + 10*dim_ + 10 + 10*10, hyperparameters + 10*dim_ + 10 + 10*10 + 10, b_1_.data());
+      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10,
+                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10, w_2_.data());
+      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10,
+                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10, b_2_.data());
+      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10,
+                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10, alpha_.data());
+      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10,
+                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 10, lengths_.data());
       for (int i = 0; i < dim_; ++i) {
         lengths_sq_[i] = Square(lengths_[i]);
       }
   }
 
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-      std::copy(w_0_.data(), w_0_.data() + 10*dim, hyperparameters.data());
-      std::copy(b_0_.data() + 10*dim, b_0_.data() + 10, hyperparameters.data() + 10*dim);
-      std::copy(w_1_.data(), w_1_.data() + 10*10, hyperparameters.data() + 10*dim + 10);
-      std::copy(b_1_.data(), b_1_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10);
-      std::copy(w_2_.data(), w_2_.data() + 10*10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10);
-      std::copy(b_2_.data(), b_2_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10);
-      std::copy(alpha_.data(), alpha_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10);
-      std::copy(length_.data(), length_.data() + 10, hyperparameters.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10);
+      std::copy(w_0_.data(), w_0_.data() + 10*dim_, hyperparameters);
+      std::copy(b_0_.data(), b_0_.data() + 10, hyperparameters + 10*dim_);
+      std::copy(w_1_.data(), w_1_.data() + 10*10, hyperparameters + 10*dim_ + 10);
+      std::copy(b_1_.data(), b_1_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10);
+      std::copy(w_2_.data(), w_2_.data() + 10*10, hyperparameters + 10*dim_ + 10 + 10*10 + 10);
+      std::copy(b_2_.data(), b_2_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10);
+      std::copy(alpha_.data(), alpha_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10);
+      std::copy(lengths_.data(), lengths_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10);
   }
 
   virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;

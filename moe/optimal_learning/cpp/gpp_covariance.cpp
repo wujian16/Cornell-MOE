@@ -391,7 +391,7 @@ OL_NONNULL_POINTERS void InitializeDeepAdditiveKernel(int dim, const std::vector
   std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, alpha);
   std::copy(hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10, hypers_in.data() + 10*dim + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 10, lengths);
 
-  for (int i = 0; i < dim; ++i) {
+  for (int i = 0; i < 10; ++i) {
     if (alpha[i] <= 0.0) {
       OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha[i], std::numeric_limits<double>::min());
     }
@@ -497,7 +497,7 @@ void DeepAdditiveKernel::GradCovariance(double const * restrict point_one, int c
   std::vector<double> projection_two(10);
   NeuralNetwork(point_two, projection_two.data());
 
-  std::vector<double> kernel(dim_);
+  std::vector<double> kernel(10);
   for (int i=0; i<10; ++i){
     const double norm_val = NormSquaredWithConstInverseWeights(projection_one.data()+i, projection_two.data()+i, lengths_sq_[i], 1);
     kernel[i] = alpha_[i]*std::exp(-0.5*norm_val);
