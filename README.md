@@ -67,7 +67,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
 
 # Running MOE/qKG
 ## Within Python
-See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize is defined in obj_functions.py. One can also define their own function there.
+See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 
 # Contributing
 See [Contributing Documentation][8]
