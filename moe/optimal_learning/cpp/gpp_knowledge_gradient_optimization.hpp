@@ -120,6 +120,9 @@
 #include <memory>
 #include <vector>
 
+#include <stdlib.h>
+#include <queue>
+
 #include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
@@ -861,8 +864,37 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
                               num_to_sample, num_being_sampled, derivatives.data(), num_derivatives,
                               thread_schedule.max_num_threads, configure_for_gradients, normal_rng, &kg_state_vector);
 
+    std::vector<double> KG_starting(num_multistarts);
+    for (int i=0; i<num_multistarts; ++i){
+      kg_state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process.dim());
+      KG_starting[i] = ei_evaluator.ComputeKnowledgeGradient(&kg_state_vector[0]);
+    }
+
+    std::priority_queue<std::pair<double, int>> q;
+    int k = 10; // number of indices we need
+    for (int i = 0; i < KG_starting.size(); ++i) {
+      if (i < k){
+        q.push(std::pair<double, int>(-KG_starting[i], i));
+      }
+      else{
+        if (q.top().first > -KG_starting[i]){
+          q.pop();
+          q.push(std::pair<double, int>(-KG_starting[i], i));
+        }
+      }
+    }
+
+  std::vector<double> top_k_starting(10*num_to_sample*gaussian_process.dim());
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<num_to_sample*gaussian_process.dim(); ++d){
+      top_k_starting[i*num_to_sample*gaussian_process.dim() + d] = start_point_set[ki*num_to_sample*gaussian_process.dim() + d];
+    }
+    q.pop();
+  }
+
   // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
+  OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), -INFINITY, top_k_starting.data());
 
   using RepeatedDomain = RepeatedDomain<DomainType>;
   RepeatedDomain repeated_domain(domain, num_to_sample);
