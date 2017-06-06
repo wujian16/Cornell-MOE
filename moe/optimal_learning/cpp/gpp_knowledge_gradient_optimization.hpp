@@ -867,7 +867,7 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
     std::vector<double> KG_starting(num_multistarts);
     for (int i=0; i<num_multistarts; ++i){
       kg_state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process.dim());
-      KG_starting[i] = ei_evaluator.ComputeKnowledgeGradient(&kg_state_vector[0]);
+      KG_starting[i] = kg_evaluator.ComputeKnowledgeGradient(&kg_state_vector[0]);
     }
 
     std::priority_queue<std::pair<double, int>> q;
