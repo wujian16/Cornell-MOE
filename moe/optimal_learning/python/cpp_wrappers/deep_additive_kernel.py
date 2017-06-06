@@ -111,7 +111,7 @@ class DeepAdditiveKernelMCMC(object):
             # Parameters
             learning_rate = 0.01
             momentum = 0.9
-            training_epochs = 1e4
+            training_epochs = 10000
             batch_size = 10
             display_step = 1000
 

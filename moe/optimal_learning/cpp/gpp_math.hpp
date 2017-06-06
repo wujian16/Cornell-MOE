@@ -207,6 +207,9 @@
 #include <memory>
 #include <vector>
 
+#include <stdlib.h>
+#include <queue>
+
 #include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
@@ -1704,8 +1707,37 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
                                   num_to_sample, num_being_sampled, thread_schedule.max_num_threads,
                                   configure_for_gradients, normal_rng, &ei_state_vector);
 
+    std::vector<double> EI_starting(num_multistarts);
+    for (int i=0; i<num_multistarts; ++i){
+      ei_state_vector[0].SetCurrentPoint(ei_evaluator, start_point_set + i*num_to_sample*gaussian_process.dim());
+      EI_starting[i] = ei_evaluator.ComputeExpectedImprovement(&ei_state_vector[0]);
+    }
+
+    std::priority_queue<std::pair<double, int>> q;
+    int k = 10; // number of indices we need
+    for (int i = 0; i < EI_starting.size(); ++i) {
+      if (i < k){
+        q.push(std::pair<double, int>(-EI_starting[i], i));
+      }
+      else{
+        if (q.top().first > -EI_starting[i]){
+          q.pop();
+          q.push(std::pair<double, int>(-EI_starting[i], i));
+        }
+      }
+    }
+
+  std::vector<double> top_k_starting(10*num_to_sample*gaussian_process.dim());
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<num_to_sample*gaussian_process.dim(); ++d){
+      top_k_starting[i*num_to_sample*gaussian_process.dim() + d] = start_point_set[ki*num_to_sample*gaussian_process.dim() + d];
+    }
+    q.pop();
+  }
+
     // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), -1.0, start_point_set);
+    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), -1.0, top_k_starting.data());
 
     using RepeatedDomain = RepeatedDomain<DomainType>;
     RepeatedDomain repeated_domain(domain, num_to_sample);
