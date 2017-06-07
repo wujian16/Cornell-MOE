@@ -214,7 +214,7 @@ void ComputeOptimalFuturePosteriorMean(
     }
   }
 
-  std::vector<double> top_k_starting(10*gaussian_process.dim());
+  std::vector<double> top_k_starting(k*gaussian_process.dim());
   for (int i = 0; i < k; ++i) {
     int ki = q.top().second;
     for (int d = 0; d<gaussian_process.dim(); ++d){
