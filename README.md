@@ -61,13 +61,29 @@ $ pip install -r requirements.txt
 $ python setup.py install
 ```
 
-# Citation
-
-If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
-
 # Running MOE/qKG
 ## Within Python
 See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+
+# Citation
+If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
+
+```bash
+@inproceedings{wu2016parallel,
+  title={The parallel knowledge gradient method for batch bayesian optimization},
+  author={Wu, Jian and Frazier, Peter},
+  booktitle={Advances in Neural Information Processing Systems},
+  pages={3126--3134},
+  year={2016}
+}
+
+@article{wu2017bayesian,
+  title={Bayesian Optimization with Gradients},
+  author={Wu, Jian and Poloczek, Matthias and Wilson, Andrew Gordon and Frazier, Peter I},
+  journal={arXiv preprint arXiv:1703.04389},
+  year={2017}
+}
+```
 
 # Contributing
 See [Contributing Documentation][8]
