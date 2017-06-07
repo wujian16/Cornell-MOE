@@ -2216,7 +2216,7 @@ void EvaluateEIAtPointList(const GaussianProcess& gaussian_process, const Thread
                                   configure_for_gradients, &ei_state_vector);
 
     // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), 0.0, initial_guesses);
+    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), -1.0, initial_guesses);
 
     NullOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> null_opt;
     typename NullOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType>::ParameterStruct null_parameters;

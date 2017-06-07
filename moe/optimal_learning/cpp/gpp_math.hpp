@@ -1694,7 +1694,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
     }
 
     std::priority_queue<std::pair<double, int>> q;
-    int k = 10; // number of indices we need
+    int k = 20; // number of indices we need
     for (int i = 0; i < EI_starting.size(); ++i) {
       if (i < k){
         q.push(std::pair<double, int>(-EI_starting[i], i));
@@ -1717,7 +1717,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
     }
 
     // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), 0.0, top_k_starting.data());
+    OptimizationIOContainer io_container(ei_state_vector[0].GetProblemSize(), -1.0, top_k_starting.data());
 
     GradientDescentOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> gd_opt;
     MultistartOptimizer<GradientDescentOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> > multistart_optimizer;
