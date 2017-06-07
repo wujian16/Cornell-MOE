@@ -62,8 +62,21 @@ $ python setup.py install
 ```
 
 # Citation
-
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
+@inproceedings{wu2016parallel,
+  title={The parallel knowledge gradient method for batch bayesian optimization},
+  author={Wu, Jian and Frazier, Peter},
+  booktitle={Advances in Neural Information Processing Systems},
+  pages={3126--3134},
+  year={2016}
+}
+
+@article{wu2017bayesian,
+  title={Bayesian Optimization with Gradients},
+  author={Wu, Jian and Poloczek, Matthias and Wilson, Andrew Gordon and Frazier, Peter I},
+  journal={arXiv preprint arXiv:1703.04389},
+  year={2017}
+}
 
 # Running MOE/qKG
 ## Within Python
