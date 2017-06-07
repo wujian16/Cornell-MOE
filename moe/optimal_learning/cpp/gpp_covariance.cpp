@@ -426,6 +426,9 @@ DeepAdditiveKernel::DeepAdditiveKernel(int dim, double const * restrict hypers)
 
 DeepAdditiveKernel::DeepAdditiveKernel(const DeepAdditiveKernel& OL_UNUSED(source)) = default;
 
+/*!\rst
+  deep neural network projection
+\endrst*/
 void DeepAdditiveKernel::NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept {
   std::vector<double> layer1(b_0_);
   GeneralMatrixVectorMultiply(w_0_.data(), 'T', point_one, 1.0, 1.0, dim_, 10, dim_, layer1.data());
@@ -444,6 +447,15 @@ void DeepAdditiveKernel::NeuralNetwork(double const * restrict point_one, double
   for (int i=0; i<10; ++i){
     projection[i] = tanh(projection[i]);
   }
+}
+
+/*!\rst
+  the single covariance matrix in the additive kernel
+\endrst*/
+double DeepAdditiveKernel::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
+  const double norm_val = NormSquaredWithConstInverseWeights(&point_one, &point_two, lengths_sq_[component], 1);
+  const double cov = alpha_[component]*std::exp(-0.5*norm_val);
+  return cov;
 }
 
 /*
@@ -521,7 +533,7 @@ void DeepAdditiveKernel::GradCovariance(double const * restrict point_one, int c
   GeneralMatrixVectorMultiply(w_0_.data(), 'N', top.data(), 1.0, 0.0, dim_, 10, dim_, grad_cov);
 }
 
-CovarianceInterface * DeepAdditiveKernel::Clone() const {
+DeepAdditiveKernel * DeepAdditiveKernel::Clone() const {
   return new DeepAdditiveKernel(*this);
 }
 

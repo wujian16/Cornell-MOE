@@ -318,6 +318,16 @@ class DeepAdditiveKernel final : public CovarianceInterface {
   \endrst*/
   DeepAdditiveKernel(int dim, std::vector<double> hypers);
 
+  /*!\rst
+    deep neural network projection
+  \endrst*/
+  void NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept OL_NONNULL_POINTERS;
+
+  /*!\rst
+    the single covariance matrix in the additive kernel
+  \endrst*/
+  double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
+
   virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                           double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                           double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
@@ -368,7 +378,7 @@ class DeepAdditiveKernel final : public CovarianceInterface {
       std::copy(lengths_.data(), lengths_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10);
   }
 
-  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
+  virtual DeepAdditiveKernel * Clone() const override OL_WARN_UNUSED_RESULT;
 
   OL_DISALLOW_DEFAULT_AND_ASSIGN(DeepAdditiveKernel);
 
@@ -379,11 +389,6 @@ class DeepAdditiveKernel final : public CovarianceInterface {
     Validate and initialize class data members.
   \endrst*/
   void Initialize(std::vector<double> hypers);
-
-  /*!\rst
-    deep neural network projection
-  \endrst*/
-  void NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept OL_NONNULL_POINTERS;
 
   //! dimension of the problem
   int dim_;

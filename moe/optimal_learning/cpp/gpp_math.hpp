@@ -304,7 +304,7 @@ class GaussianProcess final {
       :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
       :num_sampled: number of already-sampled points
   \endrst*/
-  GaussianProcess(const CovarianceInterface& covariance_in,
+  GaussianProcess(const DeepAdditiveKernel& covariance_in,
                   double const * restrict points_sampled_in,
                   double const * restrict points_sampled_value_in,
                   double const * restrict noise_variance_in,
@@ -697,13 +697,33 @@ class GaussianProcess final {
 // protected:
 //  explicit GaussianProcess(const GaussianProcess& source);
   //! covariance class (for computing covariance and its gradients)
-  std::unique_ptr<CovarianceInterface> covariance_ptr_;
+  std::unique_ptr<DeepAdditiveKernel> covariance_ptr_;
 
  private:
+  /*!\rst
+    :cov_matrix[num_sampled*(1+num_derivatives_)][num_sampled*(1+num_derivatives_)]: computed the covariance matrix of points_sampled
+  \endrst*/
+  void BuildAdditiveComponentsInducingPoints() noexcept;
+
+  /*!\rst
+    :weight_matrix
+  \endrst*/
+  void BuildWeightMatrix() noexcept;
+
+  /*!\rst
+    :weight_matrix
+    % Robert G. Keys, Cubic Convolution Interpolation for Digital Image Processing,
+    % IEEE ASSP, 29:6, December 1981, p. 1153-1160.
+  \endrst*/
+  void CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept;
+
+  /*!\rst
+    :cov_matrix[num_sampled*(1+num_derivatives_)][num_sampled*(1+num_derivatives_)]: computed the covariance matrix of points_sampled
+  \endrst*/
   void BuildCovarianceMatrixWithNoiseVariance() noexcept;
 
   /*!\rst
-    :cov_matrix[num_sampled][num_to_sample]: computed "mix" covariance matrix
+    :cov_matrix[num_sampled*(1+num_derivatives_)][num_to_sample*(1+num_derivatives)]: computed "mix" covariance matrix
   \endrst*/
   void BuildMixCovarianceMatrix(double const * restrict points_to_sample, int num_to_sample, int const * restrict derivatives_to_sample,
                                 int num_derivatives_to_sample, double * restrict cov_mat) const noexcept OL_NONNULL_POINTERS;
@@ -834,6 +854,12 @@ class GaussianProcess final {
   //! function values at points_sampled, ``y``
   std::vector<double> points_sampled_value_;
 
+  //! the transformed points after the nueral network for already-sampled points
+  std::vector<double> points_sampled_transformed_;
+
+  //! the inducing points in the structure kernel interpolation framework (SKI).
+  std::vector<double> points_inducing_;
+
   //! derivatives index
   std::vector<int> derivatives_;
   //! number of derivatives observations
@@ -841,6 +867,13 @@ class GaussianProcess final {
 
   //! ``\sigma_n^2``, the noise variance
   std::vector<double> noise_variance_;
+
+  //! the covariance matrix in the inducing points in the structure kernel interpolation framework (SKI).
+  std::vector<double> K_SKI_;
+  //! interpolation (weighting) matrix for the points_sampled_ in SKI
+  std::vector<double> W_points_sampled_SKI_;
+  //! the lowest nonzero indices for W_points_sampled_SKI_
+  std::vector<int> W_points_sampled_SKI_index_;
 
   // derived variables for prior
   //! cholesky factorization of ``K`` (i.e., ``K(X,X)`` covariance matrix (prior), includes noise variance)
