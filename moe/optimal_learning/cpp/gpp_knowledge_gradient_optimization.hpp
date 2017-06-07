@@ -901,8 +901,8 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
   GradientDescentOptimizer<KnowledgeGradientEvaluator<DomainType>, RepeatedDomain> gd_opt;
   MultistartOptimizer<GradientDescentOptimizer<KnowledgeGradientEvaluator<DomainType>, RepeatedDomain> > multistart_optimizer;
   multistart_optimizer.MultistartOptimize(gd_opt, kg_evaluator, optimizer_parameters,
-                                          repeated_domain, thread_schedule, start_point_set,
-                                          num_multistarts, kg_state_vector.data(), nullptr, &io_container);
+                                          repeated_domain, thread_schedule, top_k_starting.data(),
+                                          k, kg_state_vector.data(), nullptr, &io_container);
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
