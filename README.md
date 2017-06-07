@@ -61,6 +61,10 @@ $ pip install -r requirements.txt
 $ python setup.py install
 ```
 
+# Running MOE/qKG
+## Within Python
+See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+
 # Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
 
@@ -80,10 +84,6 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
   year={2017}
 }
 ```
-
-# Running MOE/qKG
-## Within Python
-See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 
 # Contributing
 See [Contributing Documentation][8]
