@@ -1707,7 +1707,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
       }
     }
 
-    std::vector<double> top_k_starting(10*num_to_sample*gaussian_process.dim());
+    std::vector<double> top_k_starting(k*num_to_sample*gaussian_process.dim());
     for (int i = 0; i < k; ++i) {
       int ki = q.top().second;
       for (int d = 0; d<num_to_sample*gaussian_process.dim(); ++d){
