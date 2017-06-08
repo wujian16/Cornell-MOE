@@ -821,8 +821,7 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
                                                         int max_int_steps, bool * restrict found_flag,
                                                         UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
                                                         double * restrict best_next_point) {
-/*
-  int grid_size = 100;
+/*  int grid_size = 100;
   std::vector<double> starting_points(gaussian_process_mcmc.dim()*optimizer_parameters.num_multistarts*num_to_sample);
   std::vector<double> temp_points(gaussian_process_mcmc.dim()*grid_size*num_to_sample);
   std::vector<double> function_values(grid_size, 0.0);
@@ -1000,4 +999,4 @@ extern template void ComputeKGMCMCOptimalPointsToSample(
     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
 }  // end namespace optimal_learning
 
-#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_MCMC_OPTIMIZATION_HPP_
+#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_HEURISTIC_EXPECTED_IMPROVEMENT_OPTIMIZATION_HPP_

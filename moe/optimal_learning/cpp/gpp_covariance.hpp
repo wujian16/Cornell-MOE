@@ -101,8 +101,6 @@ class CovarianceInterface {
                               double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                               double * restrict grad_cov) const noexcept OL_NONNULL_POINTERS = 0;
 
-
-
   /*!\rst
     Returns the number of hyperparameters.  This base class only allows for a maximum of dim + 1 hyperparameters but
     subclasses may implement additional ones.
@@ -293,111 +291,8 @@ class SquareExponential final : public CovarianceInterface {
 };
 
 /*!\rst
-  Implements the square exponential covariance function:
-  ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
-  where L is the diagonal matrix with i-th diagonal entry ``1/lengths[i]/lengths[i]``
-
-  This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
-
-  See CovarianceInterface for descriptions of the virtual functions.
-\endrst*/
-class DeepKernel final : public CovarianceInterface {
- public:
-
-  /*!\rst
-    Constructs a SquareExponential object with the specified hyperparameters.
-
-    \param
-      :dim: the number of spatial dimensions
-      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
-  \endrst*/
-  DeepKernel(int dim, double const * restrict hypers) OL_NONNULL_POINTERS;
-
-  /*!\rst
-    Constructs a SquareExponential object with the specified hyperparameters.
-
-    \param
-      :dim: the number of spatial dimensions
-      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-      :lengths: the hyperparameter length scales, one per spatial dimension
-  \endrst*/
-  DeepKernel(int dim, std::vector<double> hypers);
-
-  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                          double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
-                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-
-  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                              double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
-                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-
-  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return 1 + 1 +
-           dim_ * 50 + 50 +
-           50 * 50 + 50 +
-           50 * 50 + 50 +
-           50 * 2 + 2;
-  }
-
-  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                                            double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
-                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS{
-    OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha_, std::numeric_limits<double>::min());
-  }
-
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, double const * restrict point_two,
-//                                       double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS{
-//    OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha_, std::numeric_limits<double>::min());
-//  }
-
-  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-    OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha_, std::numeric_limits<double>::min());
-  }
-
-  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS{
-    OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (alpha).", alpha_, std::numeric_limits<double>::min());
-  }
-
-  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
-
-  OL_DISALLOW_DEFAULT_AND_ASSIGN(DeepKernel);
-
- private:
-  explicit DeepKernel(const DeepKernel& source);
-
-  /*!\rst
-    Validate and initialize class data members.
-  \endrst*/
-  void Initialize(std::vector<double> hypers);
-
-  /*!\rst
-    deep neural network projection
-  \endrst*/
-  void NeuralNetwork(double const * restrict point_one, double * restrict projection) const noexcept OL_NONNULL_POINTERS;
-
-  //! dimension of the problem
-  int dim_;
-  //! hyperparameters for neural network
-  std::vector<double> w_0_;
-  std::vector<double> b_0_;
-  std::vector<double> w_1_;
-  std::vector<double> b_1_;
-  std::vector<double> w_2_;
-  std::vector<double> b_2_;
-  std::vector<double> w_3_;
-  std::vector<double> b_3_;
-  //! ``\sigma_f^2``, signal variance
-  double alpha_;
-  //! length scales, one per dimension
-  double lengths_;
-  //! square of the length scales, one per dimension
-  double lengths_sq_;
-};
-
-/*!\rst
-  Implements the square exponential covariance function:
-  ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
+  Implements the square exponential additive covariance function:
+  ``cov(x_1, x_2) = \sum \alpha[i] * \exp(-1/2 * ((x_1[i] - x_2[i])^T * L[i] * (x_1[i] - x_2[i])) )``
   where L is the diagonal matrix with i-th diagonal entry ``1/lengths[i]/lengths[i]``
 
   This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
@@ -446,7 +341,7 @@ class AdditiveKernel final : public CovarianceInterface {
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return dim_ * 2 + 2;
+    return dim_ * 2;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -459,8 +354,6 @@ class AdditiveKernel final : public CovarianceInterface {
       lengths_[i] = hyperparameters[i+dim_];
       lengths_sq_[i] = Square(hyperparameters[i+dim_]);
     }
-    var1_ = hyperparameters[2*dim_];
-    var2_ = hyperparameters[2*dim_+1];
   }
 
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS{
@@ -468,8 +361,6 @@ class AdditiveKernel final : public CovarianceInterface {
       hyperparameters[i] = alpha_[i];
       hyperparameters[i+dim_] = lengths_[i];
     }
-    hyperparameters[2*dim_] = var1_;
-    hyperparameters[2*dim_+1] = var2_;
   }
 
   virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
@@ -493,8 +384,6 @@ class AdditiveKernel final : public CovarianceInterface {
   std::vector<double> lengths_;
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
-  double var1_;
-  double var2_;
 };
 
 ///*!\rst

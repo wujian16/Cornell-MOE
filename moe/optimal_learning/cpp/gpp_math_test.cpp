@@ -1138,13 +1138,15 @@ class PingGPPInverseCholeskyCovarianceNoise final : public PingableMatrixInputVe
     std::vector<double> covariance_of_points(num_to_sample_*(1+num_gradients_)*num_pts_);
     gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(), num_pts_,
                                                 nullptr, 0, false, nullptr, covariance_of_points.data());
+    TriangularMatrixMatrixSolve(variance_of_points.data(), 'N', num_to_sample_*(1+num_gradients_), num_pts_,
+                                num_to_sample_*(1+num_gradients_), covariance_of_points.data());
 
     std::vector<double> grad_chol(dim_*Square(num_to_sample_*(1+num_gradients_))*num_derivatives);
     gaussian_process_.ComputeGradCholeskyVarianceOfPoints(&points_to_sample_state, variance_of_points.data(), grad_chol.data());
 
     gaussian_process_.ComputeGradInverseCholeskyCovarianceOfPoints(&points_to_sample_state, variance_of_points.data(),
-                                                                 grad_chol.data(), covariance_of_points.data(),
-                                                                 discrete_pts_.data(), num_pts_, false, nullptr, grad_variance_.data());
+                                                                   grad_chol.data(), covariance_of_points.data(),
+                                                                   discrete_pts_.data(), num_pts_, false, nullptr, grad_variance_.data());
 
     if (gradients != nullptr) {
       OL_THROW_EXCEPTION(OptimalLearningException, "PingGPPInverseCholeskyVarianceNoise::EvaluateAndStoreAnalyticGradient() does not support direct gradient output.");
@@ -1175,9 +1177,9 @@ class PingGPPInverseCholeskyCovarianceNoise final : public PingableMatrixInputVe
 
     gaussian_process_.ComputeCovarianceOfPoints(&points_to_sample_state, discrete_pts_.data(), num_pts_,
                                                 nullptr, 0, false, nullptr, function_values);
-    //gaussian_process_.ComputeVarianceOfPoints(&points_to_sample_state, nullptr, 0, function_values + num_to_sample_*(1+num_gradients_)*num_pts_);
 
-    TriangularMatrixMatrixSolve(chol_temp.data(), 'N', num_to_sample_*(1+num_gradients_), num_pts_, num_to_sample_*(1+num_gradients_), function_values);
+    TriangularMatrixMatrixSolve(chol_temp.data(), 'N', num_to_sample_*(1+num_gradients_), num_pts_,
+                                num_to_sample_*(1+num_gradients_), function_values);
   }
 
  private:
@@ -1187,7 +1189,6 @@ class PingGPPInverseCholeskyCovarianceNoise final : public PingableMatrixInputVe
   int num_to_sample_;
   //! number of points in ``points_sampled``
   int num_sampled_;
-
 
   int num_pts_;
   //! number of derivatives' observations.
