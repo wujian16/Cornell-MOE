@@ -107,14 +107,14 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_geometry_test.cpp
   #gpp_heuristic_expected_improvement_optimization_test.cpp
   gpp_linear_algebra_test.cpp
-  #gpp_math_test.cpp
-  #gpp_knowledge_gradient_optimization_test.cpp
-  #gpp_knowledge_gradient_inner_optimization_test.cpp
-  #gpp_model_selection_test.cpp
+  gpp_math_test.cpp
+  gpp_knowledge_gradient_optimization_test.cpp
+  gpp_knowledge_gradient_inner_optimization_test.cpp
+  gpp_model_selection_test.cpp
   gpp_optimization_test.cpp
   gpp_random_test.cpp
-  #gpp_test_utils.cpp
-  #gpp_test_utils_test.cpp
+  gpp_test_utils.cpp
+  gpp_test_utils_test.cpp
   #gpp_expected_improvement_gpu_test.cpp
   )
 

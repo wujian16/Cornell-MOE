@@ -304,7 +304,7 @@ class GaussianProcess final {
       :dim: the spatial dimension of a point (i.e., number of independent params in experiment)
       :num_sampled: number of already-sampled points
   \endrst*/
-  GaussianProcess(const DeepAdditiveKernel& covariance_in,
+  GaussianProcess(const CovarianceInterface& covariance_in,
                   double const * restrict points_sampled_in,
                   double const * restrict points_sampled_value_in,
                   double const * restrict noise_variance_in,
@@ -697,25 +697,25 @@ class GaussianProcess final {
 // protected:
 //  explicit GaussianProcess(const GaussianProcess& source);
   //! covariance class (for computing covariance and its gradients)
-  std::unique_ptr<DeepAdditiveKernel> covariance_ptr_;
+  std::unique_ptr<CovarianceInterface> covariance_ptr_;
 
  private:
   /*!\rst
     :cov_matrix[num_sampled*(1+num_derivatives_)][num_sampled*(1+num_derivatives_)]: computed the covariance matrix of points_sampled
   \endrst*/
-  void BuildAdditiveComponentsInducingPoints() noexcept;
+  //void BuildAdditiveComponentsInducingPoints() noexcept;
 
   /*!\rst
     :weight_matrix
   \endrst*/
-  void BuildWeightMatrix() noexcept;
+  //void BuildWeightMatrix() noexcept;
 
   /*!\rst
     :weight_matrix
     % Robert G. Keys, Cubic Convolution Interpolation for Digital Image Processing,
     % IEEE ASSP, 29:6, December 1981, p. 1153-1160.
   \endrst*/
-  void CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept;
+  //void CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept;
 
   /*!\rst
     :cov_matrix[num_sampled*(1+num_derivatives_)][num_sampled*(1+num_derivatives_)]: computed the covariance matrix of points_sampled
@@ -1005,7 +1005,7 @@ struct PointsToSampleState final {
 };
 
 struct ExpectedImprovementState;
-//struct OnePotentialSampleExpectedImprovementState;
+struct OnePotentialSampleExpectedImprovementState;
 
 /*!\rst
   A class to encapsulate the computation of expected improvement and its spatial gradient. This class handles the

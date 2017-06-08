@@ -452,11 +452,11 @@ void DeepAdditiveKernel::NeuralNetwork(double const * restrict point_one, double
 /*!\rst
   the single covariance matrix in the additive kernel
 \endrst*/
-double DeepAdditiveKernel::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
+/*double DeepAdditiveKernel::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
   const double norm_val = NormSquaredWithConstInverseWeights(&point_one, &point_two, lengths_sq_[component], 1);
   const double cov = alpha_[component]*std::exp(-0.5*norm_val);
   return cov;
-}
+}*/
 
 /*
   Deep Kernel: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((g(x_1) - g(x_2))^T * L^{-1} * (g(x_1) - g(x_2))) )``

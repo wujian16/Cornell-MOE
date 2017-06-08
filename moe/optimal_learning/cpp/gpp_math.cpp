@@ -335,6 +335,10 @@ OL_NONNULL_POINTERS void BuildMixCovarianceMatrix(const CovarianceInterface& cov
 }
 
 namespace {  // utilities for A_{k,j,i}*x_j and building covariance matrices
+
+/*!\rst
+  the cubic interpolation function
+\endrst*/
 double kcub(double x){
   x = abs(x);
   if (x < 1){
@@ -467,33 +471,33 @@ OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const Covariance
 /*!\rst
   :cov_matrix[num_sampled*(1+num_derivatives_)][num_sampled*(1+num_derivatives_)]: computed the covariance matrix of points_sampled
 \endrst*/
-void GaussianProcess::BuildAdditiveComponentsInducingPoints() noexcept {
-  for (int component=0; component<10; ++component){
-    for (int row=0; row<100; ++row){
-      for (int col=0; col<100; ++col){
-        K_SKI_[Square(100)*component + row + col*100] = covariance_ptr_->AdditiveComponent(points_inducing_[row], points_inducing_[col], component);
-      }
-    }
-  }
-}
+//void GaussianProcess::BuildAdditiveComponentsInducingPoints() noexcept {
+//  for (int component=0; component<10; ++component){
+//    for (int row=0; row<100; ++row){
+//      for (int col=0; col<100; ++col){
+//        K_SKI_[Square(100)*component + row + col*100] = covariance_ptr_->AdditiveComponent(points_inducing_[row], points_inducing_[col], component);
+//      }
+//    }
+//  }
+//}
 
 /*!\rst
   :weight_matrix
 \endrst*/
-void GaussianProcess::BuildWeightMatrix() noexcept {
-  for (int component=0; component<10; ++component){
-    for (int row=0; row<num_sampled_; ++row){
-      CubicInterpolation(points_sampled_transformed_[row*10 + component], points_inducing_.data(), W_points_sampled_SKI_index_[row*10 + component], W_points_sampled_SKI_.data() + 4*10*row+4*component);
-    }
-  }
-}
+//void GaussianProcess::BuildWeightMatrix() noexcept {
+//  for (int component=0; component<10; ++component){
+//    for (int row=0; row<num_sampled_; ++row){
+//      CubicInterpolation(points_sampled_transformed_[row*10 + component], points_inducing_.data(), W_points_sampled_SKI_index_[row*10 + component], W_points_sampled_SKI_.data() + 4*10*row+4*component);
+//    }
+//  }
+//}
 
 /*!\rst
   :weight_matrix
   % Robert G. Keys, Cubic Convolution Interpolation for Digital Image Processing,
   % IEEE ASSP, 29:6, December 1981, p. 1153-1160.
 \endrst*/
-void GaussianProcess::CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept {
+/*void GaussianProcess::CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept {
   index = int((target-grid[0])/(grid[1]-grid[0])) - 1;
   double w = (target-grid[index+1])/(grid[1]-grid[0]); // relative distance to closest smaller grid point [0,1]
   if (index >= 0 && index + 3 <= 99){
@@ -508,7 +512,7 @@ void GaussianProcess::CubicInterpolation(const double target, double const * gri
     weights[2]=0;
     weights[3]=0;
   }
-}
+}*/
 
 void GaussianProcess::BuildCovarianceMatrixWithNoiseVariance() noexcept {
   optimal_learning::BuildCovarianceMatrixWithNoiseVariance(*covariance_ptr_, noise_variance_.data(),
@@ -540,17 +544,17 @@ void GaussianProcess::RecomputeDerivedVariables() {
   }
 
   // create the transformed points after the neural network
-  for (int i=0; i<num_sampled_; ++i){
-    covariance_ptr_->NeuralNetwork(points_sampled_.data() + i*dim_, points_sampled_transformed_.data() + i*10);
-  }
-
-  for (int i=0; i<points_inducing_.size(); ++i){
-    points_inducing_[i] = -1.0 + (2.0/99.0)*i;
-  }
+//  for (int i=0; i<num_sampled_; ++i){
+//    covariance_ptr_->NeuralNetwork(points_sampled_.data() + i*dim_, points_sampled_transformed_.data() + i*10);
+//  }
+//
+//  for (int i=0; i<points_inducing_.size(); ++i){
+//    points_inducing_[i] = -1.0 + (2.0/99.0)*i;
+//  }
 
   // compute K_SKI
-  BuildAdditiveComponentsInducingPoints();
-  BuildWeightMatrix();
+  //BuildAdditiveComponentsInducingPoints();
+  //BuildWeightMatrix();
 
   // recompute derived quantities
   BuildCovarianceMatrixWithNoiseVariance();
@@ -575,7 +579,7 @@ void GaussianProcess::RecomputeDerivedVariables() {
   CholeskyFactorLMatrixVectorSolve(K_chol_.data(), num_sampled_*(num_derivatives_+1), K_inv_y_.data());
 }
 
-GaussianProcess::GaussianProcess(const DeepAdditiveKernel& covariance_in,
+GaussianProcess::GaussianProcess(const CovarianceInterface& covariance_in,
                                  double const * restrict points_sampled_in,
                                  double const * restrict points_sampled_value_in,
                                  double const * restrict noise_variance_in,

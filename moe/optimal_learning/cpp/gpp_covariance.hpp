@@ -326,7 +326,7 @@ class DeepAdditiveKernel final : public CovarianceInterface {
   /*!\rst
     the single covariance matrix in the additive kernel
   \endrst*/
-  double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
+  //double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
 
   virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                           double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
