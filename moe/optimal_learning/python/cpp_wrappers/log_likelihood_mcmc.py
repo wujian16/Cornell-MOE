@@ -85,7 +85,7 @@ class GaussianProcessLogLikelihoodMCMC:
     """
 
     def __init__(self, historical_data, derivatives, prior, chain_length, burnin_steps, n_hypers,
-                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, rng = None):
+                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, noisy = True, rng = None):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
 
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
@@ -109,12 +109,14 @@ class GaussianProcessLogLikelihoodMCMC:
         self.burned = False
         self.burnin_steps = burnin_steps
         self._models = []
+        self.noisy = noisy
 
         if rng is None:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
         else:
             self.rng = rng
         self.n_hypers = n_hypers
+        self.n_chains = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -181,27 +183,24 @@ class GaussianProcessLogLikelihoodMCMC:
 
         if do_optimize:
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_hypers,
-                                            1 + self.dim + self._num_derivatives + 1,
+            sampler = emcee.EnsembleSampler(self.n_chains, 1 + self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, 1 + self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 1 + self.dim + self._num_derivatives + 1)
                 else:
-                    self.p0 = self.prior.sample_from_prior(self.n_hypers)
+                    self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
-                self.p0, _, _ = sampler.run_mcmc(self.p0,
-                                                 self.burnin_steps,
+                self.p0, _, _ = sampler.run_mcmc(self.p0, self.burnin_steps,
                                                  rstate0=self.rng)
 
                 self.burned = True
 
             # Start sampling
-            pos, _, _ = sampler.run_mcmc(self.p0,
-                                         self.chain_length,
+            pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
                                          rstate0=self.rng)
 
             # Save the current position, it will be the start point in
@@ -209,19 +208,24 @@ class GaussianProcessLogLikelihoodMCMC:
             self.p0 = pos
 
             # Take the last samples from each walker
-            self.hypers = sampler.chain[:, -1]
+            self.hypers = sampler.chain[numpy.random.choice(self.n_chains, self.n_hypers), -1]
 
         self.is_trained = True
         self._models = []
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
+            if numpy.any((-20 > sample) + (sample > 20)):
+                continue
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
-            noise = sample[(self.dim+1):]
+            if self.noisy:
+                noise = sample[(self.dim+1):]
+            else:
+                noise = numpy.array((1+self._num_derivatives)*[1.e-8])
             noises_list.append(noise)
             model = GaussianProcess(se, noise,
                                     self._historical_data,
@@ -240,36 +244,41 @@ class GaussianProcessLogLikelihoodMCMC:
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-10 > hyps) + (hyps > 10)):
+        if numpy.any((-20 > hyps) + (hyps > 20)):
             return -numpy.inf
 
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
+        if not self.noisy:
+            noise = numpy.array((1+self._num_derivatives)*[1.e-8])
 
-        if self.prior is not None:
-            posterior = self.prior.lnprob(numpy.log(hyps))
-            return posterior + C_GP.compute_log_likelihood(
-                    cpp_utils.cppify(self._points_sampled),
-                    cpp_utils.cppify(self._points_sampled_value),
-                    self.dim,
-                    self._num_sampled,
-                    self.objective_type,
-                    cpp_utils.cppify_hyperparameters(cov_hyps),
-                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                    cpp_utils.cppify(noise),
-            )
-        else:
-            return C_GP.compute_log_likelihood(
-                    cpp_utils.cppify(self._points_sampled),
-                    cpp_utils.cppify(self._points_sampled_value),
-                    self.dim,
-                    self._num_sampled,
-                    self.objective_type,
-                    cpp_utils.cppify_hyperparameters(cov_hyps),
-                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                    cpp_utils.cppify(noise),
-            )
+        try:
+            if self.prior is not None:
+                posterior = self.prior.lnprob(numpy.log(hyps))
+                return posterior + C_GP.compute_log_likelihood(
+                        cpp_utils.cppify(self._points_sampled),
+                        cpp_utils.cppify(self._points_sampled_value),
+                        self.dim,
+                        self._num_sampled,
+                        self.objective_type,
+                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                        cpp_utils.cppify(noise),
+                )
+            else:
+                return C_GP.compute_log_likelihood(
+                        cpp_utils.cppify(self._points_sampled),
+                        cpp_utils.cppify(self._points_sampled_value),
+                        self.dim,
+                        self._num_sampled,
+                        self.objective_type,
+                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                        cpp_utils.cppify(noise),
+                )
+        except:
+            return -numpy.inf
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.

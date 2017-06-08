@@ -8,12 +8,6 @@ import logging
 import copy
 
 import numpy
-
-import tensorflow as tf
-
-import edward as ed
-from edward.models import MultivariateNormalTriL, Normal, Empirical
-
 import emcee
 
 import moe.build.GPP as C_GP
@@ -24,11 +18,11 @@ from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import Gau
 
 class AdditiveKernelMCMC(object):
 
-    r"""Class for computing log likelihood-like measures of deep kernel model fit.
+    r"""Class for computing log likelihood-like measures of additive kernel model fit.
     """
 
-    def __init__(self, historical_data, derivatives, prior=None, chain_length=1e4, burnin_steps=2e3, n_hypers=10,
-                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, stride = 100, rng = None, noisy=False):
+    def __init__(self, historical_data, derivatives, prior, chain_length, burnin_steps, n_hypers,
+                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, noisy = True, rng = None):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
         :type covariance_function: :class:`moe.optimal_learning.python.interfaces.covariance_interface.CovarianceInterface` subclass
@@ -53,9 +47,8 @@ class AdditiveKernelMCMC(object):
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
         else:
             self.rng = rng
-        self.stride_length = stride
-        self.n_hypers = max(n_hypers, 2*(2*self._historical_data.dim+2+1+len(self._derivatives)))
-        self.noisy = noisy
+        self.n_hypers = n_hypers
+        self.n_chains = max(n_hypers, 2*(2*self._historical_data.dim+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -93,64 +86,6 @@ class AdditiveKernelMCMC(object):
         """
         return copy.deepcopy(self._historical_data)
 
-    def logistic(self, x, a, b):
-        ex = tf.exp(-x)
-        return a + (b - a) / (1. + ex)
-
-    def train_hmc(self, **kwargs):
-        """
-        Trains the model on the historical data.
-        """
-        with tf.Graph().as_default():
-            noise = Normal(tf.zeros(1), tf.ones(1))
-            sigma = Normal(tf.zeros(self.dim), tf.ones(self.dim))
-            l = Normal(tf.zeros(self.dim), tf.ones(self.dim))
-
-
-            param = [tf.nn.softplus(noise), tf.nn.softplus(sigma),
-                     self.logistic(l, 0.04, 10)]
-
-            N = self._points_sampled.shape[0]  # number of data points
-
-            X_input = tf.placeholder(tf.float32, [N, self.dim])
-            f = MultivariateNormalTriL(loc=tf.constant([numpy.mean(self._points_sampled_value)]*N),
-                                       scale_tril=tf.cholesky(self.covariance(param, X_input)))
-
-            qnoise = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, 1])))
-            qsigma = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, self.dim])))
-            ql = Empirical(params=tf.Variable(tf.random_normal([self.chain_length, self.dim])))
-
-            # from (N, 1) to (N, )
-            logging.info("Starting sampling")
-            inference = ed.HMC({noise: qnoise,
-                                sigma: qsigma,
-                                l: ql}, data={X_input: self._points_sampled,
-                                              f: self._points_sampled_value.ravel()})
-
-            inference.run(step_size = 1e-2, n_steps = 10)
-
-            qnoise = tf.nn.softplus(qnoise.params[self.burnin_steps:self.chain_length:self.stride_length]).eval()
-            qsigma = tf.nn.softplus(qsigma.params[self.burnin_steps:self.chain_length:self.stride_length]).eval()
-            ql = self.logistic(ql.params[self.burnin_steps:self.chain_length:self.stride_length], 0.04, 10).eval()
-            sess = ed.get_session()
-            if sess is not None:
-                sess.close()
-                del sess
-            self.n_hypers = ql.shape[0]
-            self._models = []
-            hypers_list = []
-            noises_list = []
-            for n_sample in xrange(self.n_hypers):
-                param = numpy.concatenate([qsigma[n_sample].ravel(), ql[n_sample].ravel()]).astype(numpy.float64)
-                hypers_list.append(param)
-                cov = SquareExponential(param)
-                model = GaussianProcess(cov, qnoise[n_sample].astype(numpy.float64), self._historical_data, [])
-                noises_list.append(1e-6)
-                self._models.append(model)
-            self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
-                                                              self._historical_data, [])
-            self.is_trained = True
-
     def train(self, do_optimize=True, **kwargs):
         """
         Performs MCMC sampling to sample hyperparameter configurations from the
@@ -171,14 +106,14 @@ class AdditiveKernelMCMC(object):
         if do_optimize:
             # We have one walker for each hyperparameter configuration
             sampler = emcee.EnsembleSampler(self.n_hypers,
-                                            2*self.dim + 2 + self._num_derivatives + 1,
+                                            2*self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, 2*self.dim + 2 + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_hypers, 2*self.dim + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_hypers)
                 # Run MCMC sampling
@@ -189,9 +124,7 @@ class AdditiveKernelMCMC(object):
                 self.burned = True
 
             # Start sampling
-            pos, _, _ = sampler.run_mcmc(self.p0,
-                                         self.chain_length,
-                                         rstate0=self.rng)
+            pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length, rstate0=self.rng)
 
             # Save the current position, it will be the start point in
             # the next iteration
@@ -205,21 +138,19 @@ class AdditiveKernelMCMC(object):
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            if numpy.any((-5 > sample) + (sample > 5)):
+            if numpy.any((-20 > sample) + (sample > 20)):
                 continue
             sample = numpy.exp(sample)
             # Instantiate a GP for each hyperparameter configuration
-            cov_hyps = sample[:(2*self.dim + 2)]
+            cov_hyps = sample[:(2*self.dim)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             if self.noisy:
-                noise = sample[(2*self.dim + 2):]
+                noise = sample[(2*self.dim):]
             else:
                 noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
             noises_list.append(noise)
-            model = GaussianProcess(se, noise,
-                                    self._historical_data,
-                                    self._derivatives)
+            model = GaussianProcess(se, noise, self._historical_data, self._derivatives)
             self._models.append(model)
 
         self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
@@ -234,80 +165,39 @@ class AdditiveKernelMCMC(object):
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-5 > hyps) + (hyps > 5)):
+        if numpy.any((-20 > hyps) + (hyps > 20)):
             return -numpy.inf
         hyps = numpy.exp(hyps)
-        cov_hyps = hyps[:(2*self.dim + 2)]
-        noise = hyps[(2*self.dim + 2):]
+        cov_hyps = hyps[:(2*self.dim)]
+        noise = hyps[(2*self.dim):]
         if not self.noisy:
             noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
-        if self.prior is not None:
-            posterior = self.prior.lnprob(numpy.log(hyps))
-            return posterior + C_GP.compute_log_likelihood(
-                    cpp_utils.cppify(self._points_sampled),
-                    cpp_utils.cppify(self._points_sampled_value),
-                    self.dim,
-                    self._num_sampled,
-                    self.objective_type,
-                    cpp_utils.cppify(cov_hyps),
-                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                    cpp_utils.cppify(noise),
-            )
-        else:
-            return C_GP.compute_log_likelihood(
-                    cpp_utils.cppify(self._points_sampled),
-                    cpp_utils.cppify(self._points_sampled_value),
-                    self.dim,
-                    self._num_sampled,
-                    self.objective_type,
-                    cpp_utils.cppify(cov_hyps),
-                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                    cpp_utils.cppify(noise),
-            )
-
-    def square_dist(self, param, points_one, points_two = None):
-        r"""Compute the square distances of two sets of points, cov(``points_one``, ``points_two``).
-        Square Exponential: ``dis(x_1, x_2) = ((x_1 - x_2)^T * L * (x_1 - x_2)) ``
-        :param points_one: first input, the point ``x``
-        :type point_one: array of float64 with shape (N1, dim)
-        :param points_two: second input, the point ``y``
-        :type point_two: array of float64 with shape (N2, dim)
-        :return: the square distance matrix (tensor) between the input points
-        :rtype: tensor of float64 with shape (N1, N2)
-        """
-        noise, sigma, l = param
-        #W_0, b_0, noise, sigma, l = param
-        points_one = tf.divide(points_one, l)
-
-        results = []
-        for i in xrange(points_one.shape[1]):
-            set_sum1 = tf.reduce_sum(tf.square(points_one[:,i:(i+1)]), 1)
-            temp = -2 * tf.matmul(points_one[:,i:(i+1)], tf.transpose(points_one[:,i:(i+1)])) + \
-                   tf.reshape(set_sum1, (-1, 1)) + tf.reshape(set_sum1, (1, -1))
-            results.append(temp)
-        return results
-
-    def covariance(self, param, points_one, points_two=None):
-        r"""Compute the square exponential covariance function of two points, cov(``point_one``, ``point_two``).
-        Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
-        .. Note:: comments are copied from the matching method comments of
-          :class:`moe.optimal_learning.python.interfaces.covariance_interface.CovarianceInterface`.
-        The covariance function is guaranteed to be symmetric by definition: ``covariance(x, y) = covariance(y, x)``.
-        This function is also positive definite by definition.
-        :param points_one: first input, the point ``x``
-        :type point_one: array of float64 with shape (N1, dim)
-        :param points_two: second input, the point ``y``
-        :type point_two: array of float64 with shape (N2, dim)
-        :return: the covariance tensor between the input points
-        :rtype: tensor of float64 with shape (N1, N2)
-        """
-        noise, sigma, l = param
-        dist = self.square_dist(param, points_one, points_two)
-        #W_0, b_0, noise, sigma, l = param
-        result = 1e-1*tf.constant(numpy.identity(points_one.shape[0]), dtype=tf.float32)
-        for i in xrange(points_one.shape[1]):
-            result += sigma[i] * tf.exp(-0.5 * dist[i])
-        return result
+        try:
+            if self.prior is not None:
+                posterior = self.prior.lnprob(numpy.log(hyps))
+                return posterior + C_GP.compute_log_likelihood(
+                        cpp_utils.cppify(self._points_sampled),
+                        cpp_utils.cppify(self._points_sampled_value),
+                        self.dim,
+                        self._num_sampled,
+                        self.objective_type,
+                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                        cpp_utils.cppify(noise),
+                )
+            else:
+                return C_GP.compute_log_likelihood(
+                        cpp_utils.cppify(self._points_sampled),
+                        cpp_utils.cppify(self._points_sampled_value),
+                        self.dim,
+                        self._num_sampled,
+                        self.objective_type,
+                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                        cpp_utils.cppify(noise),
+                )
+        except:
+            return -numpy.inf
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.
