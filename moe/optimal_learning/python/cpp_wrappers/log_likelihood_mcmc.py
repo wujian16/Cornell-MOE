@@ -116,7 +116,7 @@ class GaussianProcessLogLikelihoodMCMC:
         else:
             self.rng = rng
         self.n_hypers = n_hypers
-        self.n_chains = max(n_hypers, 2*(2*self._historical_data.dim+1+self._num_derivatives))
+        self.n_chains = max(n_hypers, 2*(self._historical_data.dim+1+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -183,14 +183,14 @@ class GaussianProcessLogLikelihoodMCMC:
 
         if do_optimize:
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_chains, 1+self.dim + self._num_derivatives + 1,
+            sampler = emcee.EnsembleSampler(self.n_chains, 1 + self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, 1+self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 1 + self.dim + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
