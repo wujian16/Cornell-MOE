@@ -152,17 +152,13 @@ class PingCovarianceSpatialDerivatives final : public PingableMatrixInputVectorO
 
 /*!\rst
   Supports evaluating a covariance function, Covariance.Covariance() and its gradient, Covariance.GradCovariance()
-
   Covariance has the form f = cov(x_d, y_d), where x, y are vectors of size dim.
   The underlying function only works with r = x - y.  In order to reflect this behavior, this class takes
   y_d (reference_point) as a constant input in the constructor.  Then EvaluateAndStoreAnalyticGradient and EvaluateFunction both take
   point_delta as an argument.  x (point) is computed as: x = y + point_delta
-
   This is required for ping testing: error checking needs to know the magnitude of r (aka point_delta).
   Additionally, since r is the important quantity, different (x,y) pairs that yield the same r are completely identical here.
-
   The output of covariance is a scalar.
-
   WARNING: this class is NOT THREAD SAFE.
 \endrst*/
 template <typename CovarianceClass>
@@ -859,114 +855,6 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   \return
     number of pings that failed
 \endrst*/
-template <typename PingCovarianceClass>
-OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingDeepKernelSpatialDerivativesTest(char const * class_name, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
-  const  int dim = 3;
-  double point1[dim] = {0.2, -1.7, 0.91};
-  double point2[dim] = {-2.1, 0.32, 1.12};
-  double point3[dim] = {0.0};
-  double point4[dim] = {0.0};
-  int errors_this_iteration;
-  int total_errors = 0;
-
-  int* derivatives = nullptr;
-  int num_derivatives = 0;
-
-  const int num_hypers = 1 + 1 + 10*dim + 10 +
-                         10*10 + 10 +
-                         10*10 + 10 +
-                         10 + 1;
-
-  std::vector<double> lengths(num_hypers);
-  double alpha = 2.80723;
-
-  UniformRandomGenerator uniform_generator(31415);
-  boost::uniform_real<double> uniform_double(0.5, 2.5);
-
-  {
-    // hand-checked test-case
-    for (int j = 0; j < num_hypers; ++j) {
-      lengths[j] = uniform_double(uniform_generator.engine);
-    }
-    PingCovarianceClass covariance_evaluator1(lengths, point2, derivatives, num_derivatives, dim);
-    covariance_evaluator1.EvaluateAndStoreAnalyticGradient(point1, nullptr);
-    errors_this_iteration = PingDerivative(covariance_evaluator1, point1, epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
-
-    if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("on hand-checked case");
-    }
-    total_errors += errors_this_iteration;
-  }
-
-  {
-    // check that at r = x1 - x2 = 0, the gradient is precisely 0
-    for (int j = 0; j < num_hypers; ++j) {
-      lengths[j] = uniform_double(uniform_generator.engine);
-    }
-    PingCovarianceClass covariance_evaluator2(lengths, point4, derivatives, num_derivatives, dim);
-    covariance_evaluator2.EvaluateAndStoreAnalyticGradient(point3, nullptr);
-
-    errors_this_iteration = PingDerivative(covariance_evaluator2, point3, epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
-    for (int j = 0; j < dim; ++j) {
-      if (covariance_evaluator2.GetAnalyticGradient(j, 0, 0) != 0.0) {
-        errors_this_iteration += 1;
-      }
-    }
-
-    if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("on zero test case");
-    }
-    total_errors += errors_this_iteration;
-  }
-
-  int num_being_sampled = 0;
-  int num_to_sample = 1;
-  int num_sampled = 1;
-
-  MockExpectedImprovementEnvironment EI_environment;
-
-  for (int i = 0; i < 50; ++i) {
-    EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
-
-    for (int j = 0; j < num_hypers; ++j) {
-      lengths[j] = uniform_double(uniform_generator.engine);
-    }
-
-    PingCovarianceClass covariance_evaluator(lengths, EI_environment.points_sampled(), derivatives, num_derivatives, EI_environment.dim);
-    covariance_evaluator.EvaluateAndStoreAnalyticGradient(EI_environment.points_to_sample(), nullptr);
-
-    errors_this_iteration = covariance_evaluator.CheckSymmetry();
-    if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("hyperparameter gradients from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
-    }
-
-    errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon,
-                                            tolerance_fine, tolerance_coarse, input_output_ratio);
-
-    if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
-    }
-    total_errors += errors_this_iteration;
-  }
-  delete [] derivatives;
-
-  if (total_errors != 0) {
-    OL_PARTIAL_FAILURE_PRINTF("%s covariance pings failed with %d errors\n", class_name, total_errors);
-  } else {
-    OL_PARTIAL_SUCCESS_PRINTF("%s  covariance pings passed\n", class_name);
-  }
-
-  return total_errors;
-}
-
-/*!\rst
-  Pings the gradient of covariance functions to check their validity.
-  Test cases include a couple of simple hand-checked cases as well as a run
-  of 50 randomly generated tests.
-
-  \return
-    number of pings that failed
-\endrst*/
 
 template <typename PingCovarianceClass>
 OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingAdditiveKernelSpatialDerivativesTest(char const * class_name, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
@@ -1080,15 +968,6 @@ OL_WARN_UNUSED_RESULT int RunCovarianceSpatialDerivativesTests() {
     current_errors = PingCovarianceSpatialDerivativesTest<PingCovarianceSpatialDerivatives<SquareExponential> >("Square Exponential", epsilon_square_exponential, 4.0e-3, 1.0e-2, 1.0e-18);
     if (current_errors != 0) {
       OL_PARTIAL_FAILURE_PRINTF("pinging sqexp covariance failed with %d errors\n", current_errors);
-    }
-    total_errors += current_errors;
-  }
-
-  {
-    double epsilon_square_exponential[2] = {1.0e-2, 1.0e-3};
-    current_errors = PingDeepKernelSpatialDerivativesTest<PingDeepKernelSpatialDerivatives<DeepKernel> >("Deep Kernel", epsilon_square_exponential, 4.0e-3, 1.0e-2, 1.0e-18);
-    if (current_errors != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("pinging dkl covariance failed with %d errors\n", current_errors);
     }
     total_errors += current_errors;
   }

@@ -3,8 +3,6 @@
 This file contains a class to manipulate a Gaussian Process through numpy/scipy.
 See :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface` for more details.
 """
-import logging
-
 import copy
 
 import numpy
@@ -42,6 +40,7 @@ class AdditiveKernelMCMC(object):
         self.burned = False
         self.burnin_steps = burnin_steps
         self._models = []
+        self.noisy = noisy
 
         if rng is None:
             self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
@@ -105,7 +104,7 @@ class AdditiveKernelMCMC(object):
 
         if do_optimize:
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_hypers,
+            sampler = emcee.EnsembleSampler(self.n_chains,
                                             2*self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
@@ -113,9 +112,9 @@ class AdditiveKernelMCMC(object):
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_hypers, 2*self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 2*self.dim + self._num_derivatives + 1)
                 else:
-                    self.p0 = self.prior.sample_from_prior(self.n_hypers)
+                    self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
                 self.p0, _, _ = sampler.run_mcmc(self.p0,
                                                  self.burnin_steps,
@@ -131,7 +130,7 @@ class AdditiveKernelMCMC(object):
             self.p0 = pos
 
             # Take the last samples from each walker
-            self.hypers = sampler.chain[:, -1]
+            self.hypers = sampler.chain[numpy.random.choice(self.n_chains, self.n_hypers), -1]
 
         self.is_trained = True
         self._models = []
