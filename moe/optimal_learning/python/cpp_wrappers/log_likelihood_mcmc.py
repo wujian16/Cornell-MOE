@@ -252,7 +252,7 @@ class GaussianProcessLogLikelihoodMCMC:
         noise = hyps[(self.dim+1):]
         if not self.noisy:
             noise = numpy.array((1+self._num_derivatives)*[1.e-8])
-
+            hyps[-(1+len(self._derivatives)):] = noise
         try:
             if self.prior is not None:
                 posterior = self.prior.lnprob(numpy.log(hyps))
