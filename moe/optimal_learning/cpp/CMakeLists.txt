@@ -105,7 +105,6 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_covariance_test.cpp
   gpp_domain_test.cpp
   gpp_geometry_test.cpp
-  #gpp_heuristic_expected_improvement_optimization_test.cpp
   gpp_linear_algebra_test.cpp
   gpp_math_test.cpp
   gpp_knowledge_gradient_optimization_test.cpp
@@ -115,7 +114,6 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_random_test.cpp
   gpp_test_utils.cpp
   gpp_test_utils_test.cpp
-  #gpp_expected_improvement_gpu_test.cpp
   )
 
 # readonly

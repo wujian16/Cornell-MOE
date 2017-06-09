@@ -47,7 +47,7 @@ class AdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.n_hypers = n_hypers
-        self.n_chains = max(n_hypers, 2*(2*self._historical_data.dim+1+self._num_derivatives))
+        self.n_chains = max(n_hypers, 2*(self.dim*self.dim+2*self.dim+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -105,14 +105,14 @@ class AdditiveKernelMCMC(object):
         if do_optimize:
             # We have one walker for each hyperparameter configuration
             sampler = emcee.EnsembleSampler(self.n_chains,
-                                            2*self.dim + self._num_derivatives + 1,
+                                            self.dim*self.dim+2*self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, 2*self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, self.dim*self.dim+2*self.dim + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
@@ -137,15 +137,16 @@ class AdditiveKernelMCMC(object):
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            if numpy.any((-20 > sample) + (sample > 20)):
+            if numpy.any((-20 > sample[self.dim*self.dim:]) + (sample[self.dim*self.dim:] > 20)):
                 continue
-            sample = numpy.exp(sample)
+            sample = numpy.exp(sample[self.dim*self.dim:(self.dim*self.dim+2*self.dim)])
+            print sample
             # Instantiate a GP for each hyperparameter configuration
-            cov_hyps = sample[:(2*self.dim)]
+            cov_hyps = sample[:(self.dim*self.dim+2*self.dim)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             if self.noisy:
-                noise = sample[(2*self.dim):]
+                noise = sample[(self.dim*self.dim+2*self.dim):]
             else:
                 noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
             noises_list.append(noise)
@@ -164,23 +165,25 @@ class AdditiveKernelMCMC(object):
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-20 > hyps) + (hyps > 20)):
+        if numpy.any((-20 > hyps[self.dim*self.dim:]) + (hyps[self.dim*self.dim:] > 20)):
             return -numpy.inf
-        hyps = numpy.exp(hyps)
-        cov_hyps = hyps[:(2*self.dim)]
-        noise = hyps[(2*self.dim):]
+        hyps[self.dim*self.dim:] = numpy.exp(hyps[self.dim*self.dim:])
+        cov_hyps = hyps[:(self.dim*self.dim+2*self.dim)]
+        noise = hyps[(self.dim*self.dim+2*self.dim):]
         if not self.noisy:
             noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
+            hyps[-(1+len(self._derivatives)):] = noise
         try:
             if self.prior is not None:
-                posterior = self.prior.lnprob(numpy.log(hyps))
+                hyps[self.dim*self.dim:(self.dim*self.dim+2*self.dim)] = numpy.log(hyps[self.dim*self.dim:(self.dim*self.dim+2*self.dim)])
+                posterior = self.prior.lnprob(hyps)
                 return posterior + C_GP.compute_log_likelihood(
                         cpp_utils.cppify(self._points_sampled),
                         cpp_utils.cppify(self._points_sampled_value),
                         self.dim,
                         self._num_sampled,
                         self.objective_type,
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(cov_hyps),
                         cpp_utils.cppify(self._derivatives), self._num_derivatives,
                         cpp_utils.cppify(noise),
                 )
@@ -191,7 +194,7 @@ class AdditiveKernelMCMC(object):
                         self.dim,
                         self._num_sampled,
                         self.objective_type,
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
+                        cpp_utils.cppify(cov_hyps),
                         cpp_utils.cppify(self._derivatives), self._num_derivatives,
                         cpp_utils.cppify(noise),
                 )

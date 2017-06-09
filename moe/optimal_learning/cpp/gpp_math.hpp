@@ -700,6 +700,13 @@ class GaussianProcess final {
   std::unique_ptr<CovarianceInterface> covariance_ptr_;
 
  private:
+  /*!\rst
+    :weight_matrix
+    % Robert G. Keys, Cubic Convolution Interpolation for Digital Image Processing,
+    % IEEE ASSP, 29:6, December 1981, p. 1153-1160.
+  \endrst*/
+  void CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept;
+
   void BuildCovarianceMatrixWithNoiseVariance() noexcept;
 
   /*!\rst

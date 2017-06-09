@@ -335,6 +335,18 @@ OL_NONNULL_POINTERS void BuildMixCovarianceMatrix(const CovarianceInterface& cov
 }
 
 namespace {  // utilities for A_{k,j,i}*x_j and building covariance matrices
+/*!\rst
+  the cubic interpolation function
+\endrst*/
+double kcub(double x){
+  x = abs(x);
+  if (x < 1){
+    return (( 1.5 * x - 2.5) * x) * x + 1;
+  }
+  else{
+    return ((-0.5 * x + 2.5) * x - 4) * x + 2;
+  }
+}
 
 /*!\rst
   Helper function to perform the following math (in index notation)::
@@ -455,6 +467,28 @@ OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const Covariance
 }
 
 }  // end unnamed namespace
+
+/*!\rst
+  :weight_matrix
+  % Robert G. Keys, Cubic Convolution Interpolation for Digital Image Processing,
+  % IEEE ASSP, 29:6, December 1981, p. 1153-1160.
+\endrst*/
+void GaussianProcess::CubicInterpolation(const double target, double const * grid, int& index, double * weights) noexcept {
+  index = int((target-grid[0])/(grid[1]-grid[0])) - 1;
+  double w = (target-grid[index+1])/(grid[1]-grid[0]); // relative distance to closest smaller grid point [0,1]
+  if (index >= 0 && index + 3 <= 99){
+    for (int i=0; i<4; ++i){
+      weights[i] = kcub(w + 1 - i);
+    }
+  }
+  else {
+    index += 1;
+    weights[0] = 1-w;
+    weights[1] = w;
+    weights[2]=0;
+    weights[3]=0;
+  }
+}
 
 void GaussianProcess::BuildCovarianceMatrixWithNoiseVariance() noexcept {
   optimal_learning::BuildCovarianceMatrixWithNoiseVariance(*covariance_ptr_, noise_variance_.data(),
