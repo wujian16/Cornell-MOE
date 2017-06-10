@@ -57,24 +57,16 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
   std::vector<double> hypers(num_hypers);
   CopyPylistToVector(hyperparameters, num_hypers, hypers);
 
-  printf("log lik, %f\n", -1.0);
-
   AdditiveKernel adk(dim, hypers);
-
-  printf("log lik, %f\n", 0.05);
 
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
-      printf("log lik, %f\n", 0.0);
       LogMarginalLikelihoodEvaluator log_marginal_eval(input_container.points_sampled.data(),
                                                        input_container.points_sampled_value.data(),
                                                        input_container.derivatives.data(), input_container.num_derivatives,
                                                        input_container.dim, input_container.num_sampled);
-      printf("log lik, %f\n", 0.1);
       LogMarginalLikelihoodState log_marginal_state(log_marginal_eval, adk, input_container.noise_variance);
-
       double log_likelihood = log_marginal_eval.ComputeLogLikelihood(log_marginal_state);
-      printf("log lik, %f\n", log_likelihood);
       return log_likelihood;
     }  // end case LogLikelihoodTypes::kLogMarginalLikelihood
 /*    case LogLikelihoodTypes::kLeaveOneOutLogLikelihood: {

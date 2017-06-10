@@ -542,11 +542,9 @@ void LogMarginalLikelihoodEvaluator::FillLogLikelihoodState(LogMarginalLikelihoo
   optimal_learning::BuildCovarianceMatrixWithNoiseVariance(*log_likelihood_state->covariance_ptr, points_sampled_.data(),
                                                            dim_, num_sampled_, log_likelihood_state->noise_variance.data(),
                                                            derivatives_.data(), num_derivatives_, log_likelihood_state->K_chol.data());
-
   // TODO(GH-211): Re-examine ignoring singular covariance matrices here
   int OL_UNUSED(chol_info) = ComputeCholeskyFactorL(num_sampled_*(num_derivatives_+1),
                                                     log_likelihood_state->K_chol.data());
-
   // K_inv_y
   double mean_ = 0.0;
   for (int i=0; i<num_sampled_; ++i){
@@ -600,6 +598,7 @@ double LogMarginalLikelihoodEvaluator::ComputeLogLikelihood(
   // term1 = y^T * K_inv_y
   double log_marginal_term1 = -0.5*DotProduct(log_likelihood_state.y.data(),
                                               log_likelihood_state.K_inv_y.data(), num_sampled_*(num_derivatives_+1));
+
   // compute term3 = -\frac{n}{2} * \log(2*pi), where log(2*pi) has been precomputed
   double log_marginal_term3 = -0.5*static_cast<double>(num_sampled_*(num_derivatives_+1))*kLog2Pi;
 
@@ -800,7 +799,6 @@ void LogMarginalLikelihoodState::SetHyperparameters(const EvaluatorType& log_lik
   for (int i = 0; i < num_derivatives+1; ++i){
       noise_variance[i] = hyperparameters[i];
   }
-
   // evaluate derived quantities
   log_likelihood_eval.FillLogLikelihoodState(this);
 }

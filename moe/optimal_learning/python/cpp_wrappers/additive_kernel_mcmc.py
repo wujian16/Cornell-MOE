@@ -5,6 +5,7 @@ See :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface` for
 """
 import copy
 
+import math
 import numpy
 import emcee
 
@@ -137,9 +138,9 @@ class AdditiveKernelMCMC(object):
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            if numpy.any((-20 > sample[self.dim*self.dim:]) + (sample[self.dim*self.dim:] > 20)):
+            if numpy.any((-20 > sample[self.dim*self.dim:-1]) + (sample[self.dim*self.dim:-1] > 20)):
                 continue
-            sample = numpy.exp(sample[self.dim*self.dim:(self.dim*self.dim+2*self.dim)])
+            sample[self.dim*self.dim:] = numpy.exp(sample[self.dim*self.dim:])
             print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim*self.dim+2*self.dim)]
@@ -165,41 +166,35 @@ class AdditiveKernelMCMC(object):
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-20 > hyps[self.dim*self.dim:]) + (hyps[self.dim*self.dim:] > 20)):
-            return -numpy.inf
-        hyps[self.dim*self.dim:] = numpy.exp(hyps[self.dim*self.dim:])
-        cov_hyps = hyps[:(self.dim*self.dim+2*self.dim)]
-        noise = hyps[(self.dim*self.dim+2*self.dim):]
+        if numpy.any((-20 > hyps[(self.dim*self.dim):-1]) + (hyps[(self.dim*self.dim):-1] > 20)):
+          return -numpy.inf
         if not self.noisy:
-            noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
-            hyps[-(1+len(self._derivatives)):] = noise
+          hyps[-(1+len(self._derivatives)):] = numpy.log(numpy.array([1.0e-8]*(1+len(self._derivatives))))
+        posterior = 1
+        if self.prior is not None:
+          posterior = self.prior.lnprob(hyps)
+        weight = numpy.array(hyps[:(self.dim*self.dim)])
+        kernel_hyps = numpy.array(numpy.exp(hyps[(self.dim*self.dim):]))
+        cov_hyps = numpy.concatenate([weight, kernel_hyps[:(2*self.dim)]])
+        noise = kernel_hyps[(2*self.dim):]
+        print cov_hyps, noise
         try:
-            if self.prior is not None:
-                hyps[self.dim*self.dim:(self.dim*self.dim+2*self.dim)] = numpy.log(hyps[self.dim*self.dim:(self.dim*self.dim+2*self.dim)])
-                posterior = self.prior.lnprob(hyps)
-                return posterior + C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
-                )
-            else:
-                return C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
-                )
+          lik = posterior + C_GP.compute_log_likelihood(
+                cpp_utils.cppify(self._points_sampled),
+                cpp_utils.cppify(self._points_sampled_value),
+                self.dim,
+                self._num_sampled,
+                self.objective_type,
+                cpp_utils.cppify(cov_hyps),
+                cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                cpp_utils.cppify(noise),
+          )
+          if math.isnan(lik):
+              return -numpy.inf
+          else:
+              return lik
         except:
-            return -numpy.inf
+          return -numpy.inf
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.

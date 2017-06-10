@@ -125,11 +125,11 @@ SquareExponential::SquareExponential(const SquareExponential& OL_UNUSED(source))
 /*!\rst
   the single covariance matrix in the sqex kernel
 \endrst*/
-double SquareExponential::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
+/*double SquareExponential::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
   const double norm_val = NormSquaredWithConstInverseWeights(&point_one, &point_two, lengths_sq_[component], 1);
   const double cov = alpha_*std::exp(-0.5*norm_val);
   return cov;
-}
+}*/
 
 /*
   Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L^{-1} * (x_1 - x_2)) )``
@@ -335,14 +335,9 @@ OL_NONNULL_POINTERS void InitializeAdditiveKernel(int dim, const std::vector<dou
     OL_THROW_EXCEPTION(InvalidValueException<int>, "num_hypers (truth) and hypers vector size do not match.", hypers_in.size(), num_hypers);
   }
 
-  printf("number of hypers %d\n", hypers_in.size());
-
   std::copy(hypers_in.data(), hypers_in.data() + Square(dim), w_);
-  printf("number of hypers %d %f\n", hypers_in.size(), 0.0);
   std::copy(hypers_in.data() + Square(dim), hypers_in.data() + Square(dim) + dim, alpha_);
-  printf("number of hypers %d %f\n", hypers_in.size(), 0.1);
   std::copy(hypers_in.data() + Square(dim) + dim, hypers_in.data() + Square(dim) + 2*dim, lengths_);
-  printf("number of hypers %d %f\n", hypers_in.size(), 0.2);
 
   for (int i = 0; i < dim; ++i) {
     if (alpha_[i] <= 0.0) {
@@ -380,11 +375,11 @@ AdditiveKernel::AdditiveKernel(const AdditiveKernel& OL_UNUSED(source)) = defaul
 /*!\rst
   the single covariance matrix in the additive kernel
 \endrst*/
-double AdditiveKernel::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
+/*double AdditiveKernel::AdditiveComponent(double const point_one, double const point_two, int component) const noexcept {
   const double norm_val = NormSquaredWithConstInverseWeights(&point_one, &point_two, lengths_sq_[component], 1);
   const double cov = alpha_[component]*std::exp(-0.5*norm_val);
   return cov;
-}
+}*/
 
 /*
   Additive Kernel: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((g(x_1) - g(x_2))^T * L^{-1} * (g(x_1) - g(x_2))) )``
@@ -392,14 +387,14 @@ double AdditiveKernel::AdditiveComponent(double const point_one, double const po
 void AdditiveKernel::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                                 double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                 double * restrict cov) const noexcept {
-  std::vector<double> proj1(0.0, dim_);
+  std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
   for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
   }
 
-  std::vector<double> proj2(0.0, dim_);
-  GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 1.0, dim_, dim_, dim_, proj2.data());
+  std::vector<double> proj2(dim_, 0.0);
+  GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 0.0, dim_, dim_, dim_, proj2.data());
   for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
   }
@@ -420,13 +415,13 @@ void AdditiveKernel::Covariance(double const * restrict point_one, int const * r
 void AdditiveKernel::GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                                     double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                     double * restrict grad_cov) const noexcept {
-  std::vector<double> proj1(0.0, dim_);
+  std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
   for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
   }
 
-  std::vector<double> proj2(0.0, dim_);
+  std::vector<double> proj2(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 1.0, dim_, dim_, dim_, proj2.data());
   for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
@@ -454,19 +449,19 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
                                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                                   double * restrict grad_hyperparameter_cov) const noexcept {
   // deriv wrt alpha does not have the same form as the length terms, special case it
-  std::vector<double> proj1(0.0, dim_);
+  std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
   for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
   }
 
-  std::vector<double> proj2(0.0, dim_);
+  std::vector<double> proj2(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 1.0, dim_, dim_, dim_, proj2.data());
   for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
   }
 
-  std::vector<double> grad_temp(0.0, dim_);
+  std::vector<double> grad_temp(dim_, 0.0);
   for (int i = 0; i < dim_; ++i) {
     const double norm_val = NormSquaredWithConstInverseWeights(proj1.data()+i, proj2.data()+i, lengths_sq_[i], 1);
     const double cov = alpha_[i]*std::exp(-0.5*norm_val);

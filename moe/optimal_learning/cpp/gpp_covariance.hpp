@@ -62,7 +62,7 @@ class CovarianceInterface {
   /*!\rst
     the single covariance matrix in the additive kernel
   \endrst*/
-  virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS = 0;
+  //virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS = 0;
 
   /*!\rst
     Computes the covariance function of the function values and their gradients of two points, cov(``point_one``, ``point_two``).
@@ -198,7 +198,7 @@ class SquareExponential final : public CovarianceInterface {
   /*!\rst
     the single covariance matrix in the sqex kernel
   \endrst*/
-  virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
+  //virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
 
   // covariance of point_one and point_two
   virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -304,7 +304,7 @@ class AdditiveKernel final : public CovarianceInterface {
   /*!\rst
     the single covariance matrix in the additive kernel
   \endrst*/
-  virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
+  //virtual double AdditiveComponent(double const point_one, double const point_two, int component) const noexcept OL_NONNULL_POINTERS;
 
   virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
                           double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
