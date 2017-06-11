@@ -247,9 +247,9 @@ class GaussianProcessLogLikelihoodMCMC:
         # hyperparameters live on a log scale
         if numpy.any((-20 > hyps) + (hyps > 20)):
             return -numpy.inf
-
         if not self.noisy:
-            noise = numpy.log((1+self._num_derivatives)*[1.e-8])
+            hyps[(self.dim+1):] = numpy.log((1+self._num_derivatives)*[1.e-8])
+
         posterior = 1
         if self.prior is not None:
             posterior = self.prior.lnprob(hyps)
