@@ -218,6 +218,7 @@ class GaussianProcessLogLikelihoodMCMC:
             if numpy.any((-20 > sample) + (sample > 20)):
                 continue
             sample = numpy.exp(sample)
+            print sample
             # Instantiate a GP for each hyperparameter configuration
             cov_hyps = sample[:(self.dim+1)]
             hypers_list.append(cov_hyps)
@@ -247,36 +248,27 @@ class GaussianProcessLogLikelihoodMCMC:
         if numpy.any((-20 > hyps) + (hyps > 20)):
             return -numpy.inf
 
+        if not self.noisy:
+            noise = numpy.log((1+self._num_derivatives)*[1.e-8])
+        posterior = 1
+        if self.prior is not None:
+            posterior = self.prior.lnprob(hyps)
+
         hyps = numpy.exp(hyps)
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
-        if not self.noisy:
-            noise = numpy.array((1+self._num_derivatives)*[1.e-8])
-            hyps[-(1+len(self._derivatives)):] = noise
+
         try:
-            if self.prior is not None:
-                posterior = self.prior.lnprob(numpy.log(hyps))
-                return posterior + C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
-                )
-            else:
-                return C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
-                )
+            return posterior + C_GP.compute_log_likelihood(
+                    cpp_utils.cppify(self._points_sampled),
+                    cpp_utils.cppify(self._points_sampled_value),
+                    self.dim,
+                    self._num_sampled,
+                    self.objective_type,
+                    cpp_utils.cppify_hyperparameters(cov_hyps),
+                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                    cpp_utils.cppify(noise),
+            )
         except:
             return -numpy.inf
 
