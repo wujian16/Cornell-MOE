@@ -13,7 +13,6 @@ from moe.optimal_learning.python.data_containers import HistoricalData, SamplePo
 from moe.optimal_learning.python.geometry_utils import ClosedInterval
 from moe.optimal_learning.python.repeated_domain import RepeatedDomain
 from moe.optimal_learning.python.default_priors import DefaultPrior
-#from moe.optimal_learning.python.random_features import sample_from_global_optima
 
 from moe.optimal_learning.python.python_version.domain import TensorProductDomain as pythonTensorProductDomain
 from moe.optimal_learning.python.python_version.optimization import GradientDescentParameters as pyGradientDescentParameters
@@ -61,7 +60,7 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
                                             objective_func._sample_var) for num, pt in enumerate(init_pts)])
 
 # initialize the model
-prior = DefaultPrior(2*dim+len(observations), dim, len(observations))
+prior = DefaultPrior(dim*dim+2*dim+len(observations), dim, len(observations))
 # noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
                                                            chain_length = 2000, burnin_steps = 1000, n_hypers = 8, noisy = False)

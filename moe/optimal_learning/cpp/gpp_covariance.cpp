@@ -389,15 +389,15 @@ void AdditiveKernel::Covariance(double const * restrict point_one, int const * r
                                 double * restrict cov) const noexcept {
   std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
-  }
+  }*/
 
   std::vector<double> proj2(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 0.0, dim_, dim_, dim_, proj2.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
-  }
+  }*/
 
   double sum_kernel=0;
   for (int i=0; i<dim_; ++i){
@@ -417,21 +417,21 @@ void AdditiveKernel::GradCovariance(double const * restrict point_one, int const
                                     double * restrict grad_cov) const noexcept {
   std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
-  }
+  }*/
 
   std::vector<double> proj2(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 1.0, dim_, dim_, dim_, proj2.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
-  }
+  }*/
 
   for (int i = 0; i < dim_; ++i) {
     const double norm_val = NormSquaredWithConstInverseWeights(proj1.data()+i, proj2.data()+i, lengths_sq_[i], 1);
     const double cov = alpha_[i]*std::exp(-0.5*norm_val);
     grad_cov[i] = (proj2[i] - proj1[i])/lengths_sq_[i]*cov;
-    grad_cov[i] *= (1-Square(proj1[i]));
+    //grad_cov[i] *= (1-Square(proj1[i]));
   }
   GeneralMatrixVectorMultiply(w_.data(), 'N', grad_cov, 1.0, 0.0, dim_, dim_, dim_, grad_cov);
 }
@@ -451,15 +451,15 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
   // deriv wrt alpha does not have the same form as the length terms, special case it
   std::vector<double> proj1(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_one, 1.0, 0.0, dim_, dim_, dim_, proj1.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj1[i] = tanh(proj1[i]);
-  }
+  }*/
 
   std::vector<double> proj2(dim_, 0.0);
   GeneralMatrixVectorMultiply(w_.data(), 'T', point_two, 1.0, 1.0, dim_, dim_, dim_, proj2.data());
-  for (int i=0; i<dim_; ++i){
+  /*for (int i=0; i<dim_; ++i){
     proj2[i] = tanh(proj2[i]);
-  }
+  }*/
 
   std::vector<double> grad_temp(dim_, 0.0);
   for (int i = 0; i < dim_; ++i) {
@@ -468,7 +468,7 @@ void AdditiveKernel::HyperparameterGradCovariance(double const * restrict point_
     grad_hyperparameter_cov[Square(dim_) + i] = cov/alpha_[i];
     grad_hyperparameter_cov[Square(dim_) + i + dim_] = cov*Square((proj1[i] - proj2[i])/lengths_[i])/lengths_[i];
     grad_temp[i] = (proj2[i] - proj1[i])/lengths_sq_[i]*cov;
-    grad_temp[i] *= (1-Square(proj1[i]));
+    //grad_temp[i] *= (1-Square(proj1[i]));
   }
   GeneralMatrixMatrixMultiply(point_one, 'N', grad_temp.data(), 1.0, 0.0, dim_, 1, dim_, grad_hyperparameter_cov);
 }

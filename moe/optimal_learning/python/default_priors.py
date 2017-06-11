@@ -19,10 +19,10 @@ class DefaultPrior(BasePrior):
         self.num_noise = num_noise
 
         # Prior for the weight matrix
-        self.normal = NormalPrior(mean=0.0, sigma=1.0)
+        self.normal = NormalPrior(mean=0.0, sigma=0.1)
 
         # Prior for the cov lengthscales
-        self.tophat = TophatPrior(-5, 2)
+        self.tophat = TophatPrior(-2, 3)
 
         # Prior for the covariance amplitude
         self.ln_prior = NormalPrior(mean=0.0, sigma=1.0)

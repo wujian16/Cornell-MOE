@@ -170,13 +170,14 @@ class AdditiveKernelMCMC(object):
           return -numpy.inf
 
         if not self.noisy:
-            noise = numpy.log((1+self._num_derivatives)*[1.e-8])
+            hyps[(self.dim*self.dim + 2*self.dim):] = numpy.log((1+self._num_derivatives)*[1.e-8])
+
         posterior = 1
         if self.prior is not None:
             posterior = self.prior.lnprob(hyps)
 
         weight = numpy.array(hyps[:(self.dim*self.dim)])
-        kernel_hyps = numpy.array(numpy.exp(hyps[(self.dim*self.dim):]))
+        kernel_hyps = numpy.exp(hyps[(self.dim*self.dim):])
         cov_hyps = numpy.concatenate([weight, kernel_hyps[:(2*self.dim)]])
         noise = kernel_hyps[(2*self.dim):]
 
