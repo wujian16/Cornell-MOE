@@ -166,20 +166,22 @@ class AdditiveKernelMCMC(object):
         """
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
-        if numpy.any((-20 > hyps[(self.dim*self.dim):-1]) + (hyps[(self.dim*self.dim):-1] > 20)):
+        if numpy.any((-20 > hyps[(self.dim*self.dim):]) + (hyps[(self.dim*self.dim):] > 20)):
           return -numpy.inf
+
         if not self.noisy:
-          hyps[-(1+len(self._derivatives)):] = numpy.log(numpy.array([1.0e-8]*(1+len(self._derivatives))))
+            noise = numpy.log((1+self._num_derivatives)*[1.e-8])
         posterior = 1
         if self.prior is not None:
-          posterior = self.prior.lnprob(hyps)
+            posterior = self.prior.lnprob(hyps)
+
         weight = numpy.array(hyps[:(self.dim*self.dim)])
         kernel_hyps = numpy.array(numpy.exp(hyps[(self.dim*self.dim):]))
         cov_hyps = numpy.concatenate([weight, kernel_hyps[:(2*self.dim)]])
         noise = kernel_hyps[(2*self.dim):]
-        print cov_hyps, noise
+
         try:
-          lik = posterior + C_GP.compute_log_likelihood(
+          return posterior + C_GP.compute_log_likelihood(
                 cpp_utils.cppify(self._points_sampled),
                 cpp_utils.cppify(self._points_sampled_value),
                 self.dim,
@@ -189,10 +191,6 @@ class AdditiveKernelMCMC(object):
                 cpp_utils.cppify(self._derivatives), self._num_derivatives,
                 cpp_utils.cppify(noise),
           )
-          if math.isnan(lik):
-              return -numpy.inf
-          else:
-              return lik
         except:
           return -numpy.inf
 
