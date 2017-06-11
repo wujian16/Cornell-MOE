@@ -52,7 +52,7 @@ GaussianProcessMCMC * make_gaussian_process_mcmc(const boost::python::list& hype
                                                  const boost::python::list& points_sampled_value,
                                                  const boost::python::list& derivatives,
                                                  int num_mcmc, int num_derivatives, int dim, int num_sampled) {
-  const int num_hypers = Square(dim) + 2*dim;
+  const int num_hypers = Square(dim) + dim;
   std::vector<double> hyperparameters_list_vector(num_mcmc*num_hypers);
   CopyPylistToVector(hyperparameters_list, num_mcmc*num_hypers, hyperparameters_list_vector);
 

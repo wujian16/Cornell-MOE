@@ -39,7 +39,7 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   gaussian_process_lst.reserve(num_mcmc_);
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
-  const int num_hypers = Square(dim_) + 2*dim_;
+  const int num_hypers = Square(dim_) + dim_;
   for (int i=0; i<num_mcmc_;++i){
     AdditiveKernel akl(dim_, std::vector<double>(hypers, hypers + num_hypers));
     gaussian_process_lst.emplace_back(akl, points_sampled_.data(), points_sampled_value_.data(),

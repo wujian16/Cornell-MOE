@@ -315,7 +315,7 @@ class AdditiveKernel final : public CovarianceInterface {
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return Square(dim_) + dim_ * 2;
+    return Square(dim_) + dim_;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -326,8 +326,8 @@ class AdditiveKernel final : public CovarianceInterface {
     std::copy(hyperparameters, hyperparameters + Square(dim_), w_.data());
     for (int i = 0; i < dim_; ++i) {
       alpha_[i] = hyperparameters[Square(dim_) + i];
-      lengths_[i] = hyperparameters[Square(dim_) + i + dim_];
-      lengths_sq_[i] = Square(hyperparameters[Square(dim_) + i + dim_]);
+      //lengths_[i] = hyperparameters[Square(dim_) + i + dim_];
+      //lengths_sq_[i] = Square(hyperparameters[Square(dim_) + i + dim_]);
     }
   }
 
@@ -335,7 +335,7 @@ class AdditiveKernel final : public CovarianceInterface {
     std::copy(w_.data(), w_.data() + Square(dim_), hyperparameters);
     for (int i = 0; i < dim_; ++i) {
       hyperparameters[Square(dim_) + i] = alpha_[i];
-      hyperparameters[Square(dim_) + i + dim_] = lengths_[i];
+      //hyperparameters[Square(dim_) + i + dim_] = lengths_[i];
     }
   }
 
@@ -359,9 +359,9 @@ class AdditiveKernel final : public CovarianceInterface {
   //! ``\sigma_f^2``, signal variance
   std::vector<double> alpha_;
   //! length scales, one per dimension
-  std::vector<double> lengths_;
+  //std::vector<double> lengths_;
   //! square of the length scales, one per dimension
-  std::vector<double> lengths_sq_;
+  //std::vector<double> lengths_sq_;
 };
 }  // end namespace optimal_learning
 
