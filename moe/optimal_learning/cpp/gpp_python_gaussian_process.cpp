@@ -50,10 +50,10 @@ GaussianProcess * make_gaussian_process(const boost::python::list& hyperparamete
   PythonInterfaceInputContainer input_container(points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  const int num_hypers = 10*dim + 10 +
-                         10*10 + 10 +
-                         10*10 + 10 +
-                         10 + 10;
+  const int num_hypers = 50*dim + 50 +
+                         50*50 + 50 +
+                         50*10 + 10 +
+                         1 + 10;
 
   std::vector<double> hypers(num_hypers);
   CopyPylistToVector(hyperparameters, num_hypers, hypers);

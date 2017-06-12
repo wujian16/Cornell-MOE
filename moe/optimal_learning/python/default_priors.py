@@ -14,7 +14,7 @@ class DefaultPrior(BasePrior):
         self.n_dims = n_dims
         # The number of noises
         self.num_noise = num_noise
-        # Prior for the Matern52 lengthscales
+        # Prior for the square-exponential lengthscales
         self.tophat = TophatPrior(-2, 3)
 
         # Prior for the covariance amplitude
@@ -26,9 +26,9 @@ class DefaultPrior(BasePrior):
     def lnprob(self, theta):
         lp = 0
         # Covariance amplitude
-        lp += self.ln_prior.lnprob(theta[:10])
+        lp += self.ln_prior.lnprob(theta[:1])
         # Lengthscales
-        lp += self.tophat.lnprob(theta[10:-self.num_noise])
+        lp += self.tophat.lnprob(theta[1:-self.num_noise])
         # Noise
         for i in xrange(self.num_noise, 0, -1):
             lp += self.horseshoe.lnprob(theta[-i])
@@ -38,12 +38,12 @@ class DefaultPrior(BasePrior):
         p0 = numpy.zeros([n_samples, self.n_dims])
         # Covariance amplitude
         as_sample = numpy.array([self.ln_prior.sample_from_prior(n_samples)[:, 0]
-                                 for _ in xrange(10)]).T
-        p0[:, :10] = as_sample
+                                 for _ in xrange(1)]).T
+        p0[:, :1] = as_sample
         # Lengthscales
         ls_sample = numpy.array([self.tophat.sample_from_prior(n_samples)[:, 0]
-                              for _ in xrange(10, (self.n_dims - self.num_noise))]).T
-        p0[:, 10:(self.n_dims - self.num_noise)] = ls_sample
+                              for _ in xrange(1, (self.n_dims - self.num_noise))]).T
+        p0[:, 1:(self.n_dims - self.num_noise)] = ls_sample
         # Noise
         ns_sample = numpy.array([self.horseshoe.sample_from_prior(n_samples)[:, 0]
                               for _ in xrange(self.num_noise)]).T

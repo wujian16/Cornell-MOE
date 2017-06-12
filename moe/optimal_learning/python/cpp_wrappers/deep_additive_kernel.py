@@ -6,9 +6,7 @@ See :mod:`moe.optimal_learning.python.interfaces.gaussian_process_interface` for
 import logging
 
 import copy
-
 import numpy
-
 import tensorflow as tf
 
 import emcee
@@ -44,6 +42,9 @@ class DeepAdditiveKernelMCMC(object):
 
         self.objective_type = log_likelihood_type
 
+        self.adapt_epoch = 5000
+        self.init_learning_rate = 0.01
+
         self.prior = prior
         self.chain_length = chain_length
         self.burned = False
@@ -56,7 +57,7 @@ class DeepAdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.n_hypers = n_hypers
-        self.n_chains = max(n_hypers, 2*(2*10+1+self._num_derivatives))
+        self.n_chains = max(n_hypers, 2*(1+10+1+self._num_derivatives))
         self._nn_hypers = None
 
     @property
@@ -109,18 +110,17 @@ class DeepAdditiveKernelMCMC(object):
         """
         with tf.Graph().as_default():
             # Parameters
-            learning_rate = 0.01
             momentum = 0.9
-            training_epochs = 10000
-            batch_size = 10
+            training_epochs = 20000
+            batch_size = min(10, self._num_sampled)
             display_step = 1000
 
-            qw_0 = tf.Variable(tf.random_normal([10, self.dim]))
-            qw_1 = tf.Variable(tf.random_normal([10, 10]))
-            qw_2 = tf.Variable(tf.random_normal([10, 10]))
+            qw_0 = tf.Variable(tf.random_normal([50, self.dim]))
+            qw_1 = tf.Variable(tf.random_normal([50, 50]))
+            qw_2 = tf.Variable(tf.random_normal([10, 50]))
             qw_3 = tf.Variable(tf.random_normal([1, 10]))
-            qb_0 = tf.Variable(tf.random_normal([10]))
-            qb_1 = tf.Variable(tf.random_normal([10]))
+            qb_0 = tf.Variable(tf.random_normal([50]))
+            qb_1 = tf.Variable(tf.random_normal([50]))
             qb_2 = tf.Variable(tf.random_normal([10]))
             qb_3 = tf.Variable(tf.random_normal([1]))
 
@@ -128,6 +128,7 @@ class DeepAdditiveKernelMCMC(object):
 
             x = tf.placeholder(tf.float32, [None, self.dim])
             y = tf.placeholder(tf.float32, [None, 1])
+            learning_rate = tf.placeholder(tf.float32, shape=[])
             param = [tf.transpose(qw_0), tf.transpose(qw_1), tf.transpose(qw_2), tf.transpose(qw_3),
                      qb_0, qb_1, qb_2, qb_3]
 
@@ -135,15 +136,12 @@ class DeepAdditiveKernelMCMC(object):
             pred = self.neural_network(x, param)
             # Define loss and optimizer
             cost = tf.reduce_mean(tf.square(tf.subtract(y, pred)))
-            optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=momentum).minimize(cost)
-
-            # Initializing the variables
-            init = tf.global_variables_initializer()
-
+            # Initializing the variable
+            optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.9).minimize(cost)
             # Launch the graph
             with tf.Session() as sess:
+                init = tf.global_variables_initializer()
                 sess.run(init)
-
                 # Training cycle
                 for epoch in xrange(training_epochs):
                     avg_cost = 0.
@@ -152,19 +150,19 @@ class DeepAdditiveKernelMCMC(object):
                     for i in xrange(total_batch):
                         batch_x, batch_y = self._points_sampled[i*batch_size:min((i+1)*batch_size, N)], self._points_sampled_value[i*batch_size:min((i+1)*batch_size, N)]
                         # Run optimization op (backprop) and cost op (to get loss value)
-                        _, c = sess.run([optimizer, cost], feed_dict={x: batch_x,
-                                                                      y: batch_y})
+                        _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y, learning_rate: self.init_learning_rate})
                         # Compute average loss
                         avg_cost += c / total_batch
                     # Display logs per epoch step
                     if epoch % display_step == 0:
-                        print("Epoch:", '%04d' % (epoch+1), "cost=", \
-                              "{:.9f}".format(avg_cost))
+                      print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost))
+                    if epoch % self.adapt_epoch == 0:
+                       self.init_learning_rate *= 0.1
                 print("Optimization Finished!")
                 self._nn_hypers = numpy.concatenate([
                         qw_0.eval().ravel(), qb_0.eval().ravel(),
                         qw_1.eval().ravel(), qb_1.eval().ravel(),
-                        qw_2.eval().ravel(), qb_2.eval().ravel()])
+                        qw_2.eval().ravel(), qb_2.eval().ravel()]).astype(numpy.float64)
 
     def train(self, do_optimize=True, **kwargs):
         """
@@ -186,14 +184,14 @@ class DeepAdditiveKernelMCMC(object):
         if do_optimize:
             self.train_MLP()
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_chains, 2*10 + self._num_derivatives + 1,
+            sampler = emcee.EnsembleSampler(self.n_chains, 1 + 10 + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, 2*10 + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, 1 + 10 + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
@@ -223,12 +221,12 @@ class DeepAdditiveKernelMCMC(object):
             sample = numpy.exp(sample)
             print sample
             # Instantiate a GP for each hyperparameter configurations
-            cov_hyps = sample[:20]
+            cov_hyps = sample[:11]
             cov_hyps = numpy.concatenate([self._nn_hypers, cov_hyps])
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             if self.noisy:
-                noise = sample[20:]
+                noise = sample[11:]
             else:
                 noise = numpy.array((1+self._num_derivatives)*[1.e-8])
             noises_list.append(noise)
@@ -250,42 +248,33 @@ class DeepAdditiveKernelMCMC(object):
         # Bound the hyperparameter space to keep things sane. Note all
         # hyperparameters live on a log scale
         if numpy.any((-20 > hyps) + (hyps > 20)):
-            return -numpy.inf
+          return -numpy.inf
+
+        if not self.noisy:
+          hyps[11:] = numpy.log((1+self._num_derivatives)*[1.e-8])
+
+        posterior = 1
+        if self.prior is not None:
+          posterior = self.prior.lnprob(hyps)
 
         hyps = numpy.exp(hyps)
-        cov_hyps = hyps[:20]
-        noise = hyps[20:]
-        if not self.noisy:
-            noise = numpy.array((1+self._num_derivatives)*[1.e-8])
+        cov_hyps = hyps[:11]
+        noise = hyps[11:]
 
-        try:
-            if self.prior is not None:
-                posterior = self.prior.lnprob(numpy.log(hyps))
-                return posterior + C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify_hyperparameters(self._nn_hypers),
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
+        #try:
+        return posterior + C_GP.compute_log_likelihood(
+                cpp_utils.cppify(self._points_sampled),
+                cpp_utils.cppify(self._points_sampled_value),
+                self.dim,
+                self._num_sampled,
+                self.objective_type,
+                cpp_utils.cppify(self._nn_hypers),
+                cpp_utils.cppify(cov_hyps),
+                cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                cpp_utils.cppify(noise),
                 )
-            else:
-                return C_GP.compute_log_likelihood(
-                        cpp_utils.cppify(self._points_sampled),
-                        cpp_utils.cppify(self._points_sampled_value),
-                        self.dim,
-                        self._num_sampled,
-                        self.objective_type,
-                        cpp_utils.cppify_hyperparameters(self._nn_hypers),
-                        cpp_utils.cppify_hyperparameters(cov_hyps),
-                        cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                        cpp_utils.cppify(noise),
-                )
-        except:
-            return -numpy.inf
+        #except:
+        #    return -numpy.inf
 
     def neural_network(self, X, param):
         """define the neural network part
@@ -313,5 +302,5 @@ class DeepAdditiveKernelMCMC(object):
         # TODO(GH-159): When C++ can pass back numpy arrays, we can stop keeping a duplicate in self._historical_data.
         self._historical_data.append_sample_points(sampled_points)
         if len(self.models) > 0:
-            for model in self._models:
-                model.add_sampled_points(sampled_points)
+          for model in self._models:
+            model.add_sampled_points(sampled_points)

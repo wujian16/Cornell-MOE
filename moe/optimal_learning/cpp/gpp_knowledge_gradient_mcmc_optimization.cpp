@@ -39,10 +39,10 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   gaussian_process_lst.reserve(num_mcmc_);
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
-  const int num_hypers = 10*dim_ + 10 +
-                         10*10 + 10 +
-                         10*10 + 10 +
-                         10 + 10;
+  const int num_hypers = 50*dim_ + 50 +
+                         50*50 + 50 +
+                         50*10 + 10 +
+                         1 + 10;
   for (int i=0; i<num_mcmc_;++i){
     DeepAdditiveKernel dak(dim_, std::vector<double>(hypers, hypers + num_hypers));
     gaussian_process_lst.emplace_back(dak, points_sampled_.data(), points_sampled_value_.data(),

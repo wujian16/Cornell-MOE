@@ -337,10 +337,10 @@ class DeepAdditiveKernel final : public CovarianceInterface {
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return dim_ * 10 + 10 +
-           10 * 10 + 10 +
-           10 * 10 + 10 +
-           10 * 2;
+    return 50*dim_ + 50 +
+           50*50 + 50 +
+           50*10 + 10 +
+           10+1;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -350,32 +350,28 @@ class DeepAdditiveKernel final : public CovarianceInterface {
   }
 
   virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-      std::copy(hyperparameters, hyperparameters + 10*dim_, w_0_.data());
-      std::copy(hyperparameters + 10*dim_, hyperparameters + 10*dim_ + 10, b_0_.data());
-      std::copy(hyperparameters + 10*dim_ + 10, hyperparameters + 10*dim_ + 10 + 10*10, w_1_.data());
-      std::copy(hyperparameters + 10*dim_ + 10 + 10*10, hyperparameters + 10*dim_ + 10 + 10*10 + 10, b_1_.data());
-      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10,
-                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10, w_2_.data());
-      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10,
-                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10, b_2_.data());
-      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10,
-                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10, alpha_.data());
-      std::copy(hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10,
-                hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10 + 10, lengths_.data());
-      for (int i = 0; i < dim_; ++i) {
+      std::copy(hyperparameters, hyperparameters + 50*dim_, w_0_.data());
+      std::copy(hyperparameters + 50*dim_, hyperparameters + 50*dim_ + 50, b_0_.data());
+      std::copy(hyperparameters + 50*dim_ + 50, hyperparameters + 50*dim_ + 50 + 50*50, w_1_.data());
+      std::copy(hyperparameters + 50*dim_ + 50 + 50*50, hyperparameters + 50*dim_ + 50 + 50*50 + 50, b_1_.data());
+      std::copy(hyperparameters + 50*dim_ + 50 + 50*50 + 50, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10, w_2_.data());
+      std::copy(hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10, b_2_.data());
+      std::copy(hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10 + 1, alpha_.data());
+      std::copy(hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10 + 1, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10 + 1 + 10, lengths_.data());
+      for (int i = 0; i < 10; ++i) {
         lengths_sq_[i] = Square(lengths_[i]);
       }
   }
 
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-      std::copy(w_0_.data(), w_0_.data() + 10*dim_, hyperparameters);
-      std::copy(b_0_.data(), b_0_.data() + 10, hyperparameters + 10*dim_);
-      std::copy(w_1_.data(), w_1_.data() + 10*10, hyperparameters + 10*dim_ + 10);
-      std::copy(b_1_.data(), b_1_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10);
-      std::copy(w_2_.data(), w_2_.data() + 10*10, hyperparameters + 10*dim_ + 10 + 10*10 + 10);
-      std::copy(b_2_.data(), b_2_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10);
-      std::copy(alpha_.data(), alpha_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10);
-      std::copy(lengths_.data(), lengths_.data() + 10, hyperparameters + 10*dim_ + 10 + 10*10 + 10 + 10*10 + 10 + 10);
+      std::copy(w_0_.data(), w_0_.data() + 50*dim_, hyperparameters);
+      std::copy(b_0_.data(), b_0_.data() + 50, hyperparameters + 50*dim_);
+      std::copy(w_1_.data(), w_1_.data() + 50*50, hyperparameters + 50*dim_ + 50);
+      std::copy(b_1_.data(), b_1_.data() + 50, hyperparameters + 50*dim_ + 50 + 50*50);
+      std::copy(w_2_.data(), w_2_.data() + 50*10, hyperparameters + 50*dim_ + 50 + 50*50 + 50);
+      std::copy(b_2_.data(), b_2_.data() + 10, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10);
+      std::copy(alpha_.data(), alpha_.data() + 1, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10);
+      std::copy(lengths_.data(), lengths_.data() + 10, hyperparameters + 50*dim_ + 50 + 50*50 + 50 + 50*10 + 10 + 1);
   }
 
   virtual DeepAdditiveKernel * Clone() const override OL_WARN_UNUSED_RESULT;
@@ -406,300 +402,6 @@ class DeepAdditiveKernel final : public CovarianceInterface {
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
 };
-
-///*!\rst
-//  Special case of the square exponential covariance function where all entries of L must be the same; i.e., all
-//  length scales are equal.
-//
-//  This exists only for testing hyperparameter optimization (since two is an easy number of parameters to work with); in general
-//  this class should not be used.
-//
-//  This covariance object has 2 hyperparameters: ``\alpha, length``
-//
-//  See CovarianceInterface for descriptions of the virtual functions.
-//\endrst*/
-//class SquareExponentialSingleLength final : public CovarianceInterface {
-// public:
-//  /*!\rst
-//    Constructs a SquareExponentialSingleLength object. We provide three constructors with signatures matching other
-//    covariance classes for convenience.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
-//      :length: the constant length scale to use for all hyperparameter length scales
-//
-//    Note: for pointer or vector length, length[0] must be a valid expression.
-//  \endrst*/
-//  SquareExponentialSingleLength(int dim, double alpha, double length);
-//
-//  SquareExponentialSingleLength(int dim, double alpha, double const * restrict length) OL_NONNULL_POINTERS;
-//
-//  SquareExponentialSingleLength(int dim, double alpha, std::vector<double> length);
-//
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-//
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-//    return 2;
-//  }
-//
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-//    alpha_ = hyperparameters[0];
-//    length_ = hyperparameters[1];
-//    length_sq_ = Square(hyperparameters[1]);
-//  }
-//
-//  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-//    hyperparameters[0] = alpha_;
-//    hyperparameters[1] = length_;
-//  }
-//
-//  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
-//
-//  OL_DISALLOW_DEFAULT_AND_ASSIGN(SquareExponentialSingleLength);
-//
-// private:
-//  explicit SquareExponentialSingleLength(const SquareExponentialSingleLength& source);
-//
-//  //! dimension of the problem
-//  int dim_;
-//  //! ``\sigma_f^2``, signal variance
-//  double alpha_;
-//  //! length scale, one for all dimensions
-//  double length_;
-//  //! square of the length scale
-//  double length_sq_;
-//};
-
-///*!\rst
-//  Implements a case of the Matern class of covariance functions:
-//  ``cov_{matern}(r) = \alpha [\frac{2^{1-\nu}}{\Gamma(\nu)}\left( \frac{\sqrt{2\nu}r}{l} \right)^{\nu} B_{\nu}\left( \frac{\sqrt{2\nu}r}{l} \right)]``
-//  where \nu is the "smoothness parameter", ``l`` is the length-scale, ``r = x_1 - x_2``, and ``B_{\nu}`` is a modified Bessel Function.
-//
-//  Note that for nonconstant (over dimensions) length scales, ``r_i = (x_1_i - x_2_i)/l_i``.  The quantity ``\frac{r}{l}`` will implicitly
-//  represent this component-wise division.
-//
-//  This class implements \nu = 3/2, which simplifies the previous expression to:
-//  ``cov_{\nu=3/2}(r) = (1 + \sqrt{3}\frac{r}[l})\exp(-\sqrt{3}\frac{r}{l})``
-//
-//  This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
-//
-//  See CovarianceInterface for descriptions of the virtual functions.
-//\endrst*/
-//class MaternNu1p5 final : public CovarianceInterface {
-// public:
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with constant length-scale across all dimensions.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
-//      :length: the constant length scale to use for all hyperparameter length scales
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, double length);
-//
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, double const * restrict lengths) OL_NONNULL_POINTERS;
-//
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, std::vector<double> lengths);
-//
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-//
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-//    return dim_ + 1;
-//  }
-//
-//  // hyperparameter gradients
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-//    alpha_ = hyperparameters[0];
-//
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      lengths_[i] = hyperparameters[i];
-//      lengths_sq_[i] = Square(hyperparameters[i]);
-//    }
-//  }
-//
-//  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-//    hyperparameters[0] = alpha_;
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      hyperparameters[i] = lengths_[i];
-//    }
-//  }
-//
-//  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
-//
-//  OL_DISALLOW_DEFAULT_AND_ASSIGN(MaternNu1p5);
-//
-// private:
-//  explicit MaternNu1p5(const MaternNu1p5& source);
-//
-//  /*!\rst
-//    Validate and initialize class data members.
-//  \endrst*/
-//  void Initialize();
-//
-//  //! dimension of the problem
-//  int dim_;
-//  //! ``\sigma_f^2``, signal variance
-//  double alpha_;
-//  //! length scales, one per dimension
-//  std::vector<double> lengths_;
-//  //! square of the length scales, one per dimension
-//  std::vector<double> lengths_sq_;
-//};
-
-///*!\rst
-//  Implements a case of the Matern class of covariance functions with \nu = 5/2 (smoothness parameter).
-//  See docs for ``MaternNu1p5`` for more details on the Matern class of covariance fucntions.
-//
-//  ``cov_{\nu=5/2}(r) = (1 + \sqrt{5}\frac{r}[l} + \frac{5}{3}\frac{r^2}{l^2})\exp(-\sqrt{5}\frac{r}{l})``
-//
-//  See CovarianceInterface for descriptions of the virtual functions.
-//\endrst*/
-//class MaternNu2p5 final : public CovarianceInterface {
-// public:
-//  /*!\rst
-//    Constructs a MaternNu2p5 object with constant length-scale across all dimensions.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
-//      :length: the constant length scale to use for all hyperparameter length scales
-//  \endrst*/
-//  MaternNu2p5(int dim, double alpha, double length);
-//
-//  /*!\rst
-//    Constructs a MaternNu2p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu2p5(int dim, double alpha, double const * restrict lengths) OL_NONNULL_POINTERS;
-//
-//  /*!\rst
-//    Constructs a MaternNu2p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu2p5(int dim, double alpha, std::vector<double> lengths);
-//
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-//
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  // number of hyperparameters
-//  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-//    return dim_ + 1;
-//  }
-//
-//  // hyperparameter gradients
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-//    alpha_ = hyperparameters[0];
-//
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      lengths_[i] = hyperparameters[i];
-//      lengths_sq_[i] = Square(hyperparameters[i]);
-//    }
-//  }
-//
-//  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-//    hyperparameters[0] = alpha_;
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      hyperparameters[i] = lengths_[i];
-//    }
-//  }
-//
-//  virtual CovarianceInterface * Clone() const override;
-//
-// private:
-//  explicit MaternNu2p5(const MaternNu2p5& source);
-//
-//  /*!\rst
-//    Validate and initialize class data members.
-//  \endrst*/
-//  void Initialize();
-//
-//  //! dimension of the problem
-//  int dim_;
-//  //! ``\sigma_f^2``, signal variance
-//  double alpha_;
-//  //! length scales, one per dimension
-//  std::vector<double> lengths_;
-//  //! square of the length scales, one per dimension
-//  std::vector<double> lengths_sq_;
-//
-//  OL_DISALLOW_DEFAULT_AND_ASSIGN(MaternNu2p5);
-//};
 
 }  // end namespace optimal_learning
 
