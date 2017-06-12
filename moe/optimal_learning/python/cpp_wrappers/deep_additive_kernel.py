@@ -135,7 +135,7 @@ class DeepAdditiveKernelMCMC(object):
             # Construct model
             pred = self.neural_network(x, param)
             # Define loss and optimizer
-            cost = tf.reduce_mean(tf.square(tf.subtract(y, pred)))
+            cost = tf.reduce_mean(tf.square(tf.subtract(y, pred))) / 0.001
             # Initializing the variable
             optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.9).minimize(cost)
             # Launch the graph
