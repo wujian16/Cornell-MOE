@@ -315,7 +315,7 @@ class AdditiveKernel final : public CovarianceInterface {
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return Square(dim_) + dim_;
+    return Square(dim_) + 3*dim_;
   }
 
   virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
@@ -325,17 +325,19 @@ class AdditiveKernel final : public CovarianceInterface {
   virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
     std::copy(hyperparameters, hyperparameters + Square(dim_), w_.data());
     for (int i = 0; i < dim_; ++i) {
-      alpha_[i] = hyperparameters[Square(dim_) + i];
-      //lengths_[i] = hyperparameters[Square(dim_) + i + dim_];
-      //lengths_sq_[i] = Square(hyperparameters[Square(dim_) + i + dim_]);
+      b_[i] = hyperparameters[Square(dim_) + i];
+      alpha_[i] = hyperparameters[Square(dim_) + dim_ + i];
+      lengths_[i] = hyperparameters[Square(dim_) + 2*dim_ + i];
+      lengths_sq_[i] = Square(lengths_[i]);
     }
   }
 
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS{
     std::copy(w_.data(), w_.data() + Square(dim_), hyperparameters);
     for (int i = 0; i < dim_; ++i) {
-      hyperparameters[Square(dim_) + i] = alpha_[i];
-      //hyperparameters[Square(dim_) + i + dim_] = lengths_[i];
+      hyperparameters[Square(dim_) + i] = b_[i];
+      hyperparameters[Square(dim_) + dim_ + i] = alpha_[i];
+      hyperparameters[Square(dim_) + 2*dim_ + i] = lengths_[i];
     }
   }
 
@@ -356,12 +358,14 @@ class AdditiveKernel final : public CovarianceInterface {
 
   //! ``W``, the projection matrix
   std::vector<double> w_;
+  //! ``b``, the bias vector
+  std::vector<double> b_;
   //! ``\sigma_f^2``, signal variance
   std::vector<double> alpha_;
   //! length scales, one per dimension
-  //std::vector<double> lengths_;
+  std::vector<double> lengths_;
   //! square of the length scales, one per dimension
-  //std::vector<double> lengths_sq_;
+  std::vector<double> lengths_sq_;
 };
 }  // end namespace optimal_learning
 

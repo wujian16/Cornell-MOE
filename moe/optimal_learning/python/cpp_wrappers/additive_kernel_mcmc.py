@@ -48,7 +48,7 @@ class AdditiveKernelMCMC(object):
         else:
             self.rng = rng
         self.n_hypers = n_hypers
-        self.n_chains = max(n_hypers, 2*(self.dim*self.dim+self.dim+1+self._num_derivatives))
+        self.n_chains = max(n_hypers, 2*(self.dim*self.dim+3*self.dim+1+self._num_derivatives))
 
     @property
     def dim(self):
@@ -106,14 +106,14 @@ class AdditiveKernelMCMC(object):
         if do_optimize:
             # We have one walker for each hyperparameter configuration
             sampler = emcee.EnsembleSampler(self.n_chains,
-                                            self.dim*self.dim+self.dim + self._num_derivatives + 1,
+                                            self.dim*self.dim+3*self.dim + self._num_derivatives + 1,
                                             self.compute_log_likelihood)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, self.dim*self.dim + self.dim + self._num_derivatives + 1)
+                    self.p0 = numpy.random.rand(self.n_chains, self.dim*self.dim + 3*self.dim + self._num_derivatives + 1)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
@@ -140,14 +140,14 @@ class AdditiveKernelMCMC(object):
         for sample in self.hypers:
             if numpy.any((-10 > sample[:-1]) + (sample[:-1] > 10)):
                 continue
-            sample[self.dim*self.dim:] = numpy.exp(sample[self.dim*self.dim:])
+            sample[self.dim*self.dim+self.dim:] = numpy.exp(sample[self.dim*self.dim+self.dim:])
             print sample
             # Instantiate a GP for each hyperparameter configuration
-            cov_hyps = sample[:(self.dim*self.dim + self.dim)]
+            cov_hyps = sample[:(self.dim*self.dim + 3*self.dim)]
             hypers_list.append(cov_hyps)
             se = SquareExponential(cov_hyps)
             if self.noisy:
-                noise = sample[(self.dim*self.dim + self.dim):]
+                noise = sample[(self.dim*self.dim + 3*self.dim):]
             else:
                 noise = numpy.array([1.e-8]*(1+len(self._derivatives)))
             noises_list.append(noise)
@@ -170,30 +170,30 @@ class AdditiveKernelMCMC(object):
           return -numpy.inf
 
         if not self.noisy:
-            hyps[(self.dim*self.dim + self.dim):] = numpy.log((1+self._num_derivatives)*[1.e-8])
+            hyps[(self.dim*self.dim + 3*self.dim):] = numpy.log((1+self._num_derivatives)*[1.e-8])
 
         posterior = 1
         if self.prior is not None:
             posterior = self.prior.lnprob(hyps)
 
-        weight = numpy.array(hyps[:(self.dim*self.dim)])
-        kernel_hyps = numpy.exp(hyps[(self.dim*self.dim):])
-        cov_hyps = numpy.concatenate([weight, kernel_hyps[:self.dim]])
-        noise = kernel_hyps[self.dim:]
+        weight = numpy.array(hyps[:(self.dim*self.dim+self.dim)])
+        kernel_hyps = numpy.exp(hyps[(self.dim*self.dim+self.dim):])
+        cov_hyps = numpy.concatenate([weight, kernel_hyps[:2*self.dim]])
+        noise = kernel_hyps[2*self.dim:]
 
-        try:
-          return posterior + C_GP.compute_log_likelihood(
-                cpp_utils.cppify(self._points_sampled),
-                cpp_utils.cppify(self._points_sampled_value),
-                self.dim,
-                self._num_sampled,
-                self.objective_type,
-                cpp_utils.cppify(cov_hyps),
-                cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                cpp_utils.cppify(noise),
-          )
-        except:
-          return -numpy.inf
+        #try:
+        return posterior + C_GP.compute_log_likelihood(
+            cpp_utils.cppify(self._points_sampled),
+            cpp_utils.cppify(self._points_sampled_value),
+            self.dim,
+            self._num_sampled,
+            self.objective_type,
+            cpp_utils.cppify(cov_hyps),
+            cpp_utils.cppify(self._derivatives), self._num_derivatives,
+            cpp_utils.cppify(noise),
+            )
+        # except:
+        #   return -numpy.inf
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.
