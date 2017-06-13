@@ -13,7 +13,6 @@ from moe.optimal_learning.python.data_containers import HistoricalData, SamplePo
 from moe.optimal_learning.python.geometry_utils import ClosedInterval
 from moe.optimal_learning.python.repeated_domain import RepeatedDomain
 from moe.optimal_learning.python.default_priors import DefaultPrior
-#from moe.optimal_learning.python.random_features import sample_from_global_optima
 
 from moe.optimal_learning.python.python_version.domain import TensorProductDomain as pythonTensorProductDomain
 from moe.optimal_learning.python.python_version.optimization import GradientDescentParameters as pyGradientDescentParameters

@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <queue>
 
+#include <algorithm>    // std::shuffle
+#include <random>       // std::default_random_engine
+
 #include "gpp_common.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_logging.hpp"
@@ -47,8 +50,28 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
 double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) const {
   double to_sample_mean = gaussian_process_->get_mean();
   int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
-  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations,
-                              1, num_observations, &to_sample_mean);
+
+  if (num_observations >= 10){
+    std::vector<int> indices(num_observations);
+    for (int i=0; i<num_observations; ++i){
+      indices[i] = i;
+    }
+    std::shuffle (indices.begin(), indices.end(), std::default_random_engine(131));
+
+    std::vector<double> temp_K_star(10);
+    std::vector<double> temp_coeff_combined_(10);
+    for (int i=0; i<10; ++i){
+      temp_K_star[i] = ps_state->points_to_sample_state.K_star[indices[i]];
+      temp_coeff_combined_[i] = coeff_combined_[indices[i]];
+    }
+    GeneralMatrixVectorMultiply(temp_K_star.data(), 'T', temp_coeff_combined_.data(), 1.0, 1.0, 10,
+                                1, 10, &to_sample_mean);
+    to_sample_mean *= (double) num_observations / (double) 10.0;
+  }
+  else{
+    GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations,
+                                1, num_observations, &to_sample_mean);
+  }
 
   std::vector<double> temp(num_to_sample_*(1+num_derivatives_));
   // Vars = Kst
@@ -80,8 +103,29 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
                               dim_, num_to_sample_*(1+num_derivatives_), dim_, grad_PS);
 
   int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
-  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
-                              dim_, num_observations, dim_, grad_PS);
+
+  if (num_observations >= 10){
+    std::vector<int> indices(num_observations);
+    for (int i=0; i<num_observations; ++i){
+      indices[i] = i;
+    }
+    std::shuffle (indices.begin(), indices.end(), std::default_random_engine(131));
+
+    std::vector<double> temp_grad_K_star(10*dim_);
+    std::vector<double> temp_coeff_combined_(10);
+    for (int i=0; i<10; ++i){
+      for (int k=0; k<dim_; k++){
+        temp_grad_K_star[i*dim_+k] = ps_state->points_to_sample_state.K_star[indices[i]*dim_+k];
+        temp_coeff_combined_[i] = (double) num_observations / (double) 10.0 * coeff_combined_[indices[i]];
+      }
+    }
+    GeneralMatrixVectorMultiply(temp_grad_K_star.data(), 'N', temp_coeff_combined_.data(), 1.0, 1.0,
+                                dim_, 10, dim_, grad_PS);
+  }
+  else{
+    GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
+                                dim_, num_observations, dim_, grad_PS);
+  }
 
   for (int i = 0; i < dim_; ++i) {
     grad_PS[i] = -grad_PS[i];
