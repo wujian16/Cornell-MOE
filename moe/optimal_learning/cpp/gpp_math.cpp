@@ -582,14 +582,14 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
                                         points_sampled_.data() + j*dim_, derivatives_.data(), num_derivatives_,
                                         grad_cov_temp);
         for (int m = 0; m < points_to_sample_state->num_gradients_to_sample+1; ++m){
-            for (int n = 0; n < num_derivatives_+1; ++n){
-              int row = n + j*(num_derivatives_+1);
-              int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
-              for (int d = 0; d <dim_; ++d){
-                gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
-                       grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
-              }
+          for (int n = 0; n < num_derivatives_+1; ++n){
+            int row = n + j*(num_derivatives_+1);
+            int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
+            for (int d = 0; d <dim_; ++d){
+              gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
+                     grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
             }
+          }
         }
       }
     }
@@ -1421,61 +1421,61 @@ void GaussianProcess::ComputeGradInverseCholeskyVarianceOfPointsPerPoint(StateTy
                                           precomputed, kt, grad_cov.data());
     ComputeGradVarianceOfPointsPerPoint(points_to_sample_state, diff_index, grad_cov.data()+num_to_sample_gradients*num_pts*dim_);
     for (int i = 0; i < dim_; ++i) {
-         //part 1
-         double* temp = new double[num_to_sample_gradients*(num_to_sample+num_pts)]();
+       //part 1
+       double* temp = new double[num_to_sample_gradients*(num_to_sample+num_pts)]();
 
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_pts; ++l){
-                 temp[j+l*num_to_sample_gradients] = grad_cov[i + j*dim_ + l*dim_*num_to_sample_gradients];
-             }
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+           for (int l = 0; l < num_pts; ++l){
+               temp[j+l*num_to_sample_gradients] = grad_cov[i + j*dim_ + l*dim_*num_to_sample_gradients];
+           }
+       }
+
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+         for (int l = 0; l < num_to_sample; ++l){
+             temp[j+(l+num_pts)*num_to_sample_gradients] = grad_cov[i + j*dim_ + (l*(1+points_to_sample_state->num_gradients_to_sample)+num_pts)*dim_*num_to_sample_gradients];
          }
+       }
+       TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients,num_pts+num_to_sample,num_to_sample_gradients,temp);
 
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_to_sample; ++l){
-                 temp[j+(l+num_pts)*num_to_sample_gradients] = grad_cov[i + j*dim_ + (l*(1+points_to_sample_state->num_gradients_to_sample)+num_pts)*dim_*num_to_sample_gradients];
-             }
+       //part 2
+       // let L_{d,i,j,k} = grad_chol_decomp, d over dim_, i, j over num_union, k over num_to_sample
+       // we want to compute: agg_dx_{d,*,*,k} = -L_{d,*,*,k}^{-1} * dL_{d,*,*,k} * L_{d,*,*,k}^{-1} * Cov(*,*)
+       // TODO(GH-92): Form this as one GeneralMatrixVectorMultiply() call by storing data as L_{d,i,k,j} if it's faster.
+
+       double* temp_chol = new double[num_to_sample_gradients*num_to_sample_gradients]();
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+           for (int l = j; l < num_to_sample_gradients; ++l){
+               temp_chol[l+j*num_to_sample_gradients] = grad_chol_temp[i + j*dim_ + l*dim_*num_to_sample_gradients];
+           }
+       }
+       TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_to_sample_gradients, num_to_sample_gradients, temp_chol);
+
+       double* temp_cov = new double[num_to_sample_gradients*(num_pts+num_to_sample)]();
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+           for (int l = 0; l < num_pts; ++l){
+               temp_cov[j+l*num_to_sample_gradients] = cov[j+l*num_to_sample_gradients];
+           }
+       }
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+           for (int l = 0; l < num_to_sample; ++l){
+               temp_cov[j+(l+num_pts)*num_to_sample_gradients] = var[j+l*num_to_sample_gradients];
+           }
+       }
+
+       TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_pts+num_to_sample, num_to_sample_gradients, temp_cov);
+
+       GeneralMatrixMatrixMultiply(temp_chol, 'N', temp_cov, -1.0, 1.0, num_to_sample_gradients, num_to_sample_gradients, num_pts+num_to_sample, temp);
+
+       delete[] temp_cov;
+       delete[] temp_chol;
+       for (int j = 0; j < num_to_sample_gradients; ++j){
+         for (int l = 0; l < num_pts+num_to_sample; ++l){
+             //grad_chol[i + j*dim_ + l*dim_*num_to_sample + k*dim_*num_to_sample*num_pts] = temp[j+l*num_to_sample];
+             grad_chol[i + j*dim_ + l*dim_*num_to_sample_gradients] = temp[j+l*num_to_sample_gradients];
          }
-         TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients,num_pts+num_to_sample,num_to_sample_gradients,temp);
-
-         //part 2
-         // let L_{d,i,j,k} = grad_chol_decomp, d over dim_, i, j over num_union, k over num_to_sample
-         // we want to compute: agg_dx_{d,*,*,k} = -L_{d,*,*,k}^{-1} * dL_{d,*,*,k} * L_{d,*,*,k}^{-1} * Cov(*,*)
-         // TODO(GH-92): Form this as one GeneralMatrixVectorMultiply() call by storing data as L_{d,i,k,j} if it's faster.
-
-         double* temp_chol = new double[num_to_sample_gradients*num_to_sample_gradients]();
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = j; l < num_to_sample_gradients; ++l){
-                 temp_chol[l+j*num_to_sample_gradients] = grad_chol_temp[i + j*dim_ + l*dim_*num_to_sample_gradients];
-             }
-         }
-         TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_to_sample_gradients, num_to_sample_gradients, temp_chol);
-
-         double* temp_cov = new double[num_to_sample_gradients*(num_pts+num_to_sample)]();
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_pts; ++l){
-                 temp_cov[j+l*num_to_sample_gradients] = cov[j+l*num_to_sample_gradients];
-             }
-         }
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_to_sample; ++l){
-                 temp_cov[j+(l+num_pts)*num_to_sample_gradients] = var[j+l*num_to_sample_gradients];
-             }
-         }
-
-         TriangularMatrixMatrixSolve(chol_var,'N',num_to_sample_gradients, num_pts+num_to_sample, num_to_sample_gradients, temp_cov);
-
-         GeneralMatrixMatrixMultiply(temp_chol, 'N', temp_cov, -1.0, 1.0, num_to_sample_gradients, num_to_sample_gradients, num_pts+num_to_sample, temp);
-
-         delete[] temp_cov;
-         delete[] temp_chol;
-         for (int j = 0; j < num_to_sample_gradients; ++j){
-             for (int l = 0; l < num_pts+num_to_sample; ++l){
-                 //grad_chol[i + j*dim_ + l*dim_*num_to_sample + k*dim_*num_to_sample*num_pts] = temp[j+l*num_to_sample];
-                 grad_chol[i + j*dim_ + l*dim_*num_to_sample_gradients] = temp[j+l*num_to_sample_gradients];
-             }
-         }
-         delete[] temp;
-    }
+       }
+       delete[] temp;
+  }
 }
 
 /*!\rst

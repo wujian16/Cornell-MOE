@@ -96,8 +96,8 @@ report_point = report_point.ravel()
 
 print "best so far in the initial data {0}".format(true_value_init[np.argmin(true_value_init[:,0])][0])
 for n in xrange(num_iteration):
-    print "KG, {0}th job, {1}th iteration, func=Branin, q={2}".format(
-            job_id, n, num_to_sample
+    print "KG, {0}th job, {1}th iteration, func={2}, q={3}".format(
+            job_id, n, obj_func_name, num_to_sample
     )
     time1 = time.time()
     discrete_pts_list = []
