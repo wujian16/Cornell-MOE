@@ -314,6 +314,8 @@ struct FuturePosteriorMeanState final {
     std::copy(point_to_sample.begin(), point_to_sample.end(), point_to_sample_out);
   }
 
+  void Initialize(const EvaluatorType& ps_evaluator);
+
   /*!\rst
     Change the potential sample whose EI (and/or gradient) is being evaluated.
     Update the state's derived quantities to be consistent with the new point.
@@ -349,9 +351,10 @@ struct FuturePosteriorMeanState final {
   //! point at which to evaluate EI and/or its gradient (e.g., to check its value in future experiments)
   std::vector<double> point_to_sample;
 
-  //! gaussian process state
-  GaussianProcess::StateType points_to_sample_state;
+  std::vector<double> K_star;
+  std::vector<double> grad_K_star;
 
+  UniformRandomGenerator randomGenerator;
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(FuturePosteriorMeanState);
 };
 

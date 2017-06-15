@@ -71,14 +71,14 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
   knowledge_gradient_evaluator_lst(evaluator_vector),
   discrete_pts_lst_(discrete_points_list(discrete_pts_lst, num_pts)),
   num_pts_(num_pts) {
-      knowledge_gradient_evaluator_lst->reserve(num_mcmc_hypers_);
-      double * discrete_pts = discrete_pts_lst_.data();
-      for (int i=0; i<num_mcmc_hypers_; ++i){
-          knowledge_gradient_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], discrete_pts,
-                                                         num_pts_, num_mc_iterations_, domain_, optimizer_parameters_,
-                                                         best_so_far_[i]);
-          discrete_pts += num_pts_*dim_;
-      }
+    knowledge_gradient_evaluator_lst->reserve(num_mcmc_hypers_);
+    double * discrete_pts = discrete_pts_lst_.data();
+    for (int i=0; i<num_mcmc_hypers_; ++i){
+        knowledge_gradient_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], discrete_pts,
+                                                       num_pts_, num_mc_iterations_, domain_, optimizer_parameters_,
+                                                       best_so_far_[i]);
+        discrete_pts += num_pts_*dim_;
+    }
 }
 
 /*!\rst
@@ -88,11 +88,11 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
 \endrst*/
 template <typename DomainType>
 double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeKnowledgeGradient(StateType * kg_state) const {
-    double kg_value = 0.0;
-    for (int i=0; i<num_mcmc_hypers_; ++i){
-      kg_value += (*knowledge_gradient_evaluator_lst)[i].ComputeObjectiveFunction((*(kg_state->kg_state_list)).data()+i);
-    }
-    return kg_value/static_cast<double>(num_mcmc_hypers_);
+  double kg_value = 0.0;
+  for (int i=0; i<num_mcmc_hypers_; ++i){
+    kg_value += (*knowledge_gradient_evaluator_lst)[i].ComputeObjectiveFunction((*(kg_state->kg_state_list)).data()+i);
+  }
+  return kg_value/static_cast<double>(num_mcmc_hypers_);
 }
 
 /*!\rst
@@ -142,16 +142,16 @@ KnowledgeGradientMCMCState<DomainType>::KnowledgeGradientMCMCState(const Evaluat
                                                                    int const * restrict gradients_in, int num_gradients_in,
                                                                    bool configure_for_gradients, NormalRNGInterface * normal_rng_in,
                                                                    std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_vector)
-    : dim(kg_evaluator.dim()),
-      num_to_sample(num_to_sample_in),
-      num_being_sampled(num_being_sampled_in),
-      num_derivatives(configure_for_gradients ? num_to_sample : 0),
-      num_union(num_to_sample + num_being_sampled),
-      num_pts(num_pts_in),
-      gradients(gradients_in, gradients_in+num_gradients_in),
-      num_gradients_to_sample(num_gradients_in),
-      union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
-      kg_state_list(kg_state_vector) {
+  : dim(kg_evaluator.dim()),
+    num_to_sample(num_to_sample_in),
+    num_being_sampled(num_being_sampled_in),
+    num_derivatives(configure_for_gradients ? num_to_sample : 0),
+    num_union(num_to_sample + num_being_sampled),
+    num_pts(num_pts_in),
+    gradients(gradients_in, gradients_in+num_gradients_in),
+    num_gradients_to_sample(num_gradients_in),
+    union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
+    kg_state_list(kg_state_vector) {
   kg_state_list->reserve(kg_evaluator.num_mcmc());
   // evaluate derived quantities for the GP
   for (int i=0; i<kg_evaluator.num_mcmc();++i){
