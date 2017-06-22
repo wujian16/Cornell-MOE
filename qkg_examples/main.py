@@ -75,7 +75,7 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_step
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.04,
                                                  max_relative_change=0.2, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=100, max_num_steps=20, max_num_restarts=1,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=120, max_num_steps=20, max_num_restarts=1,
                                                  num_steps_averaged=4, gamma=0.7, pre_mult=0.4,
                                                  max_relative_change=0.6, tolerance=1.0e-5)
 
