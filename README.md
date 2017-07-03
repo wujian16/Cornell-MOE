@@ -37,7 +37,7 @@ $ pip install virtualenv
 $ virtualenv --no-site-packages ENV_NAME
 ```
 
-** step 3, set the correct environment variables for compiling the cpp code. One need to create a script with the content as follows, then source it.
+** step 3, set the correct environment variables for compiling the cpp code. One need to create a script with the content as follows, then **_source_** it.
 ```bash
 export MOE_CC_PATH=/path/to/your/gcc && export MOE_CXX_PATH=/path/to/your/g++
 export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/path/to/where/Python.h/is/found -D MOE_PYTHON_LIBRARY=/path/to/python/shared/library/object"
