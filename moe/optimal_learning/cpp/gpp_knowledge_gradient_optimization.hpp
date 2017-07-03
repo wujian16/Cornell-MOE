@@ -269,10 +269,11 @@ class KnowledgeGradientEvaluator final {
   double best_so_far_;
 
   const GradientDescentParameters optimizer_parameters_;
-
   const DomainType domain_;
+
   //! pointer to gaussian process used in KG computations
   const GaussianProcess * gaussian_process_;
+
   //! the set of points to approximate KG factor
   std::vector<double> discrete_pts_;
   //! number of points in discrete_pts
@@ -399,6 +400,11 @@ struct KnowledgeGradientState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
   void SetupState(const EvaluatorType& kg_evaluator, double const * restrict points_to_sample);
+
+  /*!\rst
+    Pre-compute to_sample_mean_, and cholesky_to_sample_var
+  \endrst*/
+  void PreCompute(const EvaluatorType& kg_evaluator, double const * restrict points_to_sample);
 
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
@@ -864,25 +870,25 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
                               num_to_sample, num_being_sampled, derivatives.data(), num_derivatives,
                               thread_schedule.max_num_threads, configure_for_gradients, normal_rng, &kg_state_vector);
 
-    std::vector<double> KG_starting(num_multistarts);
-    for (int i=0; i<num_multistarts; ++i){
-      kg_state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process.dim());
-      KG_starting[i] = kg_evaluator.ComputeKnowledgeGradient(&kg_state_vector[0]);
-    }
+  std::vector<double> KG_starting(num_multistarts);
+  for (int i=0; i<num_multistarts; ++i){
+    kg_state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process.dim());
+    KG_starting[i] = kg_evaluator.ComputeKnowledgeGradient(&kg_state_vector[0]);
+  }
 
-    std::priority_queue<std::pair<double, int>> q;
-    int k = 8; // number of indices we need
-    for (int i = 0; i < KG_starting.size(); ++i) {
-      if (i < k){
+  std::priority_queue<std::pair<double, int>> q;
+  int k = 10; // number of indices we need
+  for (int i = 0; i < KG_starting.size(); ++i) {
+    if (i < k){
+      q.push(std::pair<double, int>(-KG_starting[i], i));
+    }
+    else{
+      if (q.top().first > -KG_starting[i]){
+        q.pop();
         q.push(std::pair<double, int>(-KG_starting[i], i));
       }
-      else{
-        if (q.top().first > -KG_starting[i]){
-          q.pop();
-          q.push(std::pair<double, int>(-KG_starting[i], i));
-        }
-      }
     }
+  }
 
   std::vector<double> top_k_starting(k*num_to_sample*gaussian_process.dim());
   for (int i = 0; i < k; ++i) {

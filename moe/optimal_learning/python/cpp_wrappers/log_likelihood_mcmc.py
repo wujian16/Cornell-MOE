@@ -201,7 +201,7 @@ class GaussianProcessLogLikelihoodMCMC:
 
           # Start sampling
           pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
-                                         rstate0=self.rng)
+                                       rstate0=self.rng)
 
           # Save the current position, it will be the start point in
           # the next iteration
@@ -257,19 +257,19 @@ class GaussianProcessLogLikelihoodMCMC:
         cov_hyps = hyps[:(self.dim+1)]
         noise = hyps[(self.dim+1):]
 
-        try:
-          return posterior + C_GP.compute_log_likelihood(
-            cpp_utils.cppify(self._points_sampled),
-            cpp_utils.cppify(self._points_sampled_value),
-            self.dim,
-            self._num_sampled,
-            self.objective_type,
-            cpp_utils.cppify_hyperparameters(cov_hyps),
-            cpp_utils.cppify(self._derivatives), self._num_derivatives,
-            cpp_utils.cppify(noise),
-            )
-        except:
-          return -numpy.inf
+        if posterior == -numpy.inf:
+            return -numpy.inf
+        else:
+            return posterior + C_GP.compute_log_likelihood(
+                cpp_utils.cppify(self._points_sampled),
+                cpp_utils.cppify(self._points_sampled_value),
+                self.dim,
+                self._num_sampled,
+                self.objective_type,
+                cpp_utils.cppify_hyperparameters(cov_hyps),
+                cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                cpp_utils.cppify(noise),
+                )
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.

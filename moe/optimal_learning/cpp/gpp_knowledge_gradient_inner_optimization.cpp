@@ -227,7 +227,7 @@ void ComputeOptimalFuturePosteriorMean(
   }
 
   std::priority_queue<std::pair<double, int>> q;
-  int k = 6; // number of indices we need
+  int k = 10; // number of indices we need
   for (int i = 0; i < future_mean_starting.size(); ++i) {
     if (i < k){
       q.push(std::pair<double, int>(-future_mean_starting[i], i));
