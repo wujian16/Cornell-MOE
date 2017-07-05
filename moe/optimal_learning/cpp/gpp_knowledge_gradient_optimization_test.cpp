@@ -144,7 +144,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
         sqexp_covariance_(dim_, alpha, lengths),
         gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
                           gradients_.data(), num_gradients_, dim_, num_sampled_),
-        kg_evaluator_(gaussian_process_, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far) {
+        kg_evaluator_(gaussian_process_, 0, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far) {
   }
 
   std::vector<double> random_discrete(int dim, int num_pts){
@@ -365,7 +365,6 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingPosteriorMean);
 };
-
 
 /*!\rst
   Pings the gradients (spatial) of the KG 50 times with randomly generated test cases

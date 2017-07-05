@@ -117,18 +117,22 @@ void FuturePosteriorMeanState::Initialize(const EvaluatorType& ps_evaluator) {
 void FuturePosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator,
                                          double const * restrict point_to_sample_in) {
   // update current point in union_of_points
-  std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
+  std::copy(point_to_sample_in, point_to_sample_in + dim - num_fidelity, point_to_sample.data());
+  std::fill(point_to_sample.data() + dim - num_fidelity, point_to_sample.data() + dim, 1.0);
   // evaluate derived quantities
   Initialize(ps_evaluator);
 }
 
 FuturePosteriorMeanState::FuturePosteriorMeanState(
   const EvaluatorType& ps_evaluator,
+  const int num_fidelity_in,
   double const * restrict point_to_sample_in,
-  bool configure_for_gradients)
+  bool configure_for_gradients,
+  const int num_fidelity_in)
   : dim(ps_evaluator.dim()),
+    num_fidelity(num_fidelity_in),
     num_derivatives(configure_for_gradients ? num_to_sample : 0),
-    point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+    point_to_sample(BuildUnionOfPoints(point_to_sample_in)),
     K_star(ps_evaluator.gaussian_process()->num_sampled()*(1+ps_evaluator.gaussian_process()->num_derivatives())),
     grad_K_star(dim*ps_evaluator.gaussian_process()->num_sampled()*(1+ps_evaluator.gaussian_process()->num_derivatives())),
     randomGenerator() {
@@ -199,7 +203,7 @@ void FuturePosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
 \endrst*/
 template <typename DomainType>
 void ComputeOptimalFuturePosteriorMean(
-  const GaussianProcess& gaussian_process, double const * coefficient,
+  const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
   double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
   int num_derivatives, double const * chol, double const * train_sample,
   const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
@@ -218,7 +222,7 @@ void ComputeOptimalFuturePosteriorMean(
                                              num_derivatives, chol, train_sample);
 
   std::vector<typename FuturePosteriorMeanEvaluator::StateType> fpm_state_vector;
-  SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, &fpm_state_vector);
+  SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, num_fidelity, &fpm_state_vector);
 
   std::vector<double> future_mean_starting(num_multistarts);
   for (int i=0; i<num_multistarts; ++i){
@@ -264,14 +268,14 @@ void ComputeOptimalFuturePosteriorMean(
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
+template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
                                                 double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                 int num_derivatives, double const * chol, double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters, const TensorProductDomain& domain,
                                                 int max_num_threads, double const * restrict start_point_set,
                                                 int num_multistarts, double * restrict best_function_value,
                                                 double * restrict best_next_point);
-template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, double const * coefficient,
+template void ComputeOptimalFuturePosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
                                                 double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                 int num_derivatives, double const * chol, double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters, const SimplexIntersectTensorProductDomain& domain,

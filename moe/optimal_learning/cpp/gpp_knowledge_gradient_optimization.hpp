@@ -163,7 +163,7 @@ class KnowledgeGradientEvaluator final {
       :num_mc_iterations: number of monte carlo iterations
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
-  explicit KnowledgeGradientEvaluator(const GaussianProcess& gaussian_process_in,
+  explicit KnowledgeGradientEvaluator(const GaussianProcess& gaussian_process_in, const int num_fidelity,
                                       double const * discrete_pts,
                                       int num_pts,
                                       int num_mc_iterations,
@@ -175,6 +175,10 @@ class KnowledgeGradientEvaluator final {
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
+  }
+
+  int num_fidelity() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return num_fidelity_;
   }
 
   int num_mc_iterations() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -206,8 +210,8 @@ class KnowledgeGradientEvaluator final {
 
   std::vector<double> discrete_points(double const * discrete_pts,
                                       int num_pts) const noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_pts*dim_);
-    std::copy(discrete_pts, discrete_pts + num_pts*dim_, result.data());
+    std::vector<double> result(num_pts*(dim_ - num_fidelity_));
+    std::copy(discrete_pts, discrete_pts + num_pts*(dim_ - num_fidelity_), result.data());
     return result;
   }
 
@@ -262,6 +266,8 @@ class KnowledgeGradientEvaluator final {
  private:
   //! spatial dimension (e.g., entries per point of points_sampled)
   const int dim_;
+  //! dim of the fidelity
+  const int num_fidelity_;
   //! number of monte carlo iterations
   int num_mc_iterations_;
 
@@ -359,6 +365,15 @@ struct KnowledgeGradientState final {
     std::copy(points_being_sampled, points_being_sampled + dim*num_being_sampled,
               union_of_points.data() + dim*num_to_sample);
     return union_of_points;
+  }
+
+  std::vector<double> SubsetData(double const * restrict union_of_points,
+                                 int num_union, int num_fidelity) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> subset_data((dim-num_fidelity)*num_union);
+    for (int i=0; i<num_union; ++i){
+      std::copy(union_of_points + i*dim, union_of_points+i*dim+dim-num_fidelity, subset_data.data()+i*(dim-num_fidelity);
+    }
+    return SubsetData;
   }
 
   int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -571,12 +586,19 @@ struct PosteriorMeanState final {
       :point_to_sample[dim]: point at which to evaluate EI and/or its gradient to check their value in future experiments (i.e., test point for GP predictions)
       :configure_for_gradients: true if this object will be used to compute gradients, false otherwise
   \endrst*/
-  PosteriorMeanState(const EvaluatorType& ps_evaluator, double const * restrict point_to_sample_in, bool configure_for_gradients);
+  PosteriorMeanState(const EvaluatorType& ps_evaluator, const int num_fidelity_in, double const * restrict point_to_sample_in, bool configure_for_gradients);
 
   PosteriorMeanState(PosteriorMeanState&& other);
 
   int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return dim;
+    return dim - num_fidelity;
+  }
+
+  static std::vector<double> BuildUnionOfPoints(double const * restrict points_to_sample) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> union_of_points(dim);
+    std::copy(points_to_sample, points_to_sample + dim - num_fidelity, union_of_points.data());
+    std::fill(union_of_points.data() + dim - num_fidelity, union_of_points.data() + dim, 1.0);
+    return union_of_points;
   }
 
   /*!\rst
@@ -595,7 +617,7 @@ struct PosteriorMeanState final {
       :ei_evaluator: expected improvement evaluator object that specifies the parameters & GP for EI evaluation
       :point_to_sample[dim]: potential future sample whose EI (and/or gradients) is being evaluated
   \endrst*/
-  void SetCurrentPoint(const EvaluatorType& ei_evaluator,
+  void SetCurrentPoint(const EvaluatorType& ps_evaluator,
                        double const * restrict point_to_sample_in) OL_NONNULL_POINTERS;
 
   /*!\rst
@@ -615,6 +637,8 @@ struct PosteriorMeanState final {
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
   const int dim;
+  //! dim of the fidelity
+  const int num_fidelity;
   //! number of points to sample (i.e., the "q" in q,p-EI); MUST be 1
   const int num_to_sample = 1;
   //! number of derivative terms desired (usually 0 for no derivatives or num_to_sample)
@@ -837,10 +861,10 @@ void RestartedGradientDescentKGOptimization(const KnowledgeGradientEvaluator& kg
 \endrst*/
 template <typename DomainType>
 OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(
-    const GaussianProcess& gaussian_process,
+    const GaussianProcess& gaussian_process, const int num_fidelity,
     const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
-    const DomainType& domain,
+    const DomainType& domain, const DomainType& inner_domain,
     const ThreadSchedule& thread_schedule,
     double const * restrict start_point_set,
     double const * restrict points_being_sampled,
@@ -859,8 +883,8 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
   }
 
   bool configure_for_gradients = true;
-  KnowledgeGradientEvaluator<DomainType> kg_evaluator(gaussian_process, discrete_pts, num_pts, max_int_steps,
-                                                      domain, optimizer_parameters_inner, best_so_far);
+  KnowledgeGradientEvaluator<DomainType> kg_evaluator(gaussian_process, num_fidelity, discrete_pts, num_pts, max_int_steps,
+                                                      inner_domain, optimizer_parameters_inner, best_so_far);
 
   int num_derivatives = kg_evaluator.gaussian_process()->num_derivatives();
   std::vector<int> derivatives(kg_evaluator.gaussian_process()->derivatives());
@@ -949,47 +973,46 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
 template <typename DomainType>
-void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
+void EvaluateKGAtPointList(const GaussianProcess& gaussian_process, const int num_fidelity,
                            const GradientDescentParameters& optimizer_parameters_inner,
-                           const DomainType& domain, const ThreadSchedule& thread_schedule,
+                           const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                            double const * restrict initial_guesses,
                            double const * restrict points_being_sampled,
-                           double const * discrete_pts,
-                           int num_multistarts, int num_to_sample,
+                           double const * discrete_pts, int num_multistarts, int num_to_sample,
                            int num_being_sampled, int num_pts, double best_so_far,
                            int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
                            double * restrict function_values,
                            double * restrict best_next_point) {
-    if (unlikely(num_multistarts <= 0)) {
-      OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
-    }
+  if (unlikely(num_multistarts <= 0)) {
+    OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
+  }
 
-    using DomainType_dummy = DummyDomain;
-    DomainType_dummy dummy_domain;
-    bool configure_for_gradients = false;
+  using DomainType_dummy = DummyDomain;
+  DomainType_dummy dummy_domain;
+  bool configure_for_gradients = false;
 
-    KnowledgeGradientEvaluator<DomainType> kg_evaluator(gaussian_process, discrete_pts, num_pts, max_int_steps,
-                                                        domain, optimizer_parameters_inner, best_so_far);
+  KnowledgeGradientEvaluator<DomainType> kg_evaluator(gaussian_process, num_fidelity, discrete_pts, num_pts, max_int_steps,
+                                                      inner_domain, optimizer_parameters_inner, best_so_far);
 
-    int num_derivatives = kg_evaluator.gaussian_process()->num_derivatives();
-    std::vector<int> derivatives(kg_evaluator.gaussian_process()->derivatives());
+  int num_derivatives = kg_evaluator.gaussian_process()->num_derivatives();
+  std::vector<int> derivatives(kg_evaluator.gaussian_process()->derivatives());
 
-    std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> kg_state_vector;
-    SetupKnowledgeGradientState(kg_evaluator, initial_guesses, points_being_sampled,
-                                num_to_sample, num_being_sampled, derivatives.data(), num_derivatives,
-                                thread_schedule.max_num_threads, configure_for_gradients, normal_rng, &kg_state_vector);
+  std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> kg_state_vector;
+  SetupKnowledgeGradientState(kg_evaluator, initial_guesses, points_being_sampled,
+                              num_to_sample, num_being_sampled, derivatives.data(), num_derivatives,
+                              thread_schedule.max_num_threads, configure_for_gradients, normal_rng, &kg_state_vector);
 
-    // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
-    OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), -INFINITY, initial_guesses);
+  // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
+  OptimizationIOContainer io_container(kg_state_vector[0].GetProblemSize(), -INFINITY, initial_guesses);
 
-    NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy> null_opt;
-    typename NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy>::ParameterStruct null_parameters;
-    MultistartOptimizer<NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy> > multistart_optimizer;
-    multistart_optimizer.MultistartOptimize(null_opt, kg_evaluator, null_parameters,
-                                            dummy_domain, thread_schedule, initial_guesses,
-                                            num_multistarts, kg_state_vector.data(), function_values, &io_container);
-    *found_flag = io_container.found_flag;
-    std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
+  NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy> null_opt;
+  typename NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy>::ParameterStruct null_parameters;
+  MultistartOptimizer<NullOptimizer<KnowledgeGradientEvaluator<DomainType>, DomainType_dummy> > multistart_optimizer;
+  multistart_optimizer.MultistartOptimize(null_opt, kg_evaluator, null_parameters,
+                                          dummy_domain, thread_schedule, initial_guesses,
+                                          num_multistarts, kg_state_vector.data(), function_values, &io_container);
+  *found_flag = io_container.found_flag;
+  std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
 
 /*!\rst
@@ -1028,15 +1051,13 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process,
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gaussian_process,
+void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                     const GradientDescentParameters& optimizer_parameters,
                                                     const GradientDescentParameters& optimizer_parameters_inner,
-                                                    const DomainType& domain, const ThreadSchedule& thread_schedule,
-                                                    double const * restrict points_being_sampled,
-                                                    double const * discrete_pts,
+                                                    const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
+                                                    double const * restrict points_being_sampled, double const * discrete_pts,
                                                     int num_to_sample, int num_being_sampled, int num_pts,
-                                                    double best_so_far,
-                                                    int max_int_steps, bool * restrict found_flag,
+                                                    double best_so_far, int max_int_steps, bool * restrict found_flag,
                                                     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
                                                     double * restrict best_next_point) {
   std::vector<double> starting_points(gaussian_process.dim()*optimizer_parameters.num_multistarts*num_to_sample);
@@ -1046,8 +1067,8 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
   int num_multistarts = repeated_domain.GenerateUniformPointsInDomain(optimizer_parameters.num_multistarts,
                                                                       uniform_generator, starting_points.data());
 
-  ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process, optimizer_parameters, optimizer_parameters_inner, domain,
-                                                             thread_schedule, starting_points.data(),
+  ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process, num_fidelity, optimizer_parameters, optimizer_parameters_inner, domain,
+                                                             inner_domain, thread_schedule, starting_points.data(),
                                                              points_being_sampled, discrete_pts, num_multistarts,
                                                              num_to_sample, num_being_sampled, num_pts,
                                                              best_so_far, max_int_steps,
@@ -1098,9 +1119,9 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
 template <typename DomainType>
-void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess& gaussian_process,
+void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                            const GradientDescentParameters& optimizer_parameters_inner,
-                                                           const DomainType& domain,
+                                                           const DomainType& domain, const DomainType& inner_domain,
                                                            const ThreadSchedule& thread_schedule,
                                                            double const * restrict points_being_sampled,
                                                            double const * discrete_pts,
@@ -1116,7 +1137,7 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
   num_multistarts = repeated_domain.GenerateUniformPointsInDomain(num_multistarts, uniform_generator,
                                                                   initial_guesses.data());
 
-  EvaluateKGAtPointList(gaussian_process, optimizer_parameters_inner, domain, thread_schedule, initial_guesses.data(),
+  EvaluateKGAtPointList(gaussian_process, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule, initial_guesses.data(),
                         points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
                         num_being_sampled, num_pts, best_so_far, max_int_steps,
                         found_flag, normal_rng, nullptr, best_next_point);
@@ -1171,10 +1192,10 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
     :best_points_to_sample[num_to_sample*dim]: point yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
+void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process, const int num_fidelity,
                                     const GradientDescentParameters& optimizer_parameters,
                                     const GradientDescentParameters& optimizer_parameters_inner,
-                                    const DomainType& domain, const ThreadSchedule& thread_schedule,
+                                    const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                     double const * restrict points_being_sampled,
                                     double const * discrete_pts,
                                     int num_to_sample, int num_being_sampled,
@@ -1185,18 +1206,18 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process,
                                     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGOptimalPointsToSample(
-    const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
+    const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
-    const TensorProductDomain& domain, const ThreadSchedule& thread_schedule,
+    const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 extern template void ComputeKGOptimalPointsToSample(
-    const GaussianProcess& gaussian_process, const GradientDescentParameters& optimizer_parameters,
+    const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
-    const SimplexIntersectTensorProductDomain& domain, const ThreadSchedule& thread_schedule,
+    const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled,double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
     int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
