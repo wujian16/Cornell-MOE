@@ -268,7 +268,6 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
                                                 num_to_sample_input, num_being_sampled, num_derivatives_input);
 
-
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
 
@@ -304,7 +303,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   return VectorToPylist(best_points_to_sample_C);
 }
 
-boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                        const boost::python::object& optimizer_parameters,
                                                        const boost::python::list& domain_bounds,
                                                        const boost::python::list& initial_guess,
@@ -331,7 +330,7 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
         TensorProductDomain domain(domain_bounds_C.data(), dim);
         TensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
 
-        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
+        ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
                                     &found_flag, best_points_to_sample_C.data());
         break;
       }  // end case OptimizerTypes::kTensorProduct
@@ -339,7 +338,7 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
         SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), dim);
         SimplexIntersectTensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
 
-        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
+        ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
                                     &found_flag, best_points_to_sample_C.data());
         break;
       }  // end case OptimizerTypes::kSimplex
@@ -353,12 +352,10 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
 }
 
 boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian_process,
-                                                 const int num_fidelity,
-                                                 const boost::python::object& optimizer_parameters,
+                                                 const int num_fidelity, const boost::python::object& optimizer_parameters,
                                                  const boost::python::list& domain_bounds,
-                                                 const boost::python::list& discrete_pts,
+                                                 const boost::python::list& discrete_being_sampled,
                                                  const boost::python::list& initial_guesses,
-                                                 const boost::python::list& points_being_sampled,
                                                  int num_multistarts, int num_pts, int num_to_sample,
                                                  int num_being_sampled, double best_so_far,
                                                  int max_int_steps, int max_num_threads,
@@ -369,17 +366,10 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
-  int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
-  const boost::python::list points_to_sample_dummy;
-
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
-
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample_input, num_being_sampled, num_derivatives_input);
-
+  PythonInterfaceInputContainer input_container(discrete_being_sampled, gradients, gaussian_process.dim(), num_pts+num_being_sampled, num_derivatives_input);
 
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
@@ -398,10 +388,9 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   EvaluateKGAtPointList(gaussian_process, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
-                        input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
-                        num_multistarts, num_to_sample, input_container.num_being_sampled,
-                        input_container_discrete.num_to_sample, best_so_far,
-                        max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
+                        input_container.points_to_sample.data() + input_container.dim*num_pts, input_container.points_to_sample.data(),
+                        num_multistarts, num_to_sample, num_being_sampled,
+                        num_pts, best_so_far, max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
                         result_function_values_C.data(), result_point_C.data());
 
   status["evaluate_KG_at_point_list"] = found_flag;

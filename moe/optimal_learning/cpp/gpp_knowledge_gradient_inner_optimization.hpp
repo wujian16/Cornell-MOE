@@ -305,7 +305,7 @@ struct FuturePosteriorMeanState final {
     return dim - num_fidelity;
   }
 
-  static std::vector<double> BuildUnionOfPoints(double const * restrict points_to_sample) noexcept OL_WARN_UNUSED_RESULT {
+  std::vector<double> BuildUnionOfPoints(double const * restrict points_to_sample) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> union_of_points(dim);
     std::copy(points_to_sample, points_to_sample + dim - num_fidelity, union_of_points.data());
     std::fill(union_of_points.data() + dim - num_fidelity, union_of_points.data() + dim, 1.0);
@@ -318,7 +318,7 @@ struct FuturePosteriorMeanState final {
       :point_to_sample[dim]: potential sample whose EI is being evaluted
   \endrst*/
   void GetCurrentPoint(double * restrict point_to_sample_out) const noexcept OL_NONNULL_POINTERS {
-    std::copy(point_to_sample.begin(), point_to_sample.end(), point_to_sample_out);
+    std::copy(point_to_sample.data(), point_to_sample.data() + dim - num_fidelity, point_to_sample_out);
   }
 
   void Initialize(const EvaluatorType& ps_evaluator);
@@ -395,7 +395,7 @@ inline OL_NONNULL_POINTERS void SetupFuturePosteriorMeanState(
     std::vector<typename FuturePosteriorMeanEvaluator::StateType> * state_vector) {
   state_vector->reserve(max_num_threads);
   for (int i = 0; i < max_num_threads; ++i) {
-    state_vector->emplace_back(fpm_evaluator, points_to_sample, configure_for_gradients, num_fidelity);
+    state_vector->emplace_back(fpm_evaluator, num_fidelity, points_to_sample, configure_for_gradients);
   }
 }
 
@@ -448,7 +448,7 @@ void RestartedGradientDescentFuturePosteriorMeanOptimization(const GaussianProce
                                             num_to_sample, to_sample_derivatives,
                                             num_derivatives, chol, train_sample);
 
-  typename FuturePosteriorMeanEvaluator::StateType ps_state(ps_evaluator, initial_guess, configure_for_gradients, num_fidelity);
+  typename FuturePosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, initial_guess, configure_for_gradients);
 
   GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
   gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);

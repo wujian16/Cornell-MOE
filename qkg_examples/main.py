@@ -13,7 +13,6 @@ from moe.optimal_learning.python.data_containers import HistoricalData, SamplePo
 from moe.optimal_learning.python.geometry_utils import ClosedInterval
 from moe.optimal_learning.python.repeated_domain import RepeatedDomain
 from moe.optimal_learning.python.default_priors import DefaultPrior
-#from moe.optimal_learning.python.random_features import sample_from_global_optima
 
 from moe.optimal_learning.python.python_version.domain import TensorProductDomain as pythonTensorProductDomain
 from moe.optimal_learning.python.python_version.optimization import GradientDescentParameters as pyGradientDescentParameters
@@ -89,7 +88,7 @@ for cpp_gp in cpp_gp_loglikelihood.models:
 test /= len(cpp_gp_loglikelihood.models)
 report_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim))
 
-ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models)
+ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models, 0)
 py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = python_search_domain)
 ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
 report_point = multistart_optimize(ps_mean_opt, report_point, num_multistarts = 1)[0]
@@ -104,8 +103,6 @@ for n in xrange(num_iteration):
     discrete_pts_list = []
     discrete = python_search_domain.generate_uniform_random_points_in_domain(100)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
-        #init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
-        #discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 100)
         discrete_pts_optima = np.array(discrete)
 
         eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
@@ -113,7 +110,7 @@ for n in xrange(num_iteration):
         test = cpp_gp.compute_mean_of_points(eval_pts)
         initial_point = eval_pts[np.argmin(test)]
 
-        ps_evaluator = PosteriorMean(cpp_gp)
+        ps_evaluator = PosteriorMean(cpp_gp, 0)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
         report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
         if cpp_gp.compute_mean_of_points(report_point.reshape(1, dim)) > cpp_gp.compute_mean_of_points(initial_point.reshape(1, dim)):
@@ -124,7 +121,7 @@ for n in xrange(num_iteration):
 
         discrete_pts_list.append(discrete_pts_optima)
 
-    ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0])
+    ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], 0)
     ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_search_domain, ps_evaluator, cpp_sgd_params_ps)
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                             ps_sgd_optimizer, cpp_search_domain, discrete_pts_list,
@@ -155,7 +152,7 @@ for n in xrange(num_iteration):
     test /= len(cpp_gp_loglikelihood.models)
     initial_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim))
 
-    ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models)
+    ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models, 0)
     py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = python_search_domain)
     ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
     report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]

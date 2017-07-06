@@ -328,9 +328,8 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
                                                      const int num_fidelity,
                                                      const boost::python::object& optimizer_parameters,
                                                      const boost::python::list& domain_bounds,
-                                                     const boost::python::list& discrete_pts,
                                                      const boost::python::list& initial_guesses,
-                                                     const boost::python::list& points_being_sampled,
+                                                     const boost::python::list& discrete_being_sampled,
                                                      int num_multistarts, int num_pts, int num_to_sample,
                                                      int num_being_sampled, const boost::python::list& best_so_far,
                                                      int max_int_steps, int max_num_threads,
@@ -347,12 +346,8 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process_mcmc.dim(),
-                                                         num_pts*gaussian_process_mcmc.num_mcmc(), num_derivatives_input);
-
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
-                                                num_to_sample_input, num_being_sampled, num_derivatives_input);
-
+  PythonInterfaceInputContainer input_container(discrete_being_sampled, gradients, gaussian_process_mcmc.dim(),
+                                                num_pts*gaussian_process_mcmc.num_mcmc()+num_being_sampled, num_derivatives_input);
 
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
@@ -374,7 +369,7 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   EvaluateKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
-                            input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
+                            input_container.points_to_sample.data() + input_container.dim*num_pts*gaussian_process_mcmc.num_mcmc(), input_container.points_to_sample.data(),
                             num_multistarts, num_to_sample, input_container.num_being_sampled,
                             num_pts, best_so_far_list.data(), max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
                             result_function_values_C.data(), result_point_C.data());

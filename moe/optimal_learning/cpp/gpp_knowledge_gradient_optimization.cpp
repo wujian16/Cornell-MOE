@@ -212,7 +212,8 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
     num_gradients_to_sample(num_gradients_in),
     union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled,
                                        num_to_sample, num_being_sampled, dim)),
-    discretized_set(BuildUnionOfPoints(SubsetData(union_of_points.data(), num_union, kg_evaluator.num_fidelity()), kg_evaluator.discrete_pts_copy().data(),
+    subset_union_of_points(SubsetData(union_of_points.data(), num_union, kg_evaluator.num_fidelity())),
+    discretized_set(BuildUnionOfPoints(subset_union_of_points.data(), kg_evaluator.discrete_pts_copy().data(),
                                        num_union, kg_evaluator.number_discrete_pts(), dim - kg_evaluator.num_fidelity())),
     points_to_sample_state(*kg_evaluator.gaussian_process(), union_of_points.data(), num_union,
                            gradients_in, num_gradients_in, num_derivatives, true, configure_for_gradients),
@@ -304,7 +305,7 @@ void PosteriorMeanEvaluator::ComputeGradPosteriorMean(
     double * restrict grad_PS) const {
   double * restrict grad_mu = ps_state->grad_mu.data();
   gaussian_process_->ComputeGradMeanOfPoints(ps_state->points_to_sample_state, grad_mu);
-  for (int i = 0; i < dim_; ++i) {
+  for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
     grad_PS[i] = -grad_mu[i];
   }
 }
@@ -327,12 +328,11 @@ PosteriorMeanState::PosteriorMeanState(
   : dim(ps_evaluator.dim()),
     num_fidelity(num_fidelity_in),
     num_derivatives(configure_for_gradients ? num_to_sample : 0),
-    point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+    point_to_sample(BuildUnionOfPoints(point_to_sample_in)),
     points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(),
                            num_to_sample, nullptr, 0, num_derivatives, false, false),
     grad_mu(dim*num_derivatives) {
 }
-
 PosteriorMeanState::PosteriorMeanState(PosteriorMeanState&& OL_UNUSED(other)) = default;
 
 void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
@@ -386,7 +386,6 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
 
   // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
   PosteriorMeanEvaluator ps_evaluator(gaussian_process);
-
   typename PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, initial_guess, configure_for_gradients);
 
   GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
@@ -400,9 +399,9 @@ template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_proces
                                           const TensorProductDomain& domain, double const * restrict initial_guess,
                                           bool * restrict found_flag, double * restrict best_next_point);
 template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                                          const GradientDescentParameters& optimizer_parameters,
-                                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                                          bool * restrict found_flag, double * restrict best_next_point);
+                                          const GradientDescentParameters& optimizer_parameters,
+                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
+                                          bool * restrict found_flag, double * restrict best_next_point);
 
 /*!\rst
   This is a simple wrapper around ComputeKGOptimalPointsToSampleWithRandomStarts() and

@@ -371,9 +371,9 @@ struct KnowledgeGradientState final {
                                  int num_union, int num_fidelity) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> subset_data((dim-num_fidelity)*num_union);
     for (int i=0; i<num_union; ++i){
-      std::copy(union_of_points + i*dim, union_of_points+i*dim+dim-num_fidelity, subset_data.data()+i*(dim-num_fidelity);
+      std::copy(union_of_points + i*dim, union_of_points+i*dim+dim-num_fidelity, subset_data.data()+i*(dim-num_fidelity));
     }
-    return SubsetData;
+    return subset_data;
   }
 
   int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -445,6 +445,7 @@ struct KnowledgeGradientState final {
   std::vector<double> union_of_points;
 
   //! discretized set in KG computation
+  std::vector<double> subset_union_of_points;
   std::vector<double> discretized_set;
 
   //! gaussian process state
@@ -594,7 +595,7 @@ struct PosteriorMeanState final {
     return dim - num_fidelity;
   }
 
-  static std::vector<double> BuildUnionOfPoints(double const * restrict points_to_sample) noexcept OL_WARN_UNUSED_RESULT {
+  std::vector<double> BuildUnionOfPoints(double const * restrict points_to_sample) noexcept OL_WARN_UNUSED_RESULT {
     std::vector<double> union_of_points(dim);
     std::copy(points_to_sample, points_to_sample + dim - num_fidelity, union_of_points.data());
     std::fill(union_of_points.data() + dim - num_fidelity, union_of_points.data() + dim, 1.0);
@@ -607,7 +608,7 @@ struct PosteriorMeanState final {
       :point_to_sample[dim]: potential sample whose EI is being evaluted
   \endrst*/
   void GetCurrentPoint(double * restrict point_to_sample_out) const noexcept OL_NONNULL_POINTERS {
-    std::copy(point_to_sample.begin(), point_to_sample.end(), point_to_sample_out);
+    std::copy(point_to_sample.data(), point_to_sample.data() + dim - num_fidelity, point_to_sample_out);
   }
 
   /*!\rst
@@ -631,8 +632,7 @@ struct PosteriorMeanState final {
       :ei_evaluator: expected improvement evaluator object that specifies the parameters & GP for EI evaluation
       :point_to_sample[dim]: potential future sample whose EI (and/or gradients) is being evaluated
   \endrst*/
-  void SetupState(const EvaluatorType& ps_evaluator,
-                  double const * restrict point_to_sample_in) OL_NONNULL_POINTERS;
+  void SetupState(const EvaluatorType& ps_evaluator, double const * restrict point_to_sample_in) OL_NONNULL_POINTERS;
 
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
@@ -687,16 +687,16 @@ struct PosteriorMeanState final {
     :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                  const GradientDescentParameters& optimizer_parameters,
                                  const DomainType& domain, double const * restrict initial_guess,
                                  bool * restrict found_flag, double * restrict best_next_point);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                  const GradientDescentParameters& optimizer_parameters,
                                                  const TensorProductDomain& domain, double const * restrict initial_guess,
                                                  bool * restrict found_flag, double * restrict best_next_point);
-extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process,
+extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                  const GradientDescentParameters& optimizer_parameters,
                                                  const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
                                                  bool * restrict found_flag, double * restrict best_next_point);

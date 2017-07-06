@@ -19,7 +19,7 @@ def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_sear
     :return: (points to sample next, knowledge gradient at this set of points)
     """
     cpp_kg_evaluator = cppKnowledgeGradientMCMC(gaussian_process_mcmc = cpp_gp_mcmc, gaussian_process_list=cpp_gp_list,
-                                                inner_optimizer = inner_optimizer, discrete_pts_list=discrete_pts_list,
+                                                num_fidelity = 0, inner_optimizer = inner_optimizer, discrete_pts_list=discrete_pts_list,
                                                 num_to_sample = num_to_sample, num_mc_iterations=int(num_mc))
     optimizer = cppGradientDescentOptimizer(cpp_search_domain, cpp_kg_evaluator, sgd_params, int(lhc_itr))
     points_to_sample_list = []

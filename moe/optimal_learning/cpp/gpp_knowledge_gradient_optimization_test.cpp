@@ -307,7 +307,7 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
     NormalRNG normal_rng(3141);
     bool configure_for_gradients = true;
 
-    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, points_to_sample, configure_for_gradients);
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, 0, points_to_sample, configure_for_gradients);
 
     ps_evaluator_.ComputeGradPosteriorMean(&ps_state, grad_PS_.data());
 
@@ -328,7 +328,7 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
   virtual void EvaluateFunction(double const * restrict points_to_sample, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
     bool configure_for_gradients = false;
 
-    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, points_to_sample, configure_for_gradients);
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, 0, points_to_sample, configure_for_gradients);
     *function_values = ps_evaluator_.ComputePosteriorMean(&ps_state);
   }
 

@@ -84,7 +84,7 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
   GeneralMatrixVectorMultiply(ps_state->grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
                               dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_PS);
 
-  for (int i = 0; i < dim_; ++i) {
+  for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
     grad_PS[i] = -grad_PS[i];
   }
 }
@@ -127,8 +127,7 @@ FuturePosteriorMeanState::FuturePosteriorMeanState(
   const EvaluatorType& ps_evaluator,
   const int num_fidelity_in,
   double const * restrict point_to_sample_in,
-  bool configure_for_gradients,
-  const int num_fidelity_in)
+  bool configure_for_gradients)
   : dim(ps_evaluator.dim()),
     num_fidelity(num_fidelity_in),
     num_derivatives(configure_for_gradients ? num_to_sample : 0),
