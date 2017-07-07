@@ -120,6 +120,9 @@
 #include <memory>
 #include <vector>
 
+#include <stdlib.h>
+#include <queue>
+
 #include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
@@ -684,15 +687,44 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
                                   thread_schedule.max_num_threads, configure_for_gradients,
                                   normal_rng, kg_state_vector.data(), &state_vector);
 
+  std::vector<double> KG_starting(num_multistarts);
+  for (int i=0; i<num_multistarts; ++i){
+    state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
+    KG_starting[i] = kg_evaluator.ComputeKnowledgeGradient(&state_vector[0]);
+  }
+
+  std::priority_queue<std::pair<double, int>> q;
+  int k = 10; // number of indices we need
+  for (int i = 0; i < KG_starting.size(); ++i) {
+    if (i < k){
+      q.push(std::pair<double, int>(-KG_starting[i], i));
+    }
+    else{
+      if (q.top().first > -KG_starting[i]){
+        q.pop();
+        q.push(std::pair<double, int>(-KG_starting[i], i));
+      }
+    }
+  }
+
+  std::vector<double> top_k_starting(k*num_to_sample*gaussian_process_mcmc.dim());
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<num_to_sample*gaussian_process_mcmc.dim(); ++d){
+      top_k_starting[i*num_to_sample*gaussian_process_mcmc.dim() + d] = start_point_set[ki*num_to_sample*gaussian_process_mcmc.dim() + d];
+    }
+    q.pop();
+  }
+
   // init winner to be first point in set and 'force' its value to be 0.0; we cannot do worse than this
-  OptimizationIOContainer io_container(state_vector[0].GetProblemSize(), -INFINITY, start_point_set);
+  OptimizationIOContainer io_container(state_vector[0].GetProblemSize(), -INFINITY, top_k_starting.data());
 
   using RepeatedDomain = RepeatedDomain<DomainType>;
   RepeatedDomain repeated_domain(domain, num_to_sample);
   GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, RepeatedDomain> gd_opt;
   MultistartOptimizer<GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, RepeatedDomain> > multistart_optimizer;
   multistart_optimizer.MultistartOptimize(gd_opt, kg_evaluator, optimizer_parameters,
-                                          repeated_domain, thread_schedule, start_point_set,
+                                          repeated_domain, thread_schedule, top_k_starting.data(),
                                           num_multistarts, state_vector.data(), nullptr, &io_container);
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);

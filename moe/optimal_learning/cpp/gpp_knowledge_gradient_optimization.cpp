@@ -70,7 +70,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeCost(StateType * kg_state)
   else{
     double cost = 0.0;
     for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0
+      double point_cost = 1.0;
       for (int j=dim_-num_fidelity_; j<dim_; ++j){
         point_cost *= kg_state->union_of_points[i*dim_ + j];
       }
@@ -92,7 +92,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradCost(StateType * kg_stat
     int index = -1;
     double cost = 0.0;
     for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0
+      double point_cost = 1.0;
       for (int j=dim_-num_fidelity_; j<dim_; ++j){
         point_cost *= kg_state->union_of_points[i*dim_ + j];
       }
@@ -203,12 +203,11 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                       &best_function_value, kg_state->best_point.data() + i*dim_);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
-  KG =aggregate/static_cast<double>(num_mc_iterations_);
+  double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
   // cost and the grad of the cost
   double cost = ComputeCost(kg_state);
-  ComputeGradCost(kg_state, kg_state->gradcost);
-
+  ComputeGradCost(kg_state, kg_state->gradcost.data());
 
   gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), num_mc_iterations_,
                                                nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
