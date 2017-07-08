@@ -21,21 +21,21 @@
 namespace optimal_learning {
 
 FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess& gaussian_process_in,
-    double const * coefficient,
-    double const * to_sample,
-    const int num_to_sample,
-    int const * to_sample_derivatives,
-    int num_derivatives,
-    double const * chol,
-    double const * train_sample)
-    : dim_(gaussian_process_in.dim()),
-      gaussian_process_(&gaussian_process_in),
-      to_sample_(to_sample_points(to_sample, num_to_sample)),
-      num_to_sample_(num_to_sample),
-      to_sample_derivatives_(derivatives(to_sample_derivatives, num_derivatives)),
-      num_derivatives_(num_derivatives),
-      coeff_(coeff(coefficient, chol, num_to_sample, num_derivatives)),
-      coeff_combined_(coeff_combine(coeff_.data(), train_sample, num_to_sample, num_derivatives)) {
+  double const * coefficient,
+  double const * to_sample,
+  const int num_to_sample,
+  int const * to_sample_derivatives,
+  int num_derivatives,
+  double const * chol,
+  double const * train_sample)
+  : dim_(gaussian_process_in.dim()),
+    gaussian_process_(&gaussian_process_in),
+    to_sample_(to_sample_points(to_sample, num_to_sample)),
+    num_to_sample_(num_to_sample),
+    to_sample_derivatives_(derivatives(to_sample_derivatives, num_derivatives)),
+    num_derivatives_(num_derivatives),
+    coeff_(coeff(coefficient, chol, num_to_sample, num_derivatives)),
+    coeff_combined_(coeff_combine(coeff_.data(), train_sample, num_to_sample, num_derivatives)) {
 }
 
 /*!\rst
@@ -46,13 +46,14 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
 \endrst*/
 double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) const {
   double to_sample_mean = gaussian_process_->get_mean();
-  int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
-  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations,
-                              1, num_observations, &to_sample_mean);
+  int num_observations = gaussian_process_->num_sampled();
+
+  GeneralMatrixVectorMultiply(ps_state->K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations*(gaussian_process_->num_derivatives()+1),
+                              1, num_observations*(gaussian_process_->num_derivatives()+1), &to_sample_mean);
 
   std::vector<double> temp(num_to_sample_*(1+num_derivatives_));
   // Vars = Kst
-  optimal_learning::BuildMixCovarianceMatrix(*gaussian_process_->covariance_ptr_, ps_state->points_to_sample_state.points_to_sample.data(),
+  optimal_learning::BuildMixCovarianceMatrix(*gaussian_process_->covariance_ptr_, ps_state->point_to_sample.data(),
                                              to_sample_.data(), dim_, 1, num_to_sample_, nullptr, 0, to_sample_derivatives_.data(),
                                              num_derivatives_, temp.data());
 
@@ -72,19 +73,44 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
     StateType * ps_state, double * restrict grad_PS) const {
   std::vector<double> temp(dim_*num_to_sample_*(1+num_derivatives_));
   for (int i = 0; i < num_to_sample_; ++i){
-    gaussian_process_->covariance_ptr_->GradCovariance(ps_state->points_to_sample_state.points_to_sample.data(), nullptr, 0,
+    gaussian_process_->covariance_ptr_->GradCovariance(ps_state->point_to_sample.data(), nullptr, 0,
                                                        to_sample_.data() + i*dim_, to_sample_derivatives_.data(), num_derivatives_,
                                                        temp.data() + i*dim_*(1 + num_derivatives_));
   }
   GeneralMatrixVectorMultiply(temp.data(), 'N', coeff_.data(), 1.0, 0.0,
                               dim_, num_to_sample_*(1+num_derivatives_), dim_, grad_PS);
 
-  int num_observations = gaussian_process_->num_sampled() * (1 + gaussian_process_->num_derivatives());
-  GeneralMatrixVectorMultiply(ps_state->points_to_sample_state.grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
-                              dim_, num_observations, dim_, grad_PS);
+  int num_observations = gaussian_process_->num_sampled();
+  GeneralMatrixVectorMultiply(ps_state->grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
+                              dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_PS);
 
   for (int i = 0; i < dim_; ++i) {
     grad_PS[i] = -grad_PS[i];
+  }
+}
+
+void FuturePosteriorMeanState::Initialize(const EvaluatorType& ps_evaluator) {
+  optimal_learning::BuildMixCovarianceMatrix(*(ps_evaluator.gaussian_process()->covariance_ptr_), point_to_sample.data(),
+                                             ps_evaluator.gaussian_process()->points_sampled().data(), dim, 1,
+                                             ps_evaluator.gaussian_process()->num_sampled(), nullptr, 0,
+                                             ps_evaluator.gaussian_process()->derivatives().data(),
+                                             ps_evaluator.gaussian_process()->num_derivatives(), K_star.data());
+  if (num_derivatives > 0) {
+    double * restrict gKs_temp = grad_K_star.data();
+    double * restrict grad_cov_temp = new double[dim*(ps_evaluator.gaussian_process()->num_derivatives()+1)]();
+    for (int j = 0; j < ps_evaluator.gaussian_process()->num_sampled(); ++j) {
+      ps_evaluator.gaussian_process()->covariance_ptr_->GradCovariance(point_to_sample.data(), nullptr, 0,
+                                                                       ps_evaluator.gaussian_process()->points_sampled().data() + j*dim,
+                                                                       ps_evaluator.gaussian_process()->derivatives().data(),
+                                                                       ps_evaluator.gaussian_process()->num_derivatives(), grad_cov_temp);
+      for (int n = 0; n < ps_evaluator.gaussian_process()->num_derivatives()+1; ++n){
+        int row = n + j*(ps_evaluator.gaussian_process()->num_derivatives()+1);
+        for (int d = 0; d <dim; ++d){
+          gKs_temp[d + row*dim] = grad_cov_temp[d+n*dim];
+        }
+      }
+    }
+    delete [] grad_cov_temp;
   }
 }
 
@@ -92,21 +118,21 @@ void FuturePosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator
                                          double const * restrict point_to_sample_in) {
   // update current point in union_of_points
   std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
-
   // evaluate derived quantities
-  points_to_sample_state.SetupState(*ps_evaluator.gaussian_process(), point_to_sample.data(),
-                                    num_to_sample, 0, num_derivatives, false, false);
+  Initialize(ps_evaluator);
 }
 
 FuturePosteriorMeanState::FuturePosteriorMeanState(
-    const EvaluatorType& ps_evaluator,
-    double const * restrict point_to_sample_in,
-    bool configure_for_gradients)
-    : dim(ps_evaluator.dim()),
-      num_derivatives(configure_for_gradients ? num_to_sample : 0),
-      point_to_sample(point_to_sample_in, point_to_sample_in + dim),
-      points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample,
-                             nullptr, 0, num_derivatives, false, false) {
+  const EvaluatorType& ps_evaluator,
+  double const * restrict point_to_sample_in,
+  bool configure_for_gradients)
+  : dim(ps_evaluator.dim()),
+    num_derivatives(configure_for_gradients ? num_to_sample : 0),
+    point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+    K_star(ps_evaluator.gaussian_process()->num_sampled()*(1+ps_evaluator.gaussian_process()->num_derivatives())),
+    grad_K_star(dim*ps_evaluator.gaussian_process()->num_sampled()*(1+ps_evaluator.gaussian_process()->num_derivatives())),
+    randomGenerator() {
+  Initialize(ps_evaluator);
 }
 
 FuturePosteriorMeanState::FuturePosteriorMeanState(FuturePosteriorMeanState&& OL_UNUSED(other)) = default;
@@ -173,12 +199,12 @@ void FuturePosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
 \endrst*/
 template <typename DomainType>
 void ComputeOptimalFuturePosteriorMean(
-    const GaussianProcess& gaussian_process, double const * coefficient,
-    double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
-    int num_derivatives, double const * chol, double const * train_sample,
-    const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
-    int max_num_threads, double const * restrict start_point_set,
-    int num_multistarts, double * restrict best_function_value, double * restrict best_next_point) {
+  const GaussianProcess& gaussian_process, double const * coefficient,
+  double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
+  int num_derivatives, double const * chol, double const * train_sample,
+  const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
+  int max_num_threads, double const * restrict start_point_set,
+  int num_multistarts, double * restrict best_function_value, double * restrict best_next_point) {
   if (unlikely(num_multistarts <= 0)) {
     OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
   }
@@ -214,7 +240,7 @@ void ComputeOptimalFuturePosteriorMean(
     }
   }
 
-  std::vector<double> top_k_starting(10*gaussian_process.dim());
+  std::vector<double> top_k_starting(k*gaussian_process.dim());
   for (int i = 0; i < k; ++i) {
     int ki = q.top().second;
     for (int d = 0; d<gaussian_process.dim(); ++d){

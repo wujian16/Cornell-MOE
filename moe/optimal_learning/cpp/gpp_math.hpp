@@ -1707,7 +1707,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
       }
     }
 
-    std::vector<double> top_k_starting(10*num_to_sample*gaussian_process.dim());
+    std::vector<double> top_k_starting(k*num_to_sample*gaussian_process.dim());
     for (int i = 0; i < k; ++i) {
       int ki = q.top().second;
       for (int d = 0; d<num_to_sample*gaussian_process.dim(); ++d){
@@ -1741,7 +1741,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
     }
 
     std::priority_queue<std::pair<double, int>> q;
-    int k = 10; // number of indices we need
+    int k = 20; // number of indices we need
     for (int i = 0; i < EI_starting.size(); ++i) {
       if (i < k){
         q.push(std::pair<double, int>(-EI_starting[i], i));
@@ -1754,7 +1754,7 @@ OL_NONNULL_POINTERS void ComputeOptimalPointsToSampleViaMultistartGradientDescen
       }
     }
 
-    std::vector<double> top_k_starting(10*num_to_sample*gaussian_process.dim());
+    std::vector<double> top_k_starting(k*num_to_sample*gaussian_process.dim());
     for (int i = 0; i < k; ++i) {
       int ki = q.top().second;
       for (int d = 0; d<num_to_sample*gaussian_process.dim(); ++d){

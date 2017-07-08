@@ -48,7 +48,7 @@ python_search_domain = pythonTensorProductDomain([ClosedInterval(bound[0], bound
 cpp_search_domain = cppTensorProductDomain([ClosedInterval(bound[0], bound[1]) for bound in objective_func._search_domain])
 
 # get the initial data
-init_pts = python_search_domain.generate_uniform_random_points_in_domain(3)
+init_pts = python_search_domain.generate_uniform_random_points_in_domain(objective_func._num_init_pts)
 # observe
 derivatives = []
 observations = [0] + [i+1 for i in derivatives]
@@ -68,15 +68,15 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.02,
+                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.5, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=10, max_num_restarts=1,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.04,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=1,
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
                                                  max_relative_change=0.2, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=100, max_num_steps=20, max_num_restarts=1,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.4,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=120, max_num_steps=20, max_num_restarts=1,
+                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.3,
                                                  max_relative_change=0.6, tolerance=1.0e-5)
 
 # minimum of the mean surface
@@ -97,12 +97,12 @@ report_point = report_point.ravel()
 
 print "best so far in the initial data {0}".format(true_value_init[np.argmin(true_value_init[:,0])][0])
 for n in xrange(num_iteration):
-    print "KG, {0}th job, {1}th iteration, func=Branin, q={2}".format(
-            job_id, n, num_to_sample
+    print "KG, {0}th job, {1}th iteration, func={2}, q={3}".format(
+            job_id, n, obj_func_name, num_to_sample
     )
     time1 = time.time()
     discrete_pts_list = []
-    discrete = python_search_domain.generate_uniform_random_points_in_domain(100)
+    discrete = python_search_domain.generate_uniform_random_points_in_domain(200)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         #init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         #discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 100)
@@ -146,7 +146,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     # report the point
-    eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e3))
+    eval_pts = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
     eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled),
                           (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim))
     test = np.zeros(eval_pts.shape[0])
