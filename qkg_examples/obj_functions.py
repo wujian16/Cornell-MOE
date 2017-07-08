@@ -67,7 +67,7 @@ class HartmannNoNoise(object):
                                           [0.1, 10.], [0.1, 10.], [0.1, 10.], [0.01, 0.5],
                                           [0.01, 0.5], [0.01, 0.5], [0.01, 0.5],
                                           [0.01, 0.5], [0.01, 0.5], [0.01, 0.5]])
-        self._num_init_pts = 3
+        self._num_init_pts = 20
         self._sample_var = 0.25
         self._min_value = -3.32237
         self._num_observations = 6

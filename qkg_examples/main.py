@@ -48,7 +48,7 @@ python_search_domain = pythonTensorProductDomain([ClosedInterval(bound[0], bound
 cpp_search_domain = cppTensorProductDomain([ClosedInterval(bound[0], bound[1]) for bound in objective_func._search_domain])
 
 # get the initial data
-init_pts = python_search_domain.generate_uniform_random_points_in_domain(3)
+init_pts = python_search_domain.generate_uniform_random_points_in_domain(objective_func._num_init_pts)
 # observe
 derivatives = []
 observations = [0] + [i+1 for i in derivatives]
@@ -75,7 +75,7 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_step
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
                                                  max_relative_change=0.2, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=120, max_num_steps=30, max_num_restarts=1,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=120, max_num_steps=20, max_num_restarts=1,
                                                  num_steps_averaged=4, gamma=0.7, pre_mult=0.3,
                                                  max_relative_change=0.6, tolerance=1.0e-5)
 
@@ -102,7 +102,7 @@ for n in xrange(num_iteration):
     )
     time1 = time.time()
     discrete_pts_list = []
-    discrete = python_search_domain.generate_uniform_random_points_in_domain(100)
+    discrete = python_search_domain.generate_uniform_random_points_in_domain(200)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         #init_points = python_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         #discrete_pts_optima = sample_from_global_optima(cpp_gp, 1000, objective_func._search_domain, init_points, 100)
