@@ -694,7 +694,7 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
   }
 
   std::priority_queue<std::pair<double, int>> q;
-  int k = 10; // number of indices we need
+  int k = 20; // number of indices we need
   for (int i = 0; i < KG_starting.size(); ++i) {
     if (i < k){
       q.push(std::pair<double, int>(-KG_starting[i], i));
@@ -725,7 +725,7 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
   MultistartOptimizer<GradientDescentOptimizer<KnowledgeGradientMCMCEvaluator<DomainType>, RepeatedDomain> > multistart_optimizer;
   multistart_optimizer.MultistartOptimize(gd_opt, kg_evaluator, optimizer_parameters,
                                           repeated_domain, thread_schedule, top_k_starting.data(),
-                                          num_multistarts, state_vector.data(), nullptr, &io_container);
+                                          k, state_vector.data(), nullptr, &io_container);
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }

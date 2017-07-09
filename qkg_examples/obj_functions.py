@@ -2,10 +2,8 @@ import numpy
 
 class BraninNoNoise(object):
     def __init__(self):
-        self._dim = 2
-        self._search_domain = numpy.array([[0, 15],[-5,15]])
-        self._hyper_domain = numpy.array([[1e-6, 1e6], [1e-6, 1e6], [1e-6, 1e6],
-                                          [1e-6, 1e6], [1e-6, 1e6], [1e-6, 1e6]])
+        self._dim = 4
+        self._search_domain = numpy.array([[0, 15],[-5,15], [0., 1.], [0., 1.]])
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
@@ -17,8 +15,8 @@ class BraninNoNoise(object):
             :param x[2]: 2-dim numpy array
         """
         a = 1
-        b = 5.1 / (4 * pow(numpy.pi, 2.0))
-        c = 5 / numpy.pi
+        b = 5.1 / (4 * pow(numpy.pi, 2.0)) - 0.01*(1-x[2])
+        c = 5 / numpy.pi- 0.1*(1-x[3])
         r = 6
         s = 10
         t = 1 / (8 * numpy.pi)
@@ -31,7 +29,6 @@ class BraninNoNoise(object):
 
 class RosenbrockNoNoise(object):
     def __init__(self):
-
         self._dim = 3
         self._search_domain = numpy.repeat([[-2., 2.]], 3, axis=0)
 
@@ -40,7 +37,6 @@ class RosenbrockNoNoise(object):
         self._num_init_pts = 3
         self._sample_var = 0.25
         self._min_value = 0.0
-
 
     def evaluate_true(self, x):
         """ Global minimum is 0 at (1, 1, 1)
@@ -59,7 +55,37 @@ class RosenbrockNoNoise(object):
     def evaluate(self, x):
         return self.evaluate_true(x)
 
-class HartmannNoNoise(object):
+class Hartmann3(object):
+    def __init__(self):
+        self._dim = 3
+        self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
+        self._hyper_domain = numpy.array([[0.1, 100.], [0.1, 10.], [0.1, 10.], [0.1, 10.]])
+        self._num_init_pts = 3
+        self._sample_var = 0.25
+        self._min_value = -3.86278
+
+    def evaluate_true(self, x):
+        """ domain is x_i \in (0, 1) for i = 1, ..., 3
+            Global minimum is -3.86278 at (0.114614, 0.555649, 0.852547)
+
+            :param x[3]: 3-dimension numpy array with domain stated above
+        """
+        alpha = numpy.array([1.0, 1.2, 3.0, 3.2])
+        A = numpy.array([[3., 10., 30.], [0.1, 10., 35.], [3., 10., 30.], [0.1, 10., 35.]])
+        P = 1e-4 * numpy.array([[3689, 1170, 2673], [4699, 4387, 7470], [1091, 8732, 5547], [381, 5743, 8828]])
+        value = 0.0
+        for i in range(4):
+            inner_value = 0.0
+            for j in range(self._dim):
+                inner_value -= A[i, j] * pow(x[j] - P[i, j], 2.0)
+            value -= alpha[i] * numpy.exp(inner_value)
+        return numpy.array([value])
+
+    def evaluate(self, x):
+        t = self.evaluate_true(x)
+        return t
+
+class Hartmann6(object):
     def __init__(self):
         self._dim = 6
         self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
@@ -93,7 +119,6 @@ class HartmannNoNoise(object):
             results[0] -= alpha[i] * numpy.exp(inner_value)
             for j in range(self._dim):
                 results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
-
         return numpy.array(results)
 
     def evaluate(self, x):

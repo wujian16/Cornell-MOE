@@ -621,7 +621,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
   MultistartOptimizer<GradientDescentOptimizer<ExpectedImprovementMCMCEvaluator, RepeatedDomain> > multistart_optimizer;
   multistart_optimizer.MultistartOptimize(gd_opt, ei_evaluator, optimizer_parameters,
                                           repeated_domain, thread_schedule, top_k_starting.data(),
-                                          num_multistarts, state_vector.data(), nullptr, &io_container);
+                                          k, state_vector.data(), nullptr, &io_container);
   *found_flag = io_container.found_flag;
   std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
