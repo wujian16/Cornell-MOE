@@ -43,7 +43,7 @@ objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
 num_initial_points = int(objective_func._num_init_pts)
 
-num_fidelity = 0
+num_fidelity = objective_func._num_fidelity
 
 inner_search_domain = pythonTensorProductDomain([ClosedInterval(objective_func._search_domain[i, 0], objective_func._search_domain[i, 1])
                                                  for i in xrange(objective_func._search_domain.shape[0]-num_fidelity)])
@@ -184,7 +184,7 @@ for n in xrange(num_iteration):
     report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
 
     ps.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
-    if -ps_evaluator.compute_objective_function() > np.min(test):
+    if -ps.compute_objective_function() > np.min(test):
         report_point = initial_point
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
