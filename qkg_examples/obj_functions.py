@@ -1,4 +1,5 @@
 import numpy
+import math
 
 class BraninNoNoise(object):
     def __init__(self):
@@ -7,6 +8,7 @@ class BraninNoNoise(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
+        self._num_fidelity = 2
 
     def evaluate_true(self, x):
         """ This function is usually evaluated on the square x_1 \in [-5, 10], x_2 \in [0, 15]. Global minimum
@@ -31,12 +33,10 @@ class RosenbrockNoNoise(object):
     def __init__(self):
         self._dim = 3
         self._search_domain = numpy.repeat([[-2., 2.]], 3, axis=0)
-
-        self._hyper_domain = numpy.array([[10., 1.0e8], [0.5, 10.], [0.5, 10.], [0.5, 10.], [0.01, 0.5],
-                                          [0.01, 0.05], [0.01, 0.05], [0.01, 0.05]])
         self._num_init_pts = 3
         self._sample_var = 0.25
         self._min_value = 0.0
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ Global minimum is 0 at (1, 1, 1)
@@ -59,10 +59,10 @@ class Hartmann3(object):
     def __init__(self):
         self._dim = 3
         self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
-        self._hyper_domain = numpy.array([[0.1, 100.], [0.1, 10.], [0.1, 10.], [0.1, 10.]])
         self._num_init_pts = 3
         self._sample_var = 0.25
         self._min_value = -3.86278
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ domain is x_i \in (0, 1) for i = 1, ..., 3
@@ -85,18 +85,40 @@ class Hartmann3(object):
         t = self.evaluate_true(x)
         return t
 
+class AckleyNoNoise(object):
+    def __init__(self):
+        self._dim = 5
+        self._search_domain = numpy.repeat([[-2., 2.]], self._dim, axis=0)
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        firstSum = 0.0
+        secondSum = 0.0
+        for c in x:
+            firstSum += c**2.0
+            secondSum += math.cos(2.0*math.pi*c)
+        n = float(len(x))
+        results=[-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e]
+        for i in xrange(int(n)):
+            results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
+                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
+        return numpy.array(results)
+
+    def evaluate(self, x):
+        return self.evaluate_true(x)
+
 class Hartmann6(object):
     def __init__(self):
         self._dim = 6
         self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
-        self._hyper_domain = numpy.array([[0.1, 100.], [0.1, 10.], [0.1, 10.], [0.1, 10.],
-                                          [0.1, 10.], [0.1, 10.], [0.1, 10.], [0.01, 0.5],
-                                          [0.01, 0.5], [0.01, 0.5], [0.01, 0.5],
-                                          [0.01, 0.5], [0.01, 0.5], [0.01, 0.5]])
         self._num_init_pts = 3
         self._sample_var = 0.25
         self._min_value = -3.32237
         self._num_observations = 6
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ domain is x_i \in (0, 1) for i = 1, ..., 6

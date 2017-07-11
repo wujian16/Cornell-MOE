@@ -77,7 +77,7 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
       knowledge_gradient_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], num_fidelity_, discrete_pts,
                                                      num_pts_, num_mc_iterations_, domain_, optimizer_parameters_,
                                                      best_so_far_[i]);
-      discrete_pts += num_pts_*dim_;
+      discrete_pts += num_pts_*(dim_-num_fidelity_);
     }
 }
 

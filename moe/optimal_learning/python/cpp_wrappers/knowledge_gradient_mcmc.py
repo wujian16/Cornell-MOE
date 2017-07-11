@@ -50,7 +50,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
     @property
     def problem_size(self):
         """Return the number of independent parameters to optimize."""
-        return self.dim
+        return self.dim-self._num_fidelity
 
     def get_current_point(self):
         """Get the current_point (array of float64 with shape (problem_size)) at which this object is evaluating the objective function, ``f(x)``."""
@@ -140,14 +140,14 @@ class PosteriorMeanMCMC(OptimizableInterface):
         :rtype: array of float64 with shape (num_to_sample, dim)
 
         """
-        grad_posterior_mean_mcmc = numpy.zeros((1, self.dim))
+        grad_posterior_mean_mcmc = numpy.zeros((1, self.dim-self._num_fidelity))
         for gp in self._gaussian_process_list:
             temp = C_GP.compute_grad_posterior_mean(
                 gp._gaussian_process,
                 self._num_fidelity,
                 cpp_utils.cppify(self._points_to_sample),
             )
-            grad_posterior_mean_mcmc += cpp_utils.uncppify(temp, (1, self.dim))
+            grad_posterior_mean_mcmc += cpp_utils.uncppify(temp, (1, self.dim-self._num_fidelity))
         return grad_posterior_mean_mcmc/len(self._gaussian_process_list)
 
     compute_grad_objective_function = compute_grad_posterior_mean_mcmc
@@ -382,7 +382,9 @@ class KnowledgeGradientMCMC(OptimizableInterface):
         self._best_so_far_list = []
         for discrete_pts, gaussian_process in zip(discrete_pts_list, self._gaussian_process_list):
             self._discrete_pts_list.append(numpy.copy(discrete_pts))
-            mu_star = gaussian_process.compute_mean_of_additional_points(discrete_pts)
+            mu_star = numpy.zeros(discrete_pts.shape[0])
+            for i, pt in enumerate(discrete_pts):
+                mu_star[i] = gaussian_process.compute_mean_of_additional_points(numpy.concatenate((pt, numpy.ones(self._num_fidelity))).reshape(1, self.dim))
             self._best_so_far_list.append(numpy.amin(mu_star))
 
         if points_being_sampled is None:

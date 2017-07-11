@@ -58,7 +58,6 @@ double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) 
                                              num_derivatives_, temp.data());
 
   to_sample_mean += DotProduct(temp.data(), coeff_.data(), num_to_sample_*(1+num_derivatives_));
-
   return -to_sample_mean;
 }
 
@@ -77,15 +76,17 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
                                                        to_sample_.data() + i*dim_, to_sample_derivatives_.data(), num_derivatives_,
                                                        temp.data() + i*dim_*(1 + num_derivatives_));
   }
+
+  std::vector<double> grad_temp(dim_);
   GeneralMatrixVectorMultiply(temp.data(), 'N', coeff_.data(), 1.0, 0.0,
-                              dim_, num_to_sample_*(1+num_derivatives_), dim_, grad_PS);
+                              dim_, num_to_sample_*(1+num_derivatives_), dim_, grad_temp.data());
 
   int num_observations = gaussian_process_->num_sampled();
   GeneralMatrixVectorMultiply(ps_state->grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
-                              dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_PS);
+                              dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_temp.data());
 
   for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
-    grad_PS[i] = -grad_PS[i];
+    grad_PS[i] = -grad_temp[i];
   }
 }
 
@@ -225,7 +226,7 @@ void ComputeOptimalFuturePosteriorMean(
 
   std::vector<double> future_mean_starting(num_multistarts);
   for (int i=0; i<num_multistarts; ++i){
-    fpm_state_vector[0].SetCurrentPoint(fpm_evaluator, start_point_set + i*gaussian_process.dim());
+    fpm_state_vector[0].SetCurrentPoint(fpm_evaluator, start_point_set + i*(gaussian_process.dim()-num_fidelity));
     future_mean_starting[i] = fpm_evaluator.ComputePosteriorMean(&fpm_state_vector[0]);
   }
 
@@ -243,11 +244,11 @@ void ComputeOptimalFuturePosteriorMean(
     }
   }
 
-  std::vector<double> top_k_starting(k*gaussian_process.dim());
+  std::vector<double> top_k_starting(k*(gaussian_process.dim()-num_fidelity));
   for (int i = 0; i < k; ++i) {
     int ki = q.top().second;
-    for (int d = 0; d<gaussian_process.dim(); ++d){
-      top_k_starting[i*gaussian_process.dim() + d] = start_point_set[ki*gaussian_process.dim() + d];
+    for (int d = 0; d<gaussian_process.dim()-num_fidelity; ++d){
+      top_k_starting[i*(gaussian_process.dim()-num_fidelity) + d] = start_point_set[ki*(gaussian_process.dim()-num_fidelity) + d];
     }
     q.pop();
   }

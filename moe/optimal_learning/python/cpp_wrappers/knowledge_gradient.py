@@ -121,7 +121,7 @@ class PosteriorMean(OptimizableInterface):
     @property
     def problem_size(self):
         """Return the number of independent parameters to optimize."""
-        return self.dim
+        return self.dim-self._num_fidelity
 
     def get_current_point(self):
         """Get the current_point (array of float64 with shape (problem_size)) at which this object is evaluating the objective function, ``f(x)``."""
@@ -213,7 +213,7 @@ class PosteriorMean(OptimizableInterface):
             self._num_fidelity,
             cpp_utils.cppify(self._points_to_sample),
         )
-        return cpp_utils.uncppify(grad_kg, (1, self.dim))
+        return cpp_utils.uncppify(grad_kg, (1, self.dim-self._num_fidelity))
 
     compute_grad_objective_function = compute_grad_posterior_mean
 

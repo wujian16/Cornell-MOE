@@ -253,8 +253,8 @@ class KnowledgeGradientMCMCEvaluator final {
 
   std::vector<double> discrete_points_list(double const * discrete_pts_lst,
                                            int num_pts) const noexcept OL_WARN_UNUSED_RESULT {
-    std::vector<double> result(num_pts*dim_*num_mcmc_hypers_);
-    std::copy(discrete_pts_lst, discrete_pts_lst + num_pts*dim_*num_mcmc_hypers_, result.data());
+    std::vector<double> result(num_pts*(dim_-num_fidelity_)*num_mcmc_hypers_);
+    std::copy(discrete_pts_lst, discrete_pts_lst + num_pts*(dim_-num_fidelity_)*num_mcmc_hypers_, result.data());
     return result;
   }
 

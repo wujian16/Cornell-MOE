@@ -188,7 +188,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
       kg_state->aggregate[winner_so_far*dim_ + k] += num_mc_iterations_ * kg_state->grad_mu[winner_so_far*dim_ + k];
     }
   }
-
+  std::fill(kg_state->best_point.begin(), kg_state->best_point.end(), 1.0);
   double aggregate = 0.0;
   for (int i = 0; i < num_mc_iterations_; ++i) {
     for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
