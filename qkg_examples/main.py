@@ -104,6 +104,7 @@ report_point = report_point.ravel()
 report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
 
 print "best so far in the initial data {0}".format(true_value_init[np.argmin(true_value_init[:,0])][0])
+capital_so_far = 0.
 for n in xrange(num_iteration):
     print "KG, {0}th job, {1}th iteration, func={2}, q={3}".format(
             job_id, n, obj_func_name, num_to_sample
@@ -156,7 +157,8 @@ for n in xrange(num_iteration):
             for j in xrange(num_fidelity):
                 value *= next_points[i, dim-1-j]
             capitals[i] = value
-    print "evaluating takes capital " + str(np.amax(capitals))
+    capital_so_far += np.amax(capitals)
+    print "evaluating takes capital " + str(capital_so_far)
 
     # retrain the model
     time1 = time.time()
