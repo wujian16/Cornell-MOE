@@ -38,7 +38,8 @@ num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'BraninNoNoise': obj_functions.BraninNoNoise(), 'RosenbrockNoNoise': obj_functions.RosenbrockNoNoise(),
-                 'Hartmann3': obj_functions.Hartmann3(), 'AckleyNoNoise': obj_functions.AckleyNoNoise(), 'HartmannNoNoise': obj_functions.Hartmann6()}
+                 'Hartmann3': obj_functions.Hartmann3()}
+
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
 num_initial_points = int(objective_func._num_init_pts)
@@ -56,6 +57,7 @@ init_pts = np.zeros((objective_func._num_init_pts, objective_func._dim))
 init_pts[:, :objective_func._dim-objective_func._num_fidelity] = inner_search_domain.generate_uniform_random_points_in_domain(objective_func._num_init_pts)
 for pt in init_pts:
     pt[objective_func._dim-objective_func._num_fidelity:] = np.ones(objective_func._num_fidelity)
+
 # observe
 derivatives = []
 observations = [0] + [i+1 for i in derivatives]
@@ -76,20 +78,21 @@ cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
-                                               max_relative_change=0.5, tolerance=1.0e-5)
+                                               max_relative_change=0.1, tolerance=1.0e-5)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=1,
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
-                                                 max_relative_change=0.2, tolerance=1.0e-5)
+                                                 max_relative_change=0.06, tolerance=1.0e-5)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=120, max_num_steps=20, max_num_restarts=1,
                                                  num_steps_averaged=4, gamma=0.7, pre_mult=0.3,
-                                                 max_relative_change=0.6, tolerance=1.0e-5)
+                                                 max_relative_change=0.3, tolerance=1.0e-5)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
 eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
                       (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
+
 test = np.zeros(eval_pts.shape[0])
 ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models, num_fidelity)
 for i, pt in enumerate(eval_pts):
@@ -124,6 +127,7 @@ for n in xrange(num_iteration):
         for i, pt in enumerate(eval_pts):
             ps_evaluator.set_current_point(pt.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
             test[i] = -ps_evaluator.compute_objective_function()
+
         initial_point = eval_pts[np.argmin(test)]
 
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)

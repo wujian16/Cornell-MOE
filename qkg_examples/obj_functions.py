@@ -4,7 +4,7 @@ import math
 class BraninNoNoise(object):
     def __init__(self):
         self._dim = 3
-        self._search_domain = numpy.array([[0, 15],[-5,15], [0., 1.]])
+        self._search_domain = numpy.array([[0, 15], [-5,15], [0., 1.]])
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
@@ -84,64 +84,3 @@ class Hartmann3(object):
     def evaluate(self, x):
         t = self.evaluate_true(x)
         return t
-
-class AckleyNoNoise(object):
-    def __init__(self):
-        self._dim = 5
-        self._search_domain = numpy.repeat([[-2., 2.]], self._dim, axis=0)
-        self._num_init_pts = 3
-        self._sample_var = 0.0
-        self._min_value = 0.0
-        self._num_fidelity = 0
-
-    def evaluate_true(self, x):
-        firstSum = 0.0
-        secondSum = 0.0
-        for c in x:
-            firstSum += c**2.0
-            secondSum += math.cos(2.0*math.pi*c)
-        n = float(len(x))
-        results=[-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e]
-        for i in xrange(int(n)):
-            results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
-                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
-        return numpy.array(results)
-
-    def evaluate(self, x):
-        return self.evaluate_true(x)
-
-class Hartmann6(object):
-    def __init__(self):
-        self._dim = 6
-        self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
-        self._num_init_pts = 3
-        self._sample_var = 0.25
-        self._min_value = -3.32237
-        self._num_observations = 6
-        self._num_fidelity = 0
-
-    def evaluate_true(self, x):
-        """ domain is x_i \in (0, 1) for i = 1, ..., 6
-            Global minimum is -3.32237 at (0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)
-
-            :param x[6]: 6-dimension numpy array with domain stated above
-        """
-        alpha = numpy.array([1.0, 1.2, 3.0, 3.2])
-        A = numpy.array([[10, 3, 17, 3.50, 1.7, 8], [0.05, 10, 17, 0.1, 8, 14], [3, 3.5, 1.7, 10, 17, 8],
-                         [17, 8, 0.05, 10, 0.1, 14]])
-        P = 1.0e-4 * numpy.array([[1312, 1696, 5569, 124, 8283, 5886], [2329, 4135, 8307, 3736, 1004, 9991],
-                                  [2348, 1451, 3522, 2883, 3047, 6650], [4047, 8828, 8732, 5743, 1091, 381]])
-
-        results = [0.0]*7
-
-        for i in range(4):
-            inner_value = 0.0
-            for j in range(self._dim):
-                inner_value -= A[i, j] * pow(x[j] - P[i, j], 2.0)
-            results[0] -= alpha[i] * numpy.exp(inner_value)
-            for j in range(self._dim):
-                results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
-        return numpy.array(results)
-
-    def evaluate(self, x):
-        return self.evaluate_true(x)
