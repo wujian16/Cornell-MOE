@@ -15,13 +15,13 @@ Cornell-MOE implements a library of batch Bayesian optimization algorithms. It w
 
 1. Fitting a Gaussian Process (GP) with historical data
 2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (qEI) or batch knowledge gradient (qKG)
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG)
 4. Returning the points to sample
 
 Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
 
 # Step-by-Step Install
-We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
+We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
 
 ** step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
@@ -61,7 +61,7 @@ $ pip install -r requirements.txt
 $ python setup.py install
 ```
 
-# Running MOE/qKG
+# Running Cornell-MOE
 ## Within Python
 See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 
@@ -81,7 +81,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
   title={Bayesian Optimization with Gradients},
   author={Wu, Jian and Poloczek, Matthias and Wilson, Andrew Gordon and Frazier, Peter I},
   booktitle={Advances in Neural Information Processing Systems},
-  note={Accepted for publication}
+  note={Accepted for publication},
   year={2017}
 }
 ```
