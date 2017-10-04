@@ -1,7 +1,8 @@
 /*!
   \file gpp_covariance.cpp
   \rst
-  This file contains function definitions for the Covariance, GradCovariance, and HyperparameterGradCovariance member
+  This file contains function definitions for the Covariance, GradCovariance,
+  and HyperparameterGradCovariance member
   functions of CovarianceInterface subclasses.  It also contains a few utilities for computing common mathematical quantities
   and initialization.
 
@@ -28,9 +29,9 @@
 namespace optimal_learning {
 
 namespace {
-
 /*!\rst
-  Computes ``\sum_{i=0}^{dim} (p1_i - p2_i) / W_i * (p1_i - p2_i)``, ``p1, p2 = point 1 & 2``; ``W = weight``.
+  Computes ``\sum_{i=0}^{dim} (p1_i - p2_i) / W_i * (p1_i - p2_i)``,
+  ``p1, p2 = point 1 & 2``; ``W = weight``.
   Equivalent to ``\|p1 - p2\|_2`` if all entries of W are 1.0.
 
   \param
@@ -42,7 +43,8 @@ namespace {
     the weighted ``L_2``-norm of the vector difference ``p1 - p2``.
 \endrst*/
 OL_PURE_FUNCTION OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT double
-NormSquaredWithInverseWeights(double const * restrict point_one, double const * restrict point_two,
+NormSquaredWithInverseWeights(double const * restrict point_one,
+                              double const * restrict point_two,
                               double const * restrict weights, int size) noexcept {
   // calculates the one norm of two vectors (point_one and point_two of size size)
   double norm = 0.0;
@@ -64,7 +66,8 @@ NormSquaredWithInverseWeights(double const * restrict point_one, double const * 
   \output
     :lengths_sq[dim]: first dim entries overwritten with the square of the entries of lengths_in
 \endrst*/
-OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha, const std::vector<double>& lengths_in,
+OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha,
+                                              const std::vector<double>& lengths_in,
                                               double * restrict lengths_sq) {
   // validate inputs
   if (dim < 0) {
@@ -83,7 +86,8 @@ OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha, const std::
   for (int i = 0; i < dim; ++i) {
     lengths_sq[i] = Square(lengths_in[i]);
     if (unlikely(lengths_in[i] <= 0.0)) {
-      OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (length).", lengths_in[i], std::numeric_limits<double>::min());
+      OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (length).", lengths_in[i],
+                         std::numeric_limits<double>::min());
     }
   }
 }
@@ -109,15 +113,30 @@ SquareExponential::SquareExponential(int dim, double alpha, double length)
 
 SquareExponential::SquareExponential(const SquareExponential& OL_UNUSED(source)) = default;
 
+double SquareExponential::Kernel(double const * restrict point_one,
+                                 double const * restrict point_two) const;
 
+void SquareExponential::Jessian(double const * restrict point_one,
+                                double const * restrict point_two,
+                                int index);
 
+void SquareExponential::Hessian(double const * restrict point_one,
+                                double const * restrict point_two,
+                                int index_one, int index_two);
+
+void SquareExponential::ThirdDerivative(double const * restrict point_one,
+                                        double const * restrict point_two,
+                                        int index_one, int index_two, int index_three);
 /*
   Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L^{-1} * (x_1 - x_2)) )``
   plus the Jessian vector
   plus the Hessian matrix
 */
-void SquareExponential::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+void SquareExponential::Covariance(double const * restrict point_one,
+                                   int const * restrict derivatives_one,
+                                   int num_derivatives_one,
+                                   double const * restrict point_two,
+                                   int const * restrict derivatives_two, int num_derivatives_two,
                                    double * restrict cov) const noexcept {
     const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
 
@@ -289,23 +308,6 @@ void SquareExponential::HyperparameterGradCovariance(double const * restrict poi
 CovarianceInterface * SquareExponential::Clone() const {
   return new SquareExponential(*this);
 }
-
-namespace {
-
-// computes ||p1 - p2||_2 if all entries of L == 1
-OL_PURE_FUNCTION OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT double
-NormSquaredWithConstInverseWeights(double const * restrict point_one, double const * restrict point_two,
-                                   double weight, int size) noexcept {
-  // calculates the one norm of two vectors (point_one and point_two of size size)
-  double norm = 0.0;
-
-  for (int i = 0; i < size; ++i) {
-    norm += Square(point_one[i] - point_two[i]);
-  }
-  return norm/weight;
-}
-
-}  // end unnamed namespace
 
 void MaternNu2p5::Initialize() {
   InitializeCovariance(dim_, alpha_, lengths_, lengths_sq_.data());
