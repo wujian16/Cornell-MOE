@@ -1,22 +1,22 @@
 What is qKG?
 ====
-1. qKG is built upon [MOE][1], which was open sourced by Yelp.
+1. qKG is built on [MOE][1], which was open sourced by Yelp.
 2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
-4. We implement the Bayesian treatment of hyperparamters in GP, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic functions using qKG in the folder qkg_examples, more examples are coming.
-6. The project is under active development. We are revising all the comments in the code, which will be ready soon. Any bug report or issue is welcome!
+4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
+5. We provide several examples of optimizing synthetic functions using qKG in the folder qkg_examples. More examples are coming.
+6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 # Introduction:
-Below we show a small demo of qKG on a 1-d synthetic function with the batch size q=2. The left hand side shows the fitted statistical model and the points suggested by qKG, note that the function evaluation is subject to noise; the right hand side is the heatmap visualizing the acquisition function according to qKG criteria.
+Below we show a small demo of qKG on a 1-d synthetic function with a batch size q=2. The left-hand side shows the fitted statistical model and the points suggested by qKG. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to qKG criteria.
 ![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
 
-qKG implements a library of batch Bayesian optimization algorithms, it internally works by:
+qKG implements a library of batch Bayesian optimization algorithms. It works by iteratively:
 
-1. Building a Gaussian Process (GP) with the historical data
-2. Sampling the hyperparameters of the Gaussian Process (model selection) with MCMC algorithm
-3. Finding the set of points of highest gain (by batch Expected Improvement (qEI) or batch knowledge gradient (qKG))
-4. Returning the points to sample, then repeat
+1. Fitting a Gaussian Process (GP) with historical data
+2. Sampling the hyperparameters of the Gaussian Process via MCMC
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (qEI) or batch knowledge gradient (qKG)
+4. Returning the points to sample
 
 Externally you can use qKG/MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
 
