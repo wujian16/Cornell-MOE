@@ -234,6 +234,37 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
                                        int const * restrict derivatives_two,
                                        int num_derivatives_two,
                                        double * restrict grad_cov) const noexcept {
+  std::vector<double> cov((1+num_derivatives_one)*(1+num_derivatives_two));
+  cov[0] = 1.0;
+
+  // the Jessian vector
+  int index = 0;
+  for (int i = 0; i < num_derivatives_one; ++i) {
+    index = derivatives_one[i];
+    cov[i+1] = ((point_two[index] - point_one[index])/lengths_sq_[index]);
+  }
+  for (int i = 0; i < num_derivatives_two; ++i) {
+    index = derivatives_two[i];
+    cov[(i+1)*(1+num_derivatives_one)] = ((point_one[index] - point_two[index])/lengths_sq_[index]);
+  }
+
+  // the Hessian matrix
+  int index_one = 0;
+  int index_two = 0;
+  for (int i = 0; i < num_derivatives_one; ++i) {
+    for (int j = 0; j < num_derivatives_two; ++j) {
+      index_one = derivatives_one[i];
+      index_two = derivatives_two[j];
+      cov[(i+1)+(j+1)*(1+num_derivatives_one)] = cov[i+1]*cov[(j+1)*(1+num_derivatives_one)];
+      if(index_one == index_two){
+        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += 1.0/lengths_sq_[index2];
+      }
+    }
+  }
+
+
+
+
   const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
   const double cov = alpha_*std::exp(-0.5*norm_val);
 
@@ -304,60 +335,60 @@ void SquareExponential::HyperparameterGradCovariance(double const * restrict poi
   // deriv wrt alpha does not have the same form as the length terms, special case it
   grad_hyperparameter_cov[0] = cov_matrix[0]/alpha_;
   for (int i = 0; i < dim_; ++i) {
-      grad_hyperparameter_cov[i+1] = cov_matrix[0]*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+    grad_hyperparameter_cov[i+1] = cov_matrix[0]*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
   }
 
   for (int m = 0; m < num_derivatives_one; ++m){
-      grad_hyperparameter_cov[(m+1)*(dim_+1)] = cov_matrix[m+1]/alpha_;
-      index1 = derivatives_one[m];
-      for (int i = 0; i < dim_; ++i) {
-          grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] = cov_matrix[m+1]*
-                                                        Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
-          if (index1 == i){
-              grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] -= (2*cov_matrix[0]*(point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
-          }
+    grad_hyperparameter_cov[(m+1)*(dim_+1)] = cov_matrix[m+1]/alpha_;
+    index1 = derivatives_one[m];
+    for (int i = 0; i < dim_; ++i) {
+      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] = cov_matrix[m+1]*
+                                                    Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+      if (index1 == i){
+          grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] -= (2*cov_matrix[0]*(point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
       }
+    }
   }
 
   for (int n = 0; n < num_derivatives_two; ++n){
-      grad_hyperparameter_cov[(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]/alpha_;
-      index2 = derivatives_two[n];
-      for (int i = 0; i < dim_; ++i){
-          grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]*
-                                                                             Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
-          if (index2 == i){
-              grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]*(point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
-          }
+    grad_hyperparameter_cov[(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]/alpha_;
+    index2 = derivatives_two[n];
+    for (int i = 0; i < dim_; ++i){
+      grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]*
+                                                                         Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+      if (index2 == i){
+          grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]*(point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
       }
+    }
   }
 
   for (int m = 0; m < num_derivatives_one; ++m){
-      index1 = derivatives_one[m];
-      for (int n = 0; n < num_derivatives_two; ++n){
-          index2 = derivatives_two[n];
-          grad_hyperparameter_cov[(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]/alpha_;
-          for (int i = 0; i < dim_; ++i){
-              grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]*
-                                                                                          Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
-              if (index1 == index2){
-                  if (index1 == i){
-                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] += ((4*cov_matrix[0]*Square(point_one[i]-point_two[i])/
-                                                                                                   lengths_sq_[i])/lengths_sq_[i])/lengths_[i];
-                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]/lengths_sq_[i])/lengths_[i];
-                  }
-              }
-              else{
-                  if (index1 == i){
-                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[(n+1)*(num_derivatives_one+1)]*
-                                                                                                   (point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
-                  }
-                  if (index2 == i){
-                      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[m+1]*
-                                                                                                   (point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
-                  }
-              }
-          }
+    index1 = derivatives_one[m];
+    for (int n = 0; n < num_derivatives_two; ++n){
+      index2 = derivatives_two[n];
+      grad_hyperparameter_cov[(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]/alpha_;
+      for (int i = 0; i < dim_; ++i){
+        grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]*
+                                                                                    Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+        if (index1 == index2){
+            if (index1 == i){
+                grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] += ((4*cov_matrix[0]*Square(point_one[i]-point_two[i])/
+                                                                                             lengths_sq_[i])/lengths_sq_[i])/lengths_[i];
+                grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]/lengths_sq_[i])/lengths_[i];
+            }
+        }
+        else{
+            if (index1 == i){
+                grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[(n+1)*(num_derivatives_one+1)]*
+                                                                                             (point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
+            }
+            if (index2 == i){
+                grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[m+1]*
+                                                                                             (point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
+            }
+        }
       }
+    }
   }
 
   delete [] cov_matrix;
