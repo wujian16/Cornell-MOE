@@ -1,4 +1,4 @@
-What is Cornell-MOE?
+#### What is Cornell-MOE?
 ====
 1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
 2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
