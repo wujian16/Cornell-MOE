@@ -1,27 +1,26 @@
 #### What is Cornell-MOE?
-====
 1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
-2. We extend the batch expected improvement (qEI) to the setting where derivative information is available [Wu et al, 2017][27].
-3. We implement batch knowledge gradient (qKG and dKG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
+2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
+3. We implement batch knowledge gradient (q-KG and d-KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic functions using qKG in the folder qkg_examples. More examples are coming.
+5. We provide several examples of optimizing synthetic functions using q-KG and d-KG in the folder qkg_examples. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 # Introduction:
-Below we show a small demo of qKG on a 1-d synthetic function with a batch size q=2. The left-hand side shows the fitted statistical model and the points suggested by qKG. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to qKG criteria.
+Below we show a small demo of Cornell-MOE on a 1-d synthetic function with a batch size q=2. The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
 ![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
 
-qKG implements a library of batch Bayesian optimization algorithms. It works by iteratively:
+Cornell-MOE implements a library of batch Bayesian optimization algorithms. It works by iteratively:
 
 1. Fitting a Gaussian Process (GP) with historical data
 2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (qEI) or batch knowledge gradient (qKG)
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG)
 4. Returning the points to sample
 
-Externally you can use qKG/MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
+Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
 
 # Step-by-Step Install
-We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install qKG/MOE on a AWS EC2 with Ubuntu operating system.
+We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
 
 ** step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
@@ -52,7 +51,7 @@ export MOE_CXX_PATH=/usr/bin/g++
 export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/usr/include/python2.7 -D MOE_PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython2.7.so.1.0"
 ```
 
-*** step 4, finish the installment in the virtualenv.
+** step 4, finish the installment in the virtualenv.
 ```bash
 $ source ENV_NAME/bin/activate
 $ git clone https://github.com/wujian16/Cornell-MOE.git
@@ -61,7 +60,7 @@ $ pip install -r requirements.txt
 $ python setup.py install
 ```
 
-# Running MOE/qKG
+# Running Cornell-MOE
 See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ## Mode: batch knowledge gradient
 
@@ -81,10 +80,11 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
   year={2016}
 }
 
-@article{wu2017bayesian,
+@inproceedings{wu2017bayesian,
   title={Bayesian Optimization with Gradients},
   author={Wu, Jian and Poloczek, Matthias and Wilson, Andrew Gordon and Frazier, Peter I},
-  journal={arXiv preprint arXiv:1703.04389},
+  booktitle={Advances in Neural Information Processing Systems},
+  note={Accepted for publication},
   year={2017}
 }
 ```
@@ -93,7 +93,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
 See [Contributing Documentation][8]
 
 # License
-qKG/MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 [0]: https://www.youtube.com/watch?v=CC6qvzWp9_A
 [1]: http://yelp.github.io/MOE/
