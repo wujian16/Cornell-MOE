@@ -147,7 +147,7 @@ void SquareExponential::Covariance(double const * restrict point_one,
       index_two = derivatives_two[j];
       cov[(i+1)+(j+1)*(1+num_derivatives_one)] = cov[i+1]*cov[(j+1)*(1+num_derivatives_one)];
       if(index_one == index_two){
-        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += 1.0/lengths_sq_[index2];
+        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += 1.0/lengths_sq_[index_two];
       }
     }
   }
@@ -197,7 +197,7 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
       index_two = derivatives_two[j];
       cov[(i+1)+(j+1)*(1+num_derivatives_one)] = cov[i+1]*cov[(j+1)*(1+num_derivatives_one)];
       if(index_one == index_two){
-        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += 1.0/lengths_sq_[index2];
+        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += 1.0/lengths_sq_[index_two];
       }
     }
   }
