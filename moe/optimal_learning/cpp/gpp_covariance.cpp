@@ -331,78 +331,78 @@ CovarianceInterface * SquareExponential::Clone() const {
   return new SquareExponential(*this);
 }
 
-void MaternNu2p5::Initialize() {
-  InitializeCovariance(dim_, alpha_, lengths_, lengths_sq_.data());
-}
-
-MaternNu2p5::MaternNu2p5(int dim, double alpha, std::vector<double> lengths)
-    : dim_(dim), alpha_(alpha), lengths_(lengths), lengths_sq_(dim) {
-  Initialize();
-}
-
-MaternNu2p5::MaternNu2p5(int dim, double alpha, double const * restrict lengths)
-    : MaternNu2p5(dim, alpha, std::vector<double>(lengths, lengths + dim)) {
-}
-
-MaternNu2p5::MaternNu2p5(int dim, double alpha, double length)
-    : MaternNu2p5(dim, alpha, std::vector<double>(dim, length)) {
-}
-
-MaternNu2p5::MaternNu2p5(const MaternNu2p5& OL_UNUSED(source)) = default;
-
-double MaternNu2p5::Covariance(double const * restrict point_one,
-                               double const * restrict point_two) const noexcept {
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
-
-  return alpha_*(1.0 + matern_arg + 5.0/3.0*norm_val)*std::exp(-matern_arg);
-}
-
-void MaternNu2p5::GradCovariance(double const * restrict point_one,
-                                 double const * restrict point_two,
-                                 double * restrict grad_cov) const noexcept {
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  if (norm_val == 0.0) {
-    std::fill(grad_cov, grad_cov + dim_, 0.0);
-    return;
-  }
-  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
-  const double poly_part = matern_arg + 5.0/3.0*norm_val;
-  const double exp_part = std::exp(-matern_arg);
-
-  for (int i = 0; i < dim_; ++i) {
-    const double dr2_dxi = 2.0*(point_one[i] - point_two[i])/lengths_sq_[i];
-    const double dr_dxi = 0.5*dr2_dxi/std::sqrt(norm_val);
-    grad_cov[i] = alpha_*exp_part*(5.0/3.0*dr2_dxi - poly_part*kSqrt5*dr_dxi);
-  }
-}
-
-void MaternNu2p5::HyperparameterGradCovariance(double const * restrict point_one,
-                                               double const * restrict point_two,
-                                               double * restrict grad_hyperparameter_cov) const noexcept {
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  if (norm_val == 0.0) {
-    grad_hyperparameter_cov[0] = 1.0;
-    std::fill(grad_hyperparameter_cov+1, grad_hyperparameter_cov + 1+dim_, 0.0);
-    return;
-  }
-  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
-  const double poly_part = matern_arg + 5.0/3.0*norm_val;
-  const double exp_part = std::exp(-matern_arg);
-
-  // deriv wrt alpha does not have the same form as the length terms, special case it
-  grad_hyperparameter_cov[0] = (1.0 + poly_part) * exp_part;
-  // terms from differentiating Covariance wrt spatial dimensions; since exp(x) is the derivative's identity, some cancellation of
-  // analytic 0s is possible (and desired since it reduces compute-time and is more accurate)
-  for (int i = 0; i < dim_; ++i) {
-    const double dr2_dleni = -2.0*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
-    const double dr_dleni = 0.5*dr2_dleni/std::sqrt(norm_val);
-    grad_hyperparameter_cov[i+1] = alpha_*exp_part*(5.0/3.0*dr2_dleni - poly_part*kSqrt5*dr_dleni);
-  }
-}
-
-CovarianceInterface * MaternNu2p5::Clone() const {
-  return new MaternNu2p5(*this);
-}
+//void MaternNu2p5::Initialize() {
+//  InitializeCovariance(dim_, alpha_, lengths_, lengths_sq_.data());
+//}
+//
+//MaternNu2p5::MaternNu2p5(int dim, double alpha, std::vector<double> lengths)
+//    : dim_(dim), alpha_(alpha), lengths_(lengths), lengths_sq_(dim) {
+//  Initialize();
+//}
+//
+//MaternNu2p5::MaternNu2p5(int dim, double alpha, double const * restrict lengths)
+//    : MaternNu2p5(dim, alpha, std::vector<double>(lengths, lengths + dim)) {
+//}
+//
+//MaternNu2p5::MaternNu2p5(int dim, double alpha, double length)
+//    : MaternNu2p5(dim, alpha, std::vector<double>(dim, length)) {
+//}
+//
+//MaternNu2p5::MaternNu2p5(const MaternNu2p5& OL_UNUSED(source)) = default;
+//
+//double MaternNu2p5::Covariance(double const * restrict point_one,
+//                               double const * restrict point_two) const noexcept {
+//  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+//  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
+//
+//  return alpha_*(1.0 + matern_arg + 5.0/3.0*norm_val)*std::exp(-matern_arg);
+//}
+//
+//void MaternNu2p5::GradCovariance(double const * restrict point_one,
+//                                 double const * restrict point_two,
+//                                 double * restrict grad_cov) const noexcept {
+//  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+//  if (norm_val == 0.0) {
+//    std::fill(grad_cov, grad_cov + dim_, 0.0);
+//    return;
+//  }
+//  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
+//  const double poly_part = matern_arg + 5.0/3.0*norm_val;
+//  const double exp_part = std::exp(-matern_arg);
+//
+//  for (int i = 0; i < dim_; ++i) {
+//    const double dr2_dxi = 2.0*(point_one[i] - point_two[i])/lengths_sq_[i];
+//    const double dr_dxi = 0.5*dr2_dxi/std::sqrt(norm_val);
+//    grad_cov[i] = alpha_*exp_part*(5.0/3.0*dr2_dxi - poly_part*kSqrt5*dr_dxi);
+//  }
+//}
+//
+//void MaternNu2p5::HyperparameterGradCovariance(double const * restrict point_one,
+//                                               double const * restrict point_two,
+//                                               double * restrict grad_hyperparameter_cov) const noexcept {
+//  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+//  if (norm_val == 0.0) {
+//    grad_hyperparameter_cov[0] = 1.0;
+//    std::fill(grad_hyperparameter_cov+1, grad_hyperparameter_cov + 1+dim_, 0.0);
+//    return;
+//  }
+//  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
+//  const double poly_part = matern_arg + 5.0/3.0*norm_val;
+//  const double exp_part = std::exp(-matern_arg);
+//
+//  // deriv wrt alpha does not have the same form as the length terms, special case it
+//  grad_hyperparameter_cov[0] = (1.0 + poly_part) * exp_part;
+//  // terms from differentiating Covariance wrt spatial dimensions; since exp(x) is the derivative's identity, some cancellation of
+//  // analytic 0s is possible (and desired since it reduces compute-time and is more accurate)
+//  for (int i = 0; i < dim_; ++i) {
+//    const double dr2_dleni = -2.0*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
+//    const double dr_dleni = 0.5*dr2_dleni/std::sqrt(norm_val);
+//    grad_hyperparameter_cov[i+1] = alpha_*exp_part*(5.0/3.0*dr2_dleni - poly_part*kSqrt5*dr_dleni);
+//  }
+//}
+//
+//CovarianceInterface * MaternNu2p5::Clone() const {
+//  return new MaternNu2p5(*this);
+//}
 
 }  // end namespace optimal_learning
