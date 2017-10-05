@@ -42,37 +42,40 @@ namespace optimal_learning {
 namespace {
 
 double ComputePosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+                                   const int num_fidelity,
                                    const boost::python::list& points_to_sample) {
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim()-num_fidelity, 1, num_derivatives_input);
 
   bool configure_for_gradients = false;
   PosteriorMeanEvaluator ps_evaluator(gaussian_process);
-  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, input_container.points_to_sample.data(), configure_for_gradients);
+  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
 
   return ps_evaluator.ComputePosteriorMean(&ps_state);
 }
 
 boost::python::list ComputeGradPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+                                                    const int num_fidelity,
                                                     const boost::python::list& points_to_sample) {
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+  PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim()-num_fidelity, 1, num_derivatives_input);
 
   std::vector<double> grad_PS(input_container.dim);
   bool configure_for_gradients = true;
 
   PosteriorMeanEvaluator ps_evaluator(gaussian_process);
-  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, input_container.points_to_sample.data(), configure_for_gradients);
+  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
 
   ps_evaluator.ComputeGradPosteriorMean(&ps_state, grad_PS.data());
   return VectorToPylist(grad_PS);
 }
 
 double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
+                                       const int num_fidelity,
                                        const boost::python::object& optimizer_parameters,
                                        const boost::python::list& domain_bounds,
                                        const boost::python::list& discrete_pts,
@@ -83,31 +86,34 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim()-num_fidelity, num_pts, num_derivatives_input);
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
                                                 num_to_sample, num_being_sampled, num_derivatives_input);
 
   bool configure_for_gradients = false;
 
-  std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
-  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
-  TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+  std::vector<ClosedInterval> domain_bounds_C(input_container.dim-num_fidelity);
+  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim-num_fidelity, domain_bounds_C);
+  //TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+  TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim-num_fidelity);
+
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
-  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, input_container_discrete.points_to_sample.data(),
-                                                               num_pts, max_int_steps, domain, gradient_descent_parameters, best_so_far);
+  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, num_fidelity, input_container_discrete.points_to_sample.data(),
+                                                               num_pts, max_int_steps, inner_domain, gradient_descent_parameters, best_so_far);
   KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
-                                                                 input_container.points_being_sampled.data(),
-                                                                 input_container.num_to_sample,
-                                                                 input_container.num_being_sampled,
-                                                                 input_container_discrete.num_to_sample,
-                                                                 gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
-                                                                 configure_for_gradients,
-                                                                 randomness_source.normal_rng_vec.data());
+                                                                      input_container.points_being_sampled.data(),
+                                                                      input_container.num_to_sample,
+                                                                      input_container.num_being_sampled,
+                                                                      input_container_discrete.num_to_sample,
+                                                                      gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
+                                                                      configure_for_gradients,
+                                                                      randomness_source.normal_rng_vec.data());
   return kg_evaluator.ComputeKnowledgeGradient(&kg_state);
 }
 
 boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
+                                                        const int num_fidelity,
                                                         const boost::python::object& optimizer_parameters,
                                                         const boost::python::list& domain_bounds,
                                                         const boost::python::list& discrete_pts,
@@ -118,7 +124,7 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim()-num_fidelity, num_pts, num_derivatives_input);
 
   PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process.dim(),
                                                 num_to_sample, num_being_sampled, num_derivatives_input);
@@ -126,20 +132,22 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
   std::vector<double> grad_KG(num_to_sample*input_container.dim);
   bool configure_for_gradients = true;
 
-  std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
-  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
-  TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+  std::vector<ClosedInterval> domain_bounds_C(input_container.dim-num_fidelity);
+  CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim-num_fidelity, domain_bounds_C);
+  //TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+  TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
+
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
-  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, input_container_discrete.points_to_sample.data(),
-                                          num_pts, max_int_steps, domain, gradient_descent_parameters, best_so_far);
+  KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, num_fidelity, input_container_discrete.points_to_sample.data(),
+                                                               num_pts, max_int_steps, inner_domain, gradient_descent_parameters, best_so_far);
   KnowledgeGradientEvaluator<TensorProductDomain>::StateType kg_state(kg_evaluator, input_container.points_to_sample.data(),
-                                                 input_container.points_being_sampled.data(),
-                                                 input_container.num_to_sample,
-                                                 input_container.num_being_sampled,
-                                                 input_container_discrete.num_to_sample,
-                                                 gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
-                                                 configure_for_gradients, randomness_source.normal_rng_vec.data());
+                                                                      input_container.points_being_sampled.data(),
+                                                                      input_container.num_to_sample,
+                                                                      input_container.num_being_sampled,
+                                                                      input_container_discrete.num_to_sample,
+                                                                      gaussian_process.derivatives().data(), gaussian_process.num_derivatives(),
+                                                                      configure_for_gradients, randomness_source.normal_rng_vec.data());
   kg_evaluator.ComputeGradKnowledgeGradient(&kg_state, grad_KG.data());
 
   return VectorToPylist(grad_KG);
@@ -174,10 +182,10 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
 template <typename DomainType>
 void DispatchKnowledgeGradientOptimization(const boost::python::object& optimizer_parameters,
                                            const boost::python::object& optimizer_parameters_inner,
-                                           const GaussianProcess& gaussian_process,
+                                           const GaussianProcess& gaussian_process, const int num_fidelity,
                                            const PythonInterfaceInputContainer& input_container_discrete,
                                            const PythonInterfaceInputContainer& input_container,
-                                           const DomainType& domain,
+                                           const DomainType& domain, const DomainType& inner_domain,
                                            OptimizerTypes optimizer_type, int num_to_sample, double best_so_far,
                                            int max_int_steps, int max_num_threads,
                                            RandomnessSourceContainer& randomness_source,
@@ -192,8 +200,8 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
       const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
-      ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process, gradient_descent_parameters_inner, domain, thread_schedule,
-                                                            input_container.points_being_sampled.data(),
+      ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process, num_fidelity, gradient_descent_parameters_inner, domain, inner_domain,
+                                                            thread_schedule, input_container.points_being_sampled.data(),
                                                             input_container_discrete.points_to_sample.data(),
                                                             num_random_samples, num_to_sample,
                                                             input_container.num_being_sampled,
@@ -214,11 +222,10 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       bool random_search_only = false;
-      ComputeKGOptimalPointsToSample(gaussian_process, gradient_descent_parameters, gradient_descent_parameters_inner, domain, thread_schedule,
+      ComputeKGOptimalPointsToSample(gaussian_process, num_fidelity, gradient_descent_parameters, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
                                      input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
                                      num_to_sample, input_container.num_being_sampled, input_container_discrete.num_to_sample,
-                                     best_so_far, max_int_steps,
-                                     random_search_only, num_random_samples, &found_flag,
+                                     best_so_far, max_int_steps, random_search_only, num_random_samples, &found_flag,
                                      &randomness_source.uniform_generator,
                                      randomness_source.normal_rng_vec.data(), best_points_to_sample);
 
@@ -235,7 +242,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
 
 boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::python::object& optimizer_parameters,
                                                                    const boost::python::object& optimizer_parameters_inner,
-                                                                   const GaussianProcess& gaussian_process,
+                                                                   const GaussianProcess& gaussian_process, const int num_fidelity,
                                                                    const boost::python::list& domain_bounds,
                                                                    const boost::python::list& discrete_pts,
                                                                    const boost::python::list& points_being_sampled,
@@ -257,10 +264,9 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
+  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim()-num_fidelity, num_pts, num_derivatives_input);
   PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
                                                 num_to_sample_input, num_being_sampled, num_derivatives_input);
-
 
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
@@ -272,17 +278,19 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   switch (domain_type) {
     case DomainTypes::kTensorProduct: {
       TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+      TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
 
-      DispatchKnowledgeGradientOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process, input_container_discrete,
-                                            input_container, domain, optimizer_type, num_to_sample, best_so_far,
+      DispatchKnowledgeGradientOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process, num_fidelity, input_container_discrete,
+                                            input_container, domain, inner_domain, optimizer_type, num_to_sample, best_so_far,
                                             max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kTensorProduct
     case DomainTypes::kSimplex: {
       SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+      SimplexIntersectTensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
 
-      DispatchKnowledgeGradientOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process, input_container_discrete,
-                                            input_container, domain, optimizer_type, num_to_sample, best_so_far,
+      DispatchKnowledgeGradientOptimization(optimizer_parameters, optimizer_parameters_inner, gaussian_process, num_fidelity, input_container_discrete,
+                                            input_container, domain, inner_domain, optimizer_type, num_to_sample, best_so_far,
                                             max_int_steps, max_num_threads, randomness_source, status, best_points_to_sample_C.data());
       break;
     }  // end case OptimizerTypes::kSimplex
@@ -295,7 +303,7 @@ boost::python::list MultistartKnowledgeGradientOptimizationWrapper(const boost::
   return VectorToPylist(best_points_to_sample_C);
 }
 
-boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& gaussian_process,
+boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                        const boost::python::object& optimizer_parameters,
                                                        const boost::python::list& domain_bounds,
                                                        const boost::python::list& initial_guess,
@@ -305,13 +313,12 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
     int num_derivatives_input = 0;
     const boost::python::list gradients;
 
-    PythonInterfaceInputContainer input_container(initial_guess, gradients, gaussian_process.dim(), 1, num_derivatives_input);
+    PythonInterfaceInputContainer input_container(initial_guess, gradients, gaussian_process.dim()-num_fidelity, 1, num_derivatives_input);
 
+    std::vector<ClosedInterval> domain_bounds_C(dim-num_fidelity);
+    CopyPylistToClosedIntervalVector(domain_bounds, dim-num_fidelity, domain_bounds_C);
 
-    std::vector<ClosedInterval> domain_bounds_C(dim);
-    CopyPylistToClosedIntervalVector(domain_bounds, dim, domain_bounds_C);
-
-    std::vector<double> best_points_to_sample_C(dim);
+    std::vector<double> best_points_to_sample_C(dim-num_fidelity);
 
     bool found_flag = false;
     const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
@@ -319,16 +326,17 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
     DomainTypes domain_type = boost::python::extract<DomainTypes>(optimizer_parameters.attr("domain_type"));
     switch (domain_type) {
       case DomainTypes::kTensorProduct: {
-        TensorProductDomain domain(domain_bounds_C.data(), dim);
-        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, domain, input_container.points_to_sample.data(),
-                                                    &found_flag, best_points_to_sample_C.data());
+        TensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
+
+        ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
+                                    &found_flag, best_points_to_sample_C.data());
         break;
       }  // end case OptimizerTypes::kTensorProduct
       case DomainTypes::kSimplex: {
-        SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), dim);
+        SimplexIntersectTensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
 
-        ComputeOptimalPosteriorMean(gaussian_process, gradient_descent_parameters, domain, input_container.points_to_sample.data(),
-                                                    &found_flag, best_points_to_sample_C.data());
+        ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
+                                    &found_flag, best_points_to_sample_C.data());
         break;
       }  // end case OptimizerTypes::kSimplex
       default: {
@@ -341,11 +349,10 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
 }
 
 boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian_process,
-                                                 const boost::python::object& optimizer_parameters,
+                                                 const int num_fidelity, const boost::python::object& optimizer_parameters,
                                                  const boost::python::list& domain_bounds,
-                                                 const boost::python::list& discrete_pts,
+                                                 const boost::python::list& discrete_being_sampled,
                                                  const boost::python::list& initial_guesses,
-                                                 const boost::python::list& points_being_sampled,
                                                  int num_multistarts, int num_pts, int num_to_sample,
                                                  int num_being_sampled, double best_so_far,
                                                  int max_int_steps, int max_num_threads,
@@ -356,17 +363,10 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Fewer randomness_sources than max_num_threads.", randomness_source.normal_rng_vec.size(), max_num_threads);
   }
 
-  int num_to_sample_input = 0;  // No points to sample; we are generating these via KG optimization
-  const boost::python::list points_to_sample_dummy;
-
   int num_derivatives_input = 0;
   const boost::python::list gradients;
 
-  PythonInterfaceInputContainer input_container_discrete(discrete_pts, gradients, gaussian_process.dim(), num_pts, num_derivatives_input);
-
-  PythonInterfaceInputContainer input_container(points_to_sample_dummy, points_being_sampled, gradients, gaussian_process.dim(),
-                                                num_to_sample_input, num_being_sampled, num_derivatives_input);
-
+  PythonInterfaceInputContainer input_container(discrete_being_sampled, gradients, gaussian_process.dim(), num_pts+num_being_sampled, num_derivatives_input);
 
   std::vector<double> result_point_C(input_container.dim);  // not used
   std::vector<double> result_function_values_C(num_multistarts);
@@ -380,13 +380,14 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
   std::vector<ClosedInterval> domain_bounds_C(input_container.dim);
   CopyPylistToClosedIntervalVector(domain_bounds, input_container.dim, domain_bounds_C);
   TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
+  TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
+
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
-  EvaluateKGAtPointList(gaussian_process, gradient_descent_parameters, domain, thread_schedule, initial_guesses_C.data(),
-                        input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
-                        num_multistarts, num_to_sample, input_container.num_being_sampled,
-                        input_container_discrete.num_to_sample, best_so_far,
-                        max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
+  EvaluateKGAtPointList(gaussian_process, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
+                        input_container.points_to_sample.data() + input_container.dim*num_pts, input_container.points_to_sample.data(),
+                        num_multistarts, num_to_sample, num_being_sampled,
+                        num_pts, best_so_far, max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
                         result_function_values_C.data(), result_point_C.data());
 
   status["evaluate_KG_at_point_list"] = found_flag;

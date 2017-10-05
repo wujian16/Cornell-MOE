@@ -2,13 +2,12 @@
   \file gpp_covariance.hpp
   \rst
   This file specifies CovarianceInterface, the interface for all covariance functions used by the optimal learning
-  code base.  It defines three main covariance functions subclassing this interface, Square Exponential, Matern
-  with \nu = 1.5 and Matern with \nu = 2.5.  There is also a special isotropic Square Exponential function (i.e., uses
-  the same length scale in all dimensions).  We denote a generic covariance function as: ``k(x,x')``
+  code base.  It defines two main covariance functions subclassing this interface, Square Exponential,
+  and Matern with \nu = 2.5. We denote a generic covariance function as: ``k(x,x')``
 
   Covariance functions have a few fundamental properties (see references at the bottom for full details).  In short,
-  they are SPSD (symmetric positive semi-definite): ``k(x,x') = k(x', x)`` for any ``x,x'`` and ``k(x,x) >= 0`` for all ``x``.
-  As a consequence, covariance matrices are SPD as long as the input points are all distinct.
+  they are SPSD (symmetric positive semi-definite): ``k(x,x') = k(x', x)`` for any ``x, x'`` and
+  ``k(x,x) >= 0`` for all ``x``. As a consequence, covariance matrices are SPD as long as the input points are all distinct.
 
   Additionally, the Square Exponential and Matern covariances (as well as other functions) are stationary. In essence,
   this means they can be written as ``k(r) = k(|x - x'|) = k(x, x') = k(x', x)``.  So they operate on distances between
@@ -18,19 +17,29 @@
   Covariance functions are a fundamental component of gaussian processes: as noted in the gpp_math.hpp header comments,
   gaussian processes are defined by a mean function and a covariance function.  Covariance functions describe how
   two random variables change in relation to each other--more explicitly, in a GP they specify how similar two points are.
-  The choice of covariance function is important because it encodes our assumptions about how the "world" behaves.
+  The choice of the covariance function is important because it encodes our assumptions about how the "world" behaves.
+
+  More importantly, a GP prior on the function f will imply a multi-output GP prior jointly on the (f, \partial f). The
+  covariance (kernel) function of the joint GP is
+
+  KK(x, x') =
+  [K(x, x'), \partial K(x, x') / \partial x';
+  \partial K(x, x') / \partial x, \partial ^2 K(x, x')/ \partial x \partial x'].
+
+  Then we can incoporate the gradients' observations into the GP model. The Bayesian optimization algorithms carry on.
+  See details in (3).
 
   Currently, all covariance functions in this file require ``dim+1`` hyperparameters: ``\alpha, L_1, ... L_d``. ``\alpha``
   is ``\sigma_f^2``, the signal variance. ``L_1, ... , L_d`` are the length scales, one per spatial dimension.  We do not
   currently support non-axis-aligned anisotropy.
 
   Specifying hyperparameters is tricky because changing them fundamentally changes the behavior of the GP.
-  gpp_model_selection.hpp provides some functions for optimizing
-  hyperparameters based on the current training data.
+  gpp_model_selection.hpp provides some functions for evaluating/optimizing hyperparameters based on the current training data.
 
   For more details, see:
-  http://en.wikipedia.org/wiki/Covariance_function
-  Rasmussen & Williams Chapter 4
+  (1) http://en.wikipedia.org/wiki/Covariance_function
+  (2) Rasmussen & Williams Chapter 4
+  (3) Wu et al, Bayesian optimization with gradients, NIPS 2017
 \endrst*/
 
 #ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_COVARIANCE_HPP_
@@ -68,14 +77,20 @@ class CovarianceInterface {
     \param
       :point_one[dim]: first spatial coordinate
       :derivatives_one[dim]: which derivatives of point_one are available
+      :num_derivatives_one: int, the number of derivatives of point one
       :point_two[dim]: second spatial coordinate
       :derivatives_two[dim]: which derivatives of point_two are available
+      :num_derivatives_two: int, the number of derivatives of point two
     \return
-      cov[1+sum(derivatives_one)][1+sum(derivatives_two)]:
+      cov[1+num_derivatives_one][1+num_derivatives_two]:
       value of covariance between the function values and their gradients of the input points
   \endrst*/
-  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                          double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  virtual void Covariance(double const * restrict point_one,
+                          int const * restrict derivatives_one,
+                          int num_derivatives_one,
+                          double const * restrict point_two,
+                          int const * restrict derivatives_two,
+                          int num_derivatives_two,
                           double * restrict cov) const noexcept OL_WARN_UNUSED_RESULT = 0;
 
   /*!\rst
@@ -91,16 +106,21 @@ class CovarianceInterface {
     \param
       :point_one[dim]: first spatial coordinate
       :derivatives_one[dim]: which derivatives of point_one are available
+      :num_derivatives_one: int, the number of derivatives of point one
       :point_two[dim]: second spatial coordinate
       :derivatives_two[dim]: which derivatives of point_two are available
+      :num_derivatives_two: int, the number of derivatives of point two
     \output
-      grad_cov[dim][1+sum(derivatives_one)][1+sum(derivatives_two)]: i-th entry is ``\pderiv{cov(x_1, x_2)}{x1_i}``
+      grad_cov[dim][1+num_derivatives_one][1+num_derivatives_two]:
+      (i, j, k)-th entry is ``\pderiv{cov(x_1, x_2)(j, k))}{x1_i}``
   \endrst*/
-  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                              double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  virtual void GradCovariance(double const * restrict point_one,
+                              int const * restrict derivatives_one,
+                              int num_derivatives_one,
+                              double const * restrict point_two,
+                              int const * restrict derivatives_two,
+                              int num_derivatives_two,
                               double * restrict grad_cov) const noexcept OL_NONNULL_POINTERS = 0;
-
-
 
   /*!\rst
     Returns the number of hyperparameters.  This base class only allows for a maximum of dim + 1 hyperparameters but
@@ -112,7 +132,7 @@ class CovarianceInterface {
   virtual int GetNumberOfHyperparameters() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT = 0;
 
   /*!\rst
-    Similar to GradCovariance(), except gradients are computed wrt the hyperparameters.
+    Similar to GradCovariance(), except gradients are computed w.r.t. the hyperparameters.
 
     Unlike GradCovariance(), the order of point_one and point_two is irrelevant here (since we are not differentiating against
     either of them).  Thus the matrix of grad covariances (wrt hyperparameters) is symmetric.
@@ -120,47 +140,21 @@ class CovarianceInterface {
     \param
       :point_one[dim]: first spatial coordinate
       :derivatives_one[dim]: which derivatives of point_one are available
+      :num_derivatives_one: int, the number of derivatives of point one
       :point_two[dim]: second spatial coordinate
       :derivatives_two[dim]: which derivatives of point_two are available
+      :num_derivatives_two: int, the number of derivatives of point two
     \output
-      :grad_hyperparameter_cov[this.GetNumberOfHyperparameters()][1+sum(derivatives_one)][1+sum(derivatives_two)]:
-      i-th entry is ``\pderiv{cov(x_1, x_2)}{\theta_i}``
+      :grad_hyperparameter_cov[this.GetNumberOfHyperparameters()][1+num_derivatives_one][1+num_derivatives_two]:
+      (i, j, k)-th entry is ``\pderiv{cov(x_1, x_2)(j, k)}{\theta_i}``
   \endrst*/
-  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                                            double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  virtual void HyperparameterGradCovariance(double const * restrict point_one,
+                                            int const * restrict derivatives_one,
+                                            int num_derivatives_one,
+                                            double const * restrict point_two,
+                                            int const * restrict derivatives_two,
+                                            int num_derivatives_two,
                                             double * restrict grad_hyperparameter_cov) const noexcept OL_NONNULL_POINTERS = 0;
-
-  /*!\rst
-    The Hessian matrix of the covariance evaluated at x_1, x_2 with respect to the hyperparameters.  The Hessian is defined as::
-
-      [ \ppderiv{cov}{\theta_0^2}              \mixpderiv{cov}{\theta_0}{\theta_1}    ... \mixpderiv{cov}{\theta_0}{\theta_{n-1}} ]
-      [ \mixpderiv{cov}{\theta_1}{\theta_0}    \ppderiv{cov}{\theta_1^2 }             ... \mixpderiv{cov}{\theta_1}{\theta_{n-1}} ]
-      [      ...                                                                                     ...                          ]
-      [ \mixpderiv{cov}{\theta_{n-1}{\theta_0} \mixpderiv{cov}{\theta_{n-1}{\theta_1} ... \ppderiv{cov}{\theta_{n-1}^2}           ]
-
-    where "cov" abbreviates covariance(x_1, x_2) and "n" refers to the number of hyperparameters.
-
-    Unless noted otherwise in subclasses, the Hessian is symmetric (due to the equality of mixed derivatives when a function
-    f is twice continuously differentiable).
-
-    Similarly to the gradients, the Hessian is independent of the order of x_1, x_2: H_{cov}(x_1, x_2) = H_{cov}(x_2, x_1)
-
-    For further details: http://en.wikipedia.org/wiki/Hessian_matrix
-
-    Let n_hyper = this.GetNumberOfHyperparameters()
-
-    \param
-      :point_one[dim]: first spatial coordinate
-      :derivatives_one[dim]: which derivatives of point_one are available
-      :point_two[dim]: second spatial coordinate
-      :derivatives_two[dim]: which derivatives of point_two are available
-    \output
-      :hessian_hyperparameter_cov[n_hyper][n_hyper][1+sum(derivatives_one)][1+sum(derivatives_two)]:
-      ``(i,j)``-th entry is ``\mixpderiv{cov(x_1, x_2)}{\theta_i}{\theta_j}``
-  \endrst*/
-/*  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-                                               double * restrict hessian_hyperparameter_cov) const noexcept OL_NONNULL_POINTERS = 0;*/
 
   /*!\rst
     Sets the hyperparameters.  Hyperparameter ordering is defined implicitly by GetHyperparameters: ``[alpha=\sigma_f^2, length_0, ..., length_{n-1}]``
@@ -191,6 +185,8 @@ class CovarianceInterface {
   Implements the square exponential covariance function:
   ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L * (x_1 - x_2)) )``
   where L is the diagonal matrix with i-th diagonal entry ``1/lengths[i]/lengths[i]``
+
+  We also implement the augmented kernel function with the gradient obervations.
 
   This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
 
@@ -228,32 +224,44 @@ class SquareExponential final : public CovarianceInterface {
   \endrst*/
   SquareExponential(int dim, double alpha, std::vector<double> lengths);
 
-
-  // covariance of point_one and point_two
-  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                          double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  // covariance function of point_one and point_two
+  // [1+num_derivatives_one][1+num_derivatives_two]
+  virtual void Covariance(double const * restrict point_one,
+                          int const * restrict derivatives_one,
+                          int num_derivatives_one,
+                          double const * restrict point_two,
+                          int const * restrict derivatives_two,
+                          int num_derivatives_two,
                           double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
 
-  // gradient of the covariance wrt point_one (array)
-  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                              double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  // gradient of the covariance function wrt point_one (tensor)
+  // [dim][1+num_derivatives_one][1+num_derivatives_two]
+  virtual void GradCovariance(double const * restrict point_one,
+                              int const * restrict derivatives_one,
+                              int num_derivatives_one,
+                              double const * restrict point_two,
+                              int const * restrict derivatives_two,
+                              int num_derivatives_two,
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
+  // return the number of hyperparameters, dim+1
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return 1 + dim_;
   }
 
-  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
-                                            double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
+  // gradient of the covariance function wrt the hyperparameter (tensor)
+  // [GetNumberOfHyperparameters()][1+num_derivatives_one][1+num_derivatives_two]
+  virtual void HyperparameterGradCovariance(double const * restrict point_one,
+                                            int const * restrict derivatives_one,
+                                            int num_derivatives_one,
+                                            double const * restrict point_two,
+                                            int const * restrict derivatives_two,
+                                            int num_derivatives_two,
                                             double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-/*
-  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;*/
 
+  // set the hyperparameters in the GP as a given array (hyperparameters)
   virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
     alpha_ = hyperparameters[0];
-
     hyperparameters += 1;
     for (int i = 0; i < dim_; ++i) {
       lengths_[i] = hyperparameters[i];
@@ -261,9 +269,9 @@ class SquareExponential final : public CovarianceInterface {
     }
   }
 
+  // return an array, which tells us the hyperparameters of the GP
   virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
     hyperparameters[0] = alpha_;
-
     hyperparameters += 1;
     for (int i = 0; i < dim_; ++i) {
       hyperparameters[i] = lengths_[i];
@@ -293,200 +301,12 @@ class SquareExponential final : public CovarianceInterface {
 };
 
 ///*!\rst
-//  Special case of the square exponential covariance function where all entries of L must be the same; i.e., all
-//  length scales are equal.
-//
-//  This exists only for testing hyperparameter optimization (since two is an easy number of parameters to work with); in general
-//  this class should not be used.
-//
-//  This covariance object has 2 hyperparameters: ``\alpha, length``
-//
-//  See CovarianceInterface for descriptions of the virtual functions.
-//\endrst*/
-//class SquareExponentialSingleLength final : public CovarianceInterface {
-// public:
-//  /*!\rst
-//    Constructs a SquareExponentialSingleLength object. We provide three constructors with signatures matching other
-//    covariance classes for convenience.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
-//      :length: the constant length scale to use for all hyperparameter length scales
-//
-//    Note: for pointer or vector length, length[0] must be a valid expression.
-//  \endrst*/
-//  SquareExponentialSingleLength(int dim, double alpha, double length);
-//
-//  SquareExponentialSingleLength(int dim, double alpha, double const * restrict length) OL_NONNULL_POINTERS;
-//
-//  SquareExponentialSingleLength(int dim, double alpha, std::vector<double> length);
-//
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-//
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-//    return 2;
-//  }
-//
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-//    alpha_ = hyperparameters[0];
-//    length_ = hyperparameters[1];
-//    length_sq_ = Square(hyperparameters[1]);
-//  }
-//
-//  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-//    hyperparameters[0] = alpha_;
-//    hyperparameters[1] = length_;
-//  }
-//
-//  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
-//
-//  OL_DISALLOW_DEFAULT_AND_ASSIGN(SquareExponentialSingleLength);
-//
-// private:
-//  explicit SquareExponentialSingleLength(const SquareExponentialSingleLength& source);
-//
-//  //! dimension of the problem
-//  int dim_;
-//  //! ``\sigma_f^2``, signal variance
-//  double alpha_;
-//  //! length scale, one for all dimensions
-//  double length_;
-//  //! square of the length scale
-//  double length_sq_;
-//};
-
-///*!\rst
-//  Implements a case of the Matern class of covariance functions:
-//  ``cov_{matern}(r) = \alpha [\frac{2^{1-\nu}}{\Gamma(\nu)}\left( \frac{\sqrt{2\nu}r}{l} \right)^{\nu} B_{\nu}\left( \frac{\sqrt{2\nu}r}{l} \right)]``
-//  where \nu is the "smoothness parameter", ``l`` is the length-scale, ``r = x_1 - x_2``, and ``B_{\nu}`` is a modified Bessel Function.
-//
-//  Note that for nonconstant (over dimensions) length scales, ``r_i = (x_1_i - x_2_i)/l_i``.  The quantity ``\frac{r}{l}`` will implicitly
-//  represent this component-wise division.
-//
-//  This class implements \nu = 3/2, which simplifies the previous expression to:
-//  ``cov_{\nu=3/2}(r) = (1 + \sqrt{3}\frac{r}[l})\exp(-\sqrt{3}\frac{r}{l})``
-//
-//  This covariance object has ``dim+1`` hyperparameters: ``\alpha, lengths_i``
-//
-//  See CovarianceInterface for descriptions of the virtual functions.
-//\endrst*/
-//class MaternNu1p5 final : public CovarianceInterface {
-// public:
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with constant length-scale across all dimensions.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha`` (e.g., signal variance, ``\sigma_f^2``)
-//      :length: the constant length scale to use for all hyperparameter length scales
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, double length);
-//
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, double const * restrict lengths) OL_NONNULL_POINTERS;
-//
-//  /*!\rst
-//    Constructs a MaternNu1p5 object with the specified hyperparameters.
-//
-//    \param
-//      :dim: the number of spatial dimensions
-//      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-//      :lengths: the hyperparameter length scales, one per spatial dimension
-//  \endrst*/
-//  MaternNu1p5(int dim, double alpha, std::vector<double> lengths);
-//
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-//
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-//    return dim_ + 1;
-//  }
-//
-//  // hyperparameter gradients
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
-//    alpha_ = hyperparameters[0];
-//
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      lengths_[i] = hyperparameters[i];
-//      lengths_sq_[i] = Square(hyperparameters[i]);
-//    }
-//  }
-//
-//  virtual void GetHyperparameters(double * restrict hyperparameters) const noexcept override OL_NONNULL_POINTERS {
-//    hyperparameters[0] = alpha_;
-//    hyperparameters += 1;
-//    for (int i = 0; i < dim_; ++i) {
-//      hyperparameters[i] = lengths_[i];
-//    }
-//  }
-//
-//  virtual CovarianceInterface * Clone() const override OL_WARN_UNUSED_RESULT;
-//
-//  OL_DISALLOW_DEFAULT_AND_ASSIGN(MaternNu1p5);
-//
-// private:
-//  explicit MaternNu1p5(const MaternNu1p5& source);
-//
-//  /*!\rst
-//    Validate and initialize class data members.
-//  \endrst*/
-//  void Initialize();
-//
-//  //! dimension of the problem
-//  int dim_;
-//  //! ``\sigma_f^2``, signal variance
-//  double alpha_;
-//  //! length scales, one per dimension
-//  std::vector<double> lengths_;
-//  //! square of the length scales, one per dimension
-//  std::vector<double> lengths_sq_;
-//};
-
-///*!\rst
 //  Implements a case of the Matern class of covariance functions with \nu = 5/2 (smoothness parameter).
 //  See docs for ``MaternNu1p5`` for more details on the Matern class of covariance fucntions.
 //
 //  ``cov_{\nu=5/2}(r) = (1 + \sqrt{5}\frac{r}[l} + \frac{5}{3}\frac{r^2}{l^2})\exp(-\sqrt{5}\frac{r}{l})``
+//
+//  We also implement the augmented kernel function with the gradient obervations.
 //
 //  See CovarianceInterface for descriptions of the virtual functions.
 //\endrst*/
@@ -522,29 +342,40 @@ class SquareExponential final : public CovarianceInterface {
 //  \endrst*/
 //  MaternNu2p5(int dim, double alpha, std::vector<double> lengths);
 //
-//  // covariance of point_one and point_two
-//  virtual void Covariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                          double const * restrict point_two, int const * restrict derivatives_two, int length_two,
+//  // covariance function of point_one and point_two
+//  // [1+num_derivatives_one][1+num_derivatives_two]
+//  virtual void Covariance(double const * restrict point_one,
+//                          int const * restrict derivatives_one,
+//                          int length_one,
+//                          double const * restrict point_two,
+//                          int const * restrict derivatives_two,
+//                          int length_two,
 //                          double * restrict cov) const noexcept override OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
 //
-//  // gradient of the covariance wrt point_one (array)
-//  virtual void GradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                              double const * restrict point_two, int const * restrict derivatives_two, int length_two,
+//  // gradient of the covariance function wrt point_one (tensor)
+//  // [dim][1+num_derivatives_one][1+num_derivatives_two]
+//  virtual void GradCovariance(double const * restrict point_one,
+//                              int const * restrict derivatives_one,
+//                              int length_one,
+//                              double const * restrict point_two,
+//                              int const * restrict derivatives_two,
+//                              int length_two,
 //                              double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 //
-//  // number of hyperparameters
+//  // return the number of hyperparameters, dim+1
 //  virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
 //    return dim_ + 1;
 //  }
 //
-//  // hyperparameter gradients
-//  virtual void HyperparameterGradCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                            double const * restrict point_two, int const * restrict derivatives_two, int length_two,
+//  // gradient of the covariance function wrt the hyperparameter (tensor)
+//  // [GetNumberOfHyperparameters()][1+num_derivatives_one][1+num_derivatives_two]
+//  virtual void HyperparameterGradCovariance(double const * restrict point_one,
+//                                            int const * restrict derivatives_one,
+//                                            int length_one,
+//                                            double const * restrict point_two,
+//                                            int const * restrict derivatives_two,
+//                                            int length_two,
 //                                            double * restrict grad_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
-//
-//  virtual void HyperparameterHessianCovariance(double const * restrict point_one, int const * restrict derivatives_one, int length_one,
-//                                               double const * restrict point_two, int const * restrict derivatives_two, int length_two,
-//                                               double * restrict hessian_hyperparameter_cov) const noexcept override OL_NONNULL_POINTERS;
 //
 //  virtual void SetHyperparameters(double const * restrict hyperparameters) noexcept override OL_NONNULL_POINTERS {
 //    alpha_ = hyperparameters[0];

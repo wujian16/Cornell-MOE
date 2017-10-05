@@ -78,11 +78,12 @@ def posterior_mean_optimization(
         status = {}
 
     best_points_to_sample = C_GP.posterior_mean_optimization(
-            ps_optimizer.objective_function._gaussian_process._gaussian_process,
-            ps_optimizer.optimizer_parameters,
-            cpp_utils.cppify(ps_optimizer.domain.domain_bounds),
-            cpp_utils.cppify(initial_guess),
-            status,
+        ps_optimizer.objective_function._gaussian_process._gaussian_process,
+        ps_optimizer.objective_function._num_fidelity,
+        ps_optimizer.optimizer_parameters,
+        cpp_utils.cppify(ps_optimizer.domain.domain_bounds),
+        cpp_utils.cppify(initial_guess),
+        status,
     )
 
     # reform output to be a list of dim-dimensional points, dim = len(self.domain)
@@ -92,10 +93,12 @@ class PosteriorMean(OptimizableInterface):
     def __init__(
             self,
             gaussian_process,
+            num_fidelity,
             points_to_sample=None,
             randomness=None,
     ):
         self._gaussian_process = gaussian_process
+        self._num_fidelity = num_fidelity
 
         if points_to_sample is None:
             self._points_to_sample = numpy.zeros((1, self._gaussian_process.dim))
@@ -118,7 +121,7 @@ class PosteriorMean(OptimizableInterface):
     @property
     def problem_size(self):
         """Return the number of independent parameters to optimize."""
-        return self.dim
+        return self.dim-self._num_fidelity
 
     def get_current_point(self):
         """Get the current_point (array of float64 with shape (problem_size)) at which this object is evaluating the objective function, ``f(x)``."""
@@ -171,8 +174,9 @@ class PosteriorMean(OptimizableInterface):
 
         """
         return C_GP.compute_posterior_mean(
-                self._gaussian_process._gaussian_process,
-                cpp_utils.cppify(self._points_to_sample),
+            self._gaussian_process._gaussian_process,
+            self._num_fidelity,
+            cpp_utils.cppify(self._points_to_sample),
         )
 
     compute_objective_function = compute_posterior_mean
@@ -205,10 +209,11 @@ class PosteriorMean(OptimizableInterface):
 
         """
         grad_kg = C_GP.compute_grad_posterior_mean(
-                self._gaussian_process._gaussian_process,
-                cpp_utils.cppify(self._points_to_sample),
+            self._gaussian_process._gaussian_process,
+            self._num_fidelity,
+            cpp_utils.cppify(self._points_to_sample),
         )
-        return cpp_utils.uncppify(grad_kg, (1, self.dim))
+        return cpp_utils.uncppify(grad_kg, (1, self.dim-self._num_fidelity))
 
     compute_grad_objective_function = compute_grad_posterior_mean
 
@@ -282,19 +287,20 @@ def multistart_knowledge_gradient_optimization(
         status = {}
 
     best_points_to_sample = C_GP.multistart_knowledge_gradient_optimization(
-            kg_optimizer.optimizer_parameters,
-            inner_optimizer.optimizer_parameters,
-            kg_optimizer.objective_function._gaussian_process._gaussian_process,
-            cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
-            cpp_utils.cppify(discrete_pts),
-            cpp_utils.cppify(kg_optimizer.objective_function._points_being_sampled),
-            num_pts, num_to_sample,
-            kg_optimizer.objective_function.num_being_sampled,
-            kg_optimizer.objective_function._best_so_far,
-            kg_optimizer.objective_function._num_mc_iterations,
-            max_num_threads,
-            randomness,
-            status,
+        kg_optimizer.optimizer_parameters,
+        inner_optimizer.optimizer_parameters,
+        kg_optimizer.objective_function._gaussian_process._gaussian_process,
+        kg_optimizer.objective_function._num_fidelity,
+        cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
+        cpp_utils.cppify(discrete_pts),
+        cpp_utils.cppify(kg_optimizer.objective_function._points_being_sampled),
+        num_pts, num_to_sample,
+        kg_optimizer.objective_function.num_being_sampled,
+        kg_optimizer.objective_function._best_so_far,
+        kg_optimizer.objective_function._num_mc_iterations,
+        max_num_threads,
+        randomness,
+        status,
     )
 
     # reform output to be a list of dim-dimensional points, dim = len(self.domain)
@@ -318,6 +324,7 @@ class KnowledgeGradient(OptimizableInterface):
     def __init__(
             self,
             gaussian_process,
+            num_fidelity,
             inner_optimizer,
             discrete_pts,
             points_to_sample=None,
@@ -344,13 +351,19 @@ class KnowledgeGradient(OptimizableInterface):
         """
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process = gaussian_process
+        self._num_fidelity = num_fidelity
         self._inner_optimizer = inner_optimizer
 
         # self._num_derivatives = gaussian_process._historical_data.num_derivatives
 
         self._discrete_pts = numpy.copy(discrete_pts)
 
-        self._mu_star = self._gaussian_process.compute_mean_of_additional_points(self._discrete_pts)
+        full_points = numpy.zeros((discrete_pts.shape[0], discrete_pts.shape[1]+num_fidelity))
+        for i, point in enumerate(discrete_pts):
+            full_points[i, :discrete_pts.shape[1]] = numpy.array(point)
+            full_points[i, discrete_pts.shape[1]:] = 1.0
+
+        self._mu_star = self._gaussian_process.compute_mean_of_additional_points(full_points)
 
         self._best_so_far = numpy.amin(self._mu_star)
 
@@ -457,23 +470,23 @@ class KnowledgeGradient(OptimizableInterface):
         # num_to_sample need not match ei_evaluator.num_to_sample since points_to_evaluate
         # overrides any data inside ei_evaluator
         num_to_evaluate, num_to_sample, _ = points_to_evaluate.shape
-
+        discrete_being_sampled = numpy.concatenate((self._discrete_pts, self._points_being_sampled))
         kg_values = C_GP.evaluate_KG_at_point_list(
-                self._gaussian_process._gaussian_process,
-                self._inner_optimizer.optimizer_parameters,
-                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                cpp_utils.cppify(self._discrete_pts),
-                cpp_utils.cppify(points_to_evaluate),
-                cpp_utils.cppify(self._points_being_sampled),
-                num_to_evaluate,
-                self.discrete,
-                num_to_sample,
-                self.num_being_sampled,
-                self._best_so_far,
-                self._num_mc_iterations,
-                max_num_threads,
-                randomness,
-                status,
+            self._gaussian_process._gaussian_process,
+            self._num_fidelity,
+            self._inner_optimizer.optimizer_parameters,
+            cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+            cpp_utils.cppify(discrete_being_sampled),
+            cpp_utils.cppify(points_to_evaluate),
+            num_to_evaluate,
+            self.discrete,
+            num_to_sample,
+            self.num_being_sampled,
+            self._best_so_far,
+            self._num_mc_iterations,
+            max_num_threads,
+            randomness,
+            status,
         )
         return numpy.array(kg_values)
 
@@ -515,18 +528,19 @@ class KnowledgeGradient(OptimizableInterface):
 
         """
         return C_GP.compute_knowledge_gradient(
-                self._gaussian_process._gaussian_process,
-                self._inner_optimizer.optimizer_parameters,
-                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                cpp_utils.cppify(self._discrete_pts),
-                cpp_utils.cppify(self._points_to_sample),
-                cpp_utils.cppify(self._points_being_sampled),
-                self.discrete,
-                self.num_to_sample,
-                self.num_being_sampled,
-                self._num_mc_iterations,
-                self._best_so_far,
-                self._randomness,
+            self._gaussian_process._gaussian_process,
+            self._num_fidelity,
+            self._inner_optimizer.optimizer_parameters,
+            cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+            cpp_utils.cppify(self._discrete_pts),
+            cpp_utils.cppify(self._points_to_sample),
+            cpp_utils.cppify(self._points_being_sampled),
+            self.discrete,
+            self.num_to_sample,
+            self.num_being_sampled,
+            self._num_mc_iterations,
+            self._best_so_far,
+            self._randomness,
         )
 
     compute_objective_function = compute_knowledge_gradient
@@ -559,18 +573,19 @@ class KnowledgeGradient(OptimizableInterface):
 
         """
         grad_kg = C_GP.compute_grad_knowledge_gradient(
-                self._gaussian_process._gaussian_process,
-                self._inner_optimizer.optimizer_parameters,
-                cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
-                cpp_utils.cppify(self._discrete_pts),
-                cpp_utils.cppify(self._points_to_sample),
-                cpp_utils.cppify(self._points_being_sampled),
-                self.discrete,
-                self.num_to_sample,
-                self.num_being_sampled,
-                self._num_mc_iterations,
-                self._best_so_far,
-                self._randomness,
+            self._gaussian_process._gaussian_process,
+            self._num_fidelity,
+            self._inner_optimizer.optimizer_parameters,
+            cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
+            cpp_utils.cppify(self._discrete_pts),
+            cpp_utils.cppify(self._points_to_sample),
+            cpp_utils.cppify(self._points_being_sampled),
+            self.discrete,
+            self.num_to_sample,
+            self.num_being_sampled,
+            self._num_mc_iterations,
+            self._best_so_far,
+            self._randomness,
         )
         return cpp_utils.uncppify(grad_kg, (self.num_to_sample, self.dim))
 

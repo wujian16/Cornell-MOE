@@ -120,6 +120,9 @@
 #include <memory>
 #include <vector>
 
+#include <stdlib.h>
+#include <queue>
+
 #include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
