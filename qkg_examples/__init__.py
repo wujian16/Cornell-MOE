@@ -1,2 +1,2 @@
 # -*- coding: utf-8 -*-
-"""Examples for using the qKG package."""
+"""Examples for using the Cornell-MOE package."""
