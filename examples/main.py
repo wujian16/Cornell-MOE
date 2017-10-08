@@ -73,7 +73,7 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 prior = DefaultPrior(1+dim+len(observations), len(observations))
 # noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 2000, burnin_steps = 2000, n_hypers = 10, noisy = False)
+                                                           chain_length = 2000, burnin_steps = 2000, n_hypers = 4, noisy = False)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
