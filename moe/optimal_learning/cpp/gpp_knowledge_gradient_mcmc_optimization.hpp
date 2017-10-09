@@ -265,6 +265,16 @@ class KnowledgeGradientMCMCEvaluator final {
   }
 
   /*!\rst
+    compute the cost.
+  \endrst*/
+  double ComputeCost(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+
+  /*!\rst
+    compute the gradient of the cost.
+  \endrst*/
+  void ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const OL_NONNULL_POINTERS;
+
+  /*!\rst
     Wrapper for ComputeKnowledgeGradient(); see that function for details.
   \endrst*/
   double ComputeObjectiveFunction(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {

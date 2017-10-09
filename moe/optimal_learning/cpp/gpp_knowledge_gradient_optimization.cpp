@@ -60,54 +60,6 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(KnowledgeGrad
 }
 
 /*!\rst
-  compute the cost.
-\endrst*/
-template <typename DomainType>
-double KnowledgeGradientEvaluator<DomainType>::ComputeCost(StateType * kg_state) const {
-  if (num_fidelity_ == 0){
-    return 1.0;
-  }
-  else{
-    double cost = 0.0;
-    for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0;
-      for (int j=dim_-num_fidelity_; j<dim_; ++j){
-        point_cost *= kg_state->union_of_points[i*dim_ + j];
-      }
-      if (cost < point_cost){
-        cost = point_cost;
-      }
-    }
-    return cost;
-  }
-}
-
-/*!\rst
-  compute the gradient of the cost.
-\endrst*/
-template <typename DomainType>
-void KnowledgeGradientEvaluator<DomainType>::ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const {
-  std::fill(kg_state->gradcost.begin(), kg_state->gradcost.end(), 0.0);
-  if (num_fidelity_ > 0){
-    int index = -1;
-    double cost = 0.0;
-    for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0;
-      for (int j=dim_-num_fidelity_; j<dim_; ++j){
-        point_cost *= kg_state->union_of_points[i*dim_ + j];
-      }
-      if (cost < point_cost){
-        cost = point_cost;
-        index = i;
-      }
-    }
-    for (int j=dim_-num_fidelity_; j<dim_; ++j){
-      kg_state->gradcost[index*dim_ + j] = cost/kg_state->union_of_points[index*dim_ + j];
-    }
-  }
-}
-
-/*!\rst
   Compute Knowledge Gradient
   This version requires the discretization of A (the feasibe domain).
   The discretization usually is: some set + points previous sampled + points being sampled + points to sample
@@ -138,8 +90,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
                                       &best_function_value, kg_state->best_point.data());
     aggregate += best_posterior + best_function_value;
   }
-  double cost = ComputeCost(kg_state);
-  return (aggregate/static_cast<double>(num_mc_iterations_))/cost;
+  return aggregate/static_cast<double>(num_mc_iterations_);
 }
 
 /*!\rst
@@ -203,11 +154,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                       &best_function_value, kg_state->best_point.data() + i*dim_);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
-  double KG =aggregate/static_cast<double>(num_mc_iterations_);
-
-  // cost and the grad of the cost
-  double cost = ComputeCost(kg_state);
-  ComputeGradCost(kg_state, kg_state->gradcost.data());
+  // double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
   gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), num_mc_iterations_,
                                                nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
@@ -235,7 +182,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
 
   for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
     grad_KG[k] = kg_state->aggregate[k]/static_cast<double>(num_mc_iterations_);
-    grad_KG[k] = (grad_KG[k]*cost - KG*kg_state->gradcost[k])/Square(cost);
   }
 }
 
