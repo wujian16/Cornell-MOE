@@ -467,8 +467,6 @@ struct KnowledgeGradientState final {
   std::vector<double> grad_mu;
   //! tracks the aggregate grad KG from all mc iterations
   std::vector<double> aggregate;
-  //! track the gradient of the cost function
-  std::vector<double> gradcost;
   //! normal rng draws
   std::vector<double> normals;
   //! the best point

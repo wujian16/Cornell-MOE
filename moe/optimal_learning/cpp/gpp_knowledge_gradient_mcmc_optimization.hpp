@@ -489,6 +489,9 @@ struct KnowledgeGradientMCMCState final {
   //! ``points_to_sample`` is stored first in memory, immediately followed by ``points_being_sampled``
   std::vector<double> union_of_points;
 
+  //! track the gradient of the cost function
+  std::vector<double> gradcost;
+
   //! gaussian process state
   std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_list;
 

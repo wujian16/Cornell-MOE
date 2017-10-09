@@ -226,7 +226,6 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
     to_sample_mean_(num_union),
     grad_mu(dim*num_derivatives),
     aggregate(dim*num_derivatives),
-    gradcost(dim*num_derivatives),
     normals(num_union*(1+num_gradients_to_sample)*num_iterations),
     best_point(dim*num_iterations),
     chol_inverse_cov(num_iterations*num_union*(1+num_gradients_to_sample)),

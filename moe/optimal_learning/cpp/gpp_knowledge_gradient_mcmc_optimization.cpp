@@ -78,14 +78,14 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
                                                      num_pts_, num_mc_iterations_, domain_, optimizer_parameters_,
                                                      best_so_far_[i]);
       discrete_pts += num_pts_*(dim_-num_fidelity_);
-    }
+  }
 }
 
 /*!\rst
   compute the cost.
 \endrst*/
 template <typename DomainType>
-double KnowledgeGradientEvaluator<DomainType>::ComputeCost(StateType * kg_state) const {
+double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeCost(StateType * kg_state) const {
   if (num_fidelity_ == 0){
     return 1.0;
   }
@@ -108,7 +108,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeCost(StateType * kg_state)
   compute the gradient of the cost.
 \endrst*/
 template <typename DomainType>
-void KnowledgeGradientEvaluator<DomainType>::ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const {
+void KnowledgeGradientMCMCEvaluator<DomainType>::ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const {
   std::fill(kg_state->gradcost.begin(), kg_state->gradcost.end(), 0.0);
   if (num_fidelity_ > 0){
     int index = -1;
@@ -205,6 +205,7 @@ KnowledgeGradientMCMCState<DomainType>::KnowledgeGradientMCMCState(const Evaluat
     gradients(gradients_in, gradients_in+num_gradients_in),
     num_gradients_to_sample(num_gradients_in),
     union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
+    gradcost(dim*num_derivatives),
     kg_state_list(kg_state_vector) {
   kg_state_list->reserve(kg_evaluator.num_mcmc());
   // evaluate derived quantities for the GP
