@@ -259,7 +259,7 @@ class KnowledgeGradientEvaluator final {
       and ``Xp`` is ``points_being_sampled`` (grad KG from sampling ``points_to_sample`` with
       ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
   \endrst*/
-  void ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS;
+  double ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(KnowledgeGradientEvaluator);
 

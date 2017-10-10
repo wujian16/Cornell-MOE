@@ -161,13 +161,15 @@ double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeKnowledgeGradient(Stat
 \endrst*/
 template <typename DomainType>
 void KnowledgeGradientMCMCEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
+  double KG = 0.0;
   for (int i=0; i<num_mcmc_hypers_; ++i){
     std::vector<double> temp(kg_state->dim*kg_state->num_to_sample, 0.0);
-    (*knowledge_gradient_evaluator_lst)[i].ComputeGradObjectiveFunction((*(kg_state->kg_state_list)).data()+i, temp.data());
+    KG += (*knowledge_gradient_evaluator_lst)[i].ComputeGradKnowledgeGradient((*(kg_state->kg_state_list)).data()+i, temp.data());
     for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
         grad_KG[k] += temp[k];
     }
   }
+  KG /= static_cast<double>(num_mcmc_hypers_);
   // cost and the grad of the cost
   double cost = ComputeCost(kg_state);
   ComputeGradCost(kg_state, kg_state->gradcost.data());

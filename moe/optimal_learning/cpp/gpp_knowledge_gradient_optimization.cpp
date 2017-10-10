@@ -106,7 +106,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
   .. Note:: comments here are copied to _compute_grad_knowledge_gradient_monte_carlo() in python_version/knowledge_gradient.py
 \endrst*/
 template <typename DomainType>
-void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
+double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
   const int num_union = kg_state->num_union;
   int num_gradients_to_sample = kg_state->num_gradients_to_sample;
 
@@ -154,7 +154,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
                                       &best_function_value, kg_state->best_point.data() + i*dim_);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
-  // double KG =aggregate/static_cast<double>(num_mc_iterations_);
+  double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
   gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), num_mc_iterations_,
                                                nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
@@ -183,6 +183,7 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
   for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
     grad_KG[k] = kg_state->aggregate[k]/static_cast<double>(num_mc_iterations_);
   }
+  return KG;
 }
 
 template class KnowledgeGradientEvaluator<TensorProductDomain>;
