@@ -14,7 +14,7 @@ Cornell-MOE implements a library of batch Bayesian optimization algorithms. It w
 
 1. Fitting a Gaussian Process (GP) with historical data
 2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG) or derivative-enabled knowledge gradien orcontinuous-fidelity knowledge gradient
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG) or derivative-enabled knowledge gradient (d-KG) or continuous-fidelity knowledge gradient (cf-KG)
 4. Returning the points to sample
 
 Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder examples.
