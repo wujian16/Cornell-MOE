@@ -14,10 +14,10 @@ Cornell-MOE implements a library of batch Bayesian optimization algorithms. It w
 
 1. Fitting a Gaussian Process (GP) with historical data
 2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG)
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG) or derivative-enabled knowledge gradien orcontinuous-fidelity knowledge gradient
 4. Returning the points to sample
 
-Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder qkg_examples.
+Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder examples.
 
 ## Step-by-Step Install
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
@@ -61,7 +61,7 @@ $ python setup.py install
 ```
 
 ## Running Cornell-MOE
-See the examples in the folder qkg_examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+See the examples in the folder examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
