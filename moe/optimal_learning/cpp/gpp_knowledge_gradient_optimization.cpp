@@ -60,54 +60,6 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(KnowledgeGrad
 }
 
 /*!\rst
-  compute the cost.
-\endrst*/
-template <typename DomainType>
-double KnowledgeGradientEvaluator<DomainType>::ComputeCost(StateType * kg_state) const {
-  if (num_fidelity_ == 0){
-    return 1.0;
-  }
-  else{
-    double cost = 0.0;
-    for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0;
-      for (int j=dim_-num_fidelity_; j<dim_; ++j){
-        point_cost *= kg_state->union_of_points[i*dim_ + j];
-      }
-      if (cost < point_cost){
-        cost = point_cost;
-      }
-    }
-    return cost;
-  }
-}
-
-/*!\rst
-  compute the gradient of the cost.
-\endrst*/
-template <typename DomainType>
-void KnowledgeGradientEvaluator<DomainType>::ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const {
-  std::fill(kg_state->gradcost.begin(), kg_state->gradcost.end(), 0.0);
-  if (num_fidelity_ > 0){
-    int index = -1;
-    double cost = 0.0;
-    for (int i=0; i<kg_state->num_to_sample; ++i){
-      double point_cost = 1.0;
-      for (int j=dim_-num_fidelity_; j<dim_; ++j){
-        point_cost *= kg_state->union_of_points[i*dim_ + j];
-      }
-      if (cost < point_cost){
-        cost = point_cost;
-        index = i;
-      }
-    }
-    for (int j=dim_-num_fidelity_; j<dim_; ++j){
-      kg_state->gradcost[index*dim_ + j] = cost/kg_state->union_of_points[index*dim_ + j];
-    }
-  }
-}
-
-/*!\rst
   Compute Knowledge Gradient
   This version requires the discretization of A (the feasibe domain).
   The discretization usually is: some set + points previous sampled + points being sampled + points to sample
@@ -138,8 +90,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
                                       &best_function_value, kg_state->best_point.data());
     aggregate += best_posterior + best_function_value;
   }
-  double cost = ComputeCost(kg_state);
-  return (aggregate/static_cast<double>(num_mc_iterations_))/cost;
+  return aggregate/static_cast<double>(num_mc_iterations_);
 }
 
 /*!\rst
@@ -155,7 +106,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
   .. Note:: comments here are copied to _compute_grad_knowledge_gradient_monte_carlo() in python_version/knowledge_gradient.py
 \endrst*/
 template <typename DomainType>
-void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
+double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
   const int num_union = kg_state->num_union;
   int num_gradients_to_sample = kg_state->num_gradients_to_sample;
 
@@ -205,10 +156,6 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
-  // cost and the grad of the cost
-  double cost = ComputeCost(kg_state);
-  ComputeGradCost(kg_state, kg_state->gradcost.data());
-
   gaussian_process_->ComputeCovarianceOfPoints(&(kg_state->points_to_sample_state), kg_state->best_point.data(), num_mc_iterations_,
                                                nullptr, 0, false, nullptr, kg_state->chol_inverse_cov.data());
   TriangularMatrixMatrixSolve(kg_state->cholesky_to_sample_var.data(), 'N', num_union*(1+num_gradients_to_sample), num_mc_iterations_,
@@ -235,8 +182,8 @@ void KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateT
 
   for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
     grad_KG[k] = kg_state->aggregate[k]/static_cast<double>(num_mc_iterations_);
-    grad_KG[k] = (grad_KG[k]*cost - KG*kg_state->gradcost[k])/Square(cost);
   }
+  return KG;
 }
 
 template class KnowledgeGradientEvaluator<TensorProductDomain>;
@@ -280,7 +227,6 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
     to_sample_mean_(num_union),
     grad_mu(dim*num_derivatives),
     aggregate(dim*num_derivatives),
-    gradcost(dim*num_derivatives),
     normals(num_union*(1+num_gradients_to_sample)*num_iterations),
     best_point(dim*num_iterations),
     chol_inverse_cov(num_iterations*num_union*(1+num_gradients_to_sample)),

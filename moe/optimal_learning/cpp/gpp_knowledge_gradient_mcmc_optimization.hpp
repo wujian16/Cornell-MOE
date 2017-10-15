@@ -265,6 +265,16 @@ class KnowledgeGradientMCMCEvaluator final {
   }
 
   /*!\rst
+    compute the cost.
+  \endrst*/
+  double ComputeCost(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+
+  /*!\rst
+    compute the gradient of the cost.
+  \endrst*/
+  void ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const OL_NONNULL_POINTERS;
+
+  /*!\rst
     Wrapper for ComputeKnowledgeGradient(); see that function for details.
   \endrst*/
   double ComputeObjectiveFunction(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
@@ -478,6 +488,9 @@ struct KnowledgeGradientMCMCState final {
   //! points currently being sampled; this is the union of the points represented by "q" and "p" in q,p-KG
   //! ``points_to_sample`` is stored first in memory, immediately followed by ``points_being_sampled``
   std::vector<double> union_of_points;
+
+  //! track the gradient of the cost function
+  std::vector<double> gradcost;
 
   //! gaussian process state
   std::vector<typename KnowledgeGradientEvaluator<DomainType>::StateType> * kg_state_list;

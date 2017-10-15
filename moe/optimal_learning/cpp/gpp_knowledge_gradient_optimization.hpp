@@ -220,16 +220,6 @@ class KnowledgeGradientEvaluator final {
   }
 
   /*!\rst
-    compute the cost.
-  \endrst*/
-  double ComputeCost(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
-
-  /*!\rst
-    compute the gradient of the cost.
-  \endrst*/
-  void ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const OL_NONNULL_POINTERS;
-
-  /*!\rst
     Wrapper for ComputeKnowledgeGradient(); see that function for details.
   \endrst*/
   double ComputeObjectiveFunction(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
@@ -269,7 +259,7 @@ class KnowledgeGradientEvaluator final {
       and ``Xp`` is ``points_being_sampled`` (grad KG from sampling ``points_to_sample`` with
       ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
   \endrst*/
-  void ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS;
+  double ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(KnowledgeGradientEvaluator);
 
@@ -477,8 +467,6 @@ struct KnowledgeGradientState final {
   std::vector<double> grad_mu;
   //! tracks the aggregate grad KG from all mc iterations
   std::vector<double> aggregate;
-  //! track the gradient of the cost function
-  std::vector<double> gradcost;
   //! normal rng draws
   std::vector<double> normals;
   //! the best point

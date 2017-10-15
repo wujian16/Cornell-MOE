@@ -78,7 +78,55 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
                                                      num_pts_, num_mc_iterations_, domain_, optimizer_parameters_,
                                                      best_so_far_[i]);
       discrete_pts += num_pts_*(dim_-num_fidelity_);
+  }
+}
+
+/*!\rst
+  compute the cost.
+\endrst*/
+template <typename DomainType>
+double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeCost(StateType * kg_state) const {
+  if (num_fidelity_ == 0){
+    return 1.0;
+  }
+  else{
+    double cost = 0.0;
+    for (int i=0; i<kg_state->num_to_sample; ++i){
+      double point_cost = 1.0;
+      for (int j=dim_-num_fidelity_; j<dim_; ++j){
+        point_cost *= kg_state->union_of_points[i*dim_ + j];
+      }
+      if (cost < point_cost){
+        cost = point_cost;
+      }
     }
+    return cost;
+  }
+}
+
+/*!\rst
+  compute the gradient of the cost.
+\endrst*/
+template <typename DomainType>
+void KnowledgeGradientMCMCEvaluator<DomainType>::ComputeGradCost(StateType * kg_state, double * restrict grad_cost) const {
+  std::fill(kg_state->gradcost.begin(), kg_state->gradcost.end(), 0.0);
+  if (num_fidelity_ > 0){
+    int index = -1;
+    double cost = 0.0;
+    for (int i=0; i<kg_state->num_to_sample; ++i){
+      double point_cost = 1.0;
+      for (int j=dim_-num_fidelity_; j<dim_; ++j){
+        point_cost *= kg_state->union_of_points[i*dim_ + j];
+      }
+      if (cost < point_cost){
+        cost = point_cost;
+        index = i;
+      }
+    }
+    for (int j=dim_-num_fidelity_; j<dim_; ++j){
+      kg_state->gradcost[index*dim_ + j] = cost/kg_state->union_of_points[index*dim_ + j];
+    }
+  }
 }
 
 /*!\rst
@@ -92,7 +140,8 @@ double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeKnowledgeGradient(Stat
   for (int i=0; i<num_mcmc_hypers_; ++i){
     kg_value += (*knowledge_gradient_evaluator_lst)[i].ComputeObjectiveFunction((*(kg_state->kg_state_list)).data()+i);
   }
-  return kg_value/static_cast<double>(num_mcmc_hypers_);
+  double cost = ComputeCost(kg_state);
+  return kg_value/static_cast<double>(num_mcmc_hypers_*cost);
 }
 
 /*!\rst
@@ -112,15 +161,22 @@ double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeKnowledgeGradient(Stat
 \endrst*/
 template <typename DomainType>
 void KnowledgeGradientMCMCEvaluator<DomainType>::ComputeGradKnowledgeGradient(StateType * kg_state, double * restrict grad_KG) const {
+  double KG = 0.0;
   for (int i=0; i<num_mcmc_hypers_; ++i){
     std::vector<double> temp(kg_state->dim*kg_state->num_to_sample, 0.0);
-    (*knowledge_gradient_evaluator_lst)[i].ComputeGradObjectiveFunction((*(kg_state->kg_state_list)).data()+i, temp.data());
+    KG += (*knowledge_gradient_evaluator_lst)[i].ComputeGradKnowledgeGradient((*(kg_state->kg_state_list)).data()+i, temp.data());
     for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
         grad_KG[k] += temp[k];
     }
   }
+  KG /= static_cast<double>(num_mcmc_hypers_);
+  // cost and the grad of the cost
+  double cost = ComputeCost(kg_state);
+  ComputeGradCost(kg_state, kg_state->gradcost.data());
+
   for (int k = 0; k < kg_state->num_to_sample*dim_; ++k) {
     grad_KG[k] = grad_KG[k]/static_cast<double>(num_mcmc_hypers_);
+    grad_KG[k] = (grad_KG[k]*cost - KG*kg_state->gradcost[k])/Square(cost);
   }
 }
 
@@ -151,6 +207,7 @@ KnowledgeGradientMCMCState<DomainType>::KnowledgeGradientMCMCState(const Evaluat
     gradients(gradients_in, gradients_in+num_gradients_in),
     num_gradients_to_sample(num_gradients_in),
     union_of_points(BuildUnionOfPoints(points_to_sample, points_being_sampled, num_to_sample, num_being_sampled, dim)),
+    gradcost(dim*num_derivatives),
     kg_state_list(kg_state_vector) {
   kg_state_list->reserve(kg_evaluator.num_mcmc());
   // evaluate derived quantities for the GP
