@@ -3,7 +3,7 @@
 2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (q-KG and d-KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic functions using q-KG and d-KG in the folder qkg_examples. More examples are coming.
+5. We provide several examples of optimizing synthetic functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 ## Introduction:
@@ -17,7 +17,7 @@ Cornell-MOE implements a library of batch Bayesian optimization algorithms. It w
 3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG) or derivative-enabled knowledge gradient (d-KG) or continuous-fidelity knowledge gradient (cf-KG)
 4. Returning the points to sample
 
-Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder examples.
+Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder 'examples'.
 
 ## Step-by-Step Install
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
@@ -61,7 +61,7 @@ $ python setup.py install
 ```
 
 ## Running Cornell-MOE
-See the examples in the folder examples. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
