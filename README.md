@@ -64,7 +64,7 @@ $ python setup.py install
 See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
 We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convoltuional neural network on CIFAR10). One can run main.py by the following command
-with proper objective name.
+with the proper objective name.
 ```
 # python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
 # q = num_to_sample
@@ -74,6 +74,7 @@ python main.py Hartmann3 4 1000 1
 ### Mode: derivative-enabled knowledge gradient (d-KG)
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
+come soon
 
 ## Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
