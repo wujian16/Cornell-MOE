@@ -3,7 +3,7 @@
 2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (q-KG and d-KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
+5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 ## Introduction:
