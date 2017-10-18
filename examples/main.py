@@ -60,7 +60,7 @@ for pt in init_pts:
     pt[objective_func._dim-objective_func._num_fidelity:] = np.ones(objective_func._num_fidelity)
 
 # observe
-derivatives = []
+derivatives = np.arange(objective_func._num_observations)
 observations = [0] + [i+1 for i in derivatives]
 init_pts_value = np.array([objective_func.evaluate(pt) for pt in init_pts])[:, observations]
 true_value_init = np.array([objective_func.evaluate_true(pt) for pt in init_pts])[:, observations]
