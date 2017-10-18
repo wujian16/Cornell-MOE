@@ -1,3 +1,6 @@
+import numpy
+from multiprocessing import Process, Queue
+
 import keras
 from keras import backend as K
 from keras.preprocessing.image import ImageDataGenerator
@@ -7,14 +10,13 @@ from keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 from keras.datasets import cifar10
 
-import numpy
-from multiprocessing import Process, Queue
+from oct2py import octave
+octave.addpath(octave.genpath("gpml-matlab-v4.0-2016-10-19"))
 
 def run_in_separate_process(method, args):
     def queue_wrapper(q, params):
         r = method(*params)
         q.put(r)
-
     q = Queue()
     p = Process(target=queue_wrapper, args=(q, args))
     p.start()
@@ -32,6 +34,7 @@ class Branin(object):
         self._sample_var = 0.0
         self._min_value = 0.397887
         self._num_fidelity = 0
+        self._num_observations = 0
 
     def evaluate_true(self, x):
         """ This function is usually evaluated on the square x_1 \in [-5, 10], x_2 \in [0, 15]. Global minimum
@@ -60,6 +63,7 @@ class Rosenbrock(object):
         self._sample_var = 0.0
         self._min_value = 0.0
         self._num_fidelity = 0
+        self._num_observations = 0
 
     def evaluate_true(self, x):
         """ Global minimum is 0 at (1, 1, 1)
@@ -86,6 +90,7 @@ class Hartmann3(object):
         self._sample_var = 0.0
         self._min_value = -3.86278
         self._num_fidelity = 0
+        self._num_observations = 0
 
     def evaluate_true(self, x):
         """ domain is x_i \in (0, 1) for i = 1, ..., 3
@@ -234,6 +239,23 @@ class CIFAR10(object):
             raise loss
         else:
             return numpy.array([loss])
+
+    def evaluate(self, x):
+        return self.evaluate_true(x)
+
+class KISSGP(object):
+    def __init__(self):
+        self._dim = 3
+        self._search_domain = numpy.array([[-1, 3], [-1, 3], [-1, 3]])
+        self._num_init_pts = 1
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._num_fidelity = 0
+        self._num_observations = 3
+
+    def evaluate_true(self, x):
+        value = numpy.array(octave.KISSGP(numpy.exp(x))).flatten()
+        return value
 
     def evaluate(self, x):
         return self.evaluate_true(x)
