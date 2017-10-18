@@ -37,7 +37,7 @@ job_id = int(argv[3])
 num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'BraninNoNoise': obj_functions.BraninNoNoise(), 'RosenbrockNoNoise': obj_functions.RosenbrockNoNoise(),
+obj_func_dict = {'BraninNoNoise': obj_functions.Branin(), 'RosenbrockNoNoise': obj_functions.Rosenbrock(),
                  'Hartmann3': obj_functions.Hartmann3(), 'CIFAR10': obj_functions.CIFAR10()}
 
 objective_func = obj_func_dict[obj_func_name]

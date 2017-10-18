@@ -24,7 +24,7 @@ def run_in_separate_process(method, args):
         raise return_val
     return return_val
 
-class BraninNoNoise(object):
+class Branin(object):
     def __init__(self):
         self._dim = 2
         self._search_domain = numpy.array([[0, 15], [-5, 15]])
@@ -52,7 +52,7 @@ class BraninNoNoise(object):
     def evaluate(self, x):
         return self.evaluate_true(x)
 
-class RosenbrockNoNoise(object):
+class Rosenbrock(object):
     def __init__(self):
         self._dim = 3
         self._search_domain = numpy.repeat([[-2., 2.]], 3, axis=0)

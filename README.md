@@ -63,6 +63,11 @@ $ python setup.py install
 ## Running Cornell-MOE
 See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
+We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convoltuional neural network on CIFAR10). One can run main.py by the following command
+with proper objective name.
+```
+python main.py Hartmann3 4 1000 1
+```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
 
@@ -111,10 +116,6 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [13]: http://yelp.github.io/MOE/examples.html
 [14]: http://yelp.github.io/MOE/objective_functions.html
 [15]: http://yelp.github.io/MOE/objective_functions.html#parameters
-[16]: http://people.orie.cornell.edu/pfrazier/
-[17]: http://www.orie.cornell.edu/
-[18]: http://optimallearning.princeton.edu/
-[19]: http://orfe.princeton.edu/
 [20]: http://people.orie.cornell.edu/pfrazier/Presentations/2014.01.Lancaster.BGO.pdf
 [21]: http://yelp.github.io/MOE/why_moe.html
 [22]: http://stackoverflow.com/questions/10065526/github-how-to-make-a-fork-of-public-repository-private
