@@ -82,7 +82,7 @@ python main.py KISSGP 4 1000 1
 ```
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
-come soon
+coming soon
 
 ## Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
@@ -111,9 +111,7 @@ See [Contributing Documentation][8]
 ## License
 Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
-[0]: https://www.youtube.com/watch?v=CC6qvzWp9_A
 [1]: http://yelp.github.io/MOE/
-[2]: http://yelp.github.io/MOE/moe.views.rest.html
 [3]: http://github.com/Yelp/MOE/pulls
 [4]: http://yelp.github.io/MOE/moe.views.rest.html#module-moe.views.rest.gp_ei
 [5]: http://yelp.github.io/MOE/moe.easy_interface.html
