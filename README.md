@@ -29,7 +29,7 @@ $ apt-get update
 $ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
 ```
 
-#### step 2, we recommend install qKG/MOE in the virtual environment
+#### step 2, we recommend install Cornell-MOE in the virtual environment
 
 ```bash
 $ pip install virtualenv
@@ -67,6 +67,7 @@ See the examples in the folder examples. One can run the main.py following the i
 ### Mode: derivative-enabled knowledge gradient (d-KG)
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
+come soon
 
 ## Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].

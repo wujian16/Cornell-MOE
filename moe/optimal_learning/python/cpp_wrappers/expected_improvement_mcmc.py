@@ -354,3 +354,169 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
     def compute_hessian_objective_function(self, **kwargs):
         """We do not currently support computation of the (spatial) hessian of Expected Improvement."""
         raise NotImplementedError('Currently we cannot compute the hessian of expected improvement.')
+
+class SoftExpectedImprovementMCMC:
+
+    def __init__(
+            self,
+            prior, chain_length, burnin_steps,
+            gaussian_process_mcmc,
+            num_to_sample,
+            points_being_sampled=None,
+            num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
+            randomness=None,
+            rng = None
+    ):
+        """Construct an ExpectedImprovement object that knows how to call C++ for evaluation of member functions.
+
+        :param gaussian_process: GaussianProcess describing
+        :type gaussian_process: :class:`moe.optimal_learning.python.cpp_wrappers.gaussian_process.GaussianProcess` object
+        :param points_to_sample: points at which to evaluate EI and/or its gradient to check their value in future experiments (i.e., "q" in q,p-EI)
+        :type points_to_sample: array of float64 with shape (num_to_sample, dim)
+        :param points_being_sampled: points being sampled in concurrent experiments (i.e., "p" in q,p-EI)
+        :type points_being_sampled: array of float64 with shape (num_being_sampled, dim)
+        :param num_mc_iterations: number of monte-carlo iterations to use (when monte-carlo integration is used to compute EI)
+        :type num_mc_iterations: int > 0
+        :param randomness: RNGs used by C++ as the source of normal random numbers when monte-carlo is used
+        :type randomness: RandomnessSourceContainer (C++ object; e.g., from C_GP.RandomnessSourceContainer())
+
+        """
+        self.prior = prior
+        self.chain_length = chain_length
+        self.burned = False
+        self.burnin_steps = burnin_steps
+        self._models = []
+
+        self.n_chains = 2*num_to_sample*gaussian_process_mcmc.dim
+
+        self._num_mc_iterations = num_mc_iterations
+        self._gaussian_process_mcmc = gaussian_process_mcmc
+        self._num_to_sample = num_to_sample
+
+        if gaussian_process_mcmc._historical_data.points_sampled_value.size > 0:
+            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.amin(gaussian_process_mcmc._historical_data.points_sampled_value[:,0])]
+            # self._best_so_far = numpy.amin(gaussian_process._historical_data.points_sampled_value)
+        else:
+            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.finfo(numpy.float64).max]
+
+        if points_being_sampled is None:
+            self._points_being_sampled = numpy.array([])
+        else:
+            self._points_being_sampled = numpy.copy(points_being_sampled)
+
+        if randomness is None:
+            self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
+            # Set seed based on less repeatable factors (e.g,. time)
+            self._randomness.SetRandomizedUniformGeneratorSeed(0)
+            self._randomness.SetRandomizedNormalRNGSeed(0)
+        else:
+            self._randomness = randomness
+
+        if rng is None:
+            self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
+        else:
+            self.rng = rng
+
+        self.objective_type = None  # Not used for EI, but the field is expected in C++
+
+    @property
+    def num_being_sampled(self):
+        """Number of points being sampled in concurrent experiments; i.e., the ``p`` in ``q,p-EI``."""
+        return self._points_being_sampled.shape[0]
+
+    def compute_expected_improvement_mcmc(self, points_to_sample):
+        r"""Compute the expected improvement at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
+
+        .. Note:: These comments were copied from
+          :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_expected_improvement`
+
+        ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
+
+        Computes the expected improvement ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``, where ``Xs``
+        are potential points to sample (union of ``points_to_sample`` and ``points_being_sampled``) and ``X`` are
+        already sampled points.  The ``^+`` indicates that the expression in the expectation evaluates to 0 if it
+        is negative.  ``f^*(X)`` is the MINIMUM over all known function evaluations (``points_sampled_value``),
+        whereas ``f(Xs)`` are *GP-predicted* function evaluations.
+
+        In words, we are computing the expected improvement (over the current ``best_so_far``, best known
+        objective function value) that would result from sampling (aka running new experiments) at
+        ``points_to_sample`` with ``points_being_sampled`` concurrent/ongoing experiments.
+
+        In general, the EI expression is complex and difficult to evaluate; hence we use Monte-Carlo simulation to approximate it.
+        When faster (e.g., analytic) techniques are available, we will prefer them.
+
+        The idea of the MC approach is to repeatedly sample at the union of ``points_to_sample`` and
+        ``points_being_sampled``. This is analogous to gaussian_process_interface.sample_point_from_gp,
+        but we sample ``num_union`` points at once:
+        ``y = \mu + Lw``
+        where ``\mu`` is the GP-mean, ``L`` is the ``chol_factor(GP-variance)`` and ``w`` is a vector
+        of ``num_union`` draws from N(0, 1). Then:
+        ``improvement_per_step = max(max(best_so_far - y), 0.0)``
+        Observe that the inner ``max`` means only the smallest component of ``y`` contributes in each iteration.
+        We compute the improvement over many random draws and average.
+
+        :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
+        :type force_monte_carlo: boolean
+        :return: the expected improvement from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
+        :rtype: float64
+
+        """
+        expected_improvement_mcmc = C_GP.compute_expected_improvement_mcmc(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                cpp_utils.cppify(points_to_sample),
+                cpp_utils.cppify(self._points_being_sampled),
+                self._num_to_sample,
+                self.num_being_sampled,
+                self._num_mc_iterations,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._randomness,
+        )
+        return expected_improvement_mcmc
+
+    def train(self, do_optimize=True, **kwargs):
+        """
+        Performs MCMC sampling to sample hyperparameter configurations from the
+        likelihood and trains for each sample a GP on X and y
+
+        Parameters
+        ----------
+        X: np.ndarray (N, D)
+            Input data points. The dimensionality of X is (N, D),
+            with N as the number of points and D is the number of features.
+        y: np.ndarray (N,)
+            The corresponding target values.
+        do_optimize: boolean
+            If set to true we perform MCMC sampling otherwise we just use the
+            hyperparameter specified in the kernel.
+        """
+
+        if do_optimize:
+            # We have one walker for each hyperparameter configuration
+            sampler = emcee.EnsembleSampler(self.n_chains, 2*self._num_to_sample*self._gaussian_process_mcmc.dim,
+                                            self.compute_expected_improvement_mcmc)
+
+            # Do a burn-in in the first iteration
+            if not self.burned:
+                # Initialize the walkers by sampling from the prior
+                if self.prior is None:
+                    self.p0 = numpy.random.rand(self.n_chains, 2*self._num_to_sample*self._gaussian_process_mcmc.dim)
+                else:
+                    self.p0 = self.prior.sample_from_prior(self.n_chains)
+                # Run MCMC sampling
+                self.p0, _, _ = sampler.run_mcmc(self.p0,
+                                                 self.burnin_steps,
+                                                 rstate0=self.rng)
+
+                self.burned = True
+
+            # Start sampling
+            pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
+                                         rstate0=self.rng)
+
+            # Save the current position, it will be the start point in
+            # the next iteration
+            self.p0 = pos
+
+            # Take the last samples from each walker
+            self.hypers = sampler.chain[numpy.random.choice(self.n_chains, 1), -1]
+            return self.hypers
