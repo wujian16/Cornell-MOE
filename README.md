@@ -63,8 +63,8 @@ $ python setup.py install
 ## Running Cornell-MOE
 See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
-We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convoltuional neural network on CIFAR10). One can run main.py by the following command
-with the proper objective name.
+We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
+with proper options.
 ```
 # python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
 # q = num_to_sample
