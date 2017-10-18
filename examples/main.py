@@ -37,8 +37,9 @@ job_id = int(argv[3])
 num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'BraninNoNoise': obj_functions.BraninNoNoise(), 'RosenbrockNoNoise': obj_functions.RosenbrockNoNoise(),
-                 'Hartmann3': obj_functions.Hartmann3()}
+obj_func_dict = {'BraninNoNoise': obj_functions.Branin(), 'RosenbrockNoNoise': obj_functions.Rosenbrock(),
+                 'Hartmann3': obj_functions.Hartmann3(), 'CIFAR10': obj_functions.CIFAR10(),
+                 'KISSGP': obj_functions.KISSGP()}
 
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
@@ -59,10 +60,9 @@ for pt in init_pts:
     pt[objective_func._dim-objective_func._num_fidelity:] = np.ones(objective_func._num_fidelity)
 
 # observe
-derivatives = []
+derivatives = np.arange(objective_func._num_observations)
 observations = [0] + [i+1 for i in derivatives]
 init_pts_value = np.array([objective_func.evaluate(pt) for pt in init_pts])[:, observations]
-
 true_value_init = np.array([objective_func.evaluate_true(pt) for pt in init_pts])[:, observations]
 
 init_data = HistoricalData(dim = objective_func._dim, num_derivatives = len(derivatives))

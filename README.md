@@ -29,7 +29,7 @@ $ apt-get update
 $ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
 ```
 
-#### step 2, we recommend install qKG/MOE in the virtual environment
+#### step 2, we recommend install Cornell-MOE in the virtual environment
 
 ```bash
 $ pip install virtualenv
@@ -63,10 +63,26 @@ $ python setup.py install
 ## Running Cornell-MOE
 See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
+We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
+with proper options.
+```
+# python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
+# q = num_to_sample
+python main.py Hartmann3 4 1000 1
+```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
+We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line
+```
+        self._num_observations = 3
+```
+in the KISSGP class which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
+```
+python main.py KISSGP 4 1000 1
+```
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
+come soon
 
 ## Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
@@ -111,10 +127,6 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [13]: http://yelp.github.io/MOE/examples.html
 [14]: http://yelp.github.io/MOE/objective_functions.html
 [15]: http://yelp.github.io/MOE/objective_functions.html#parameters
-[16]: http://people.orie.cornell.edu/pfrazier/
-[17]: http://www.orie.cornell.edu/
-[18]: http://optimallearning.princeton.edu/
-[19]: http://orfe.princeton.edu/
 [20]: http://people.orie.cornell.edu/pfrazier/Presentations/2014.01.Lancaster.BGO.pdf
 [21]: http://yelp.github.io/MOE/why_moe.html
 [22]: http://stackoverflow.com/questions/10065526/github-how-to-make-a-fork-of-public-repository-private
