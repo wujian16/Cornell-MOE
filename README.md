@@ -84,7 +84,7 @@ class KISSGP(object):
         self._num_fidelity = 0
         self._num_observations = 3
 ```
-in the KISSGP class which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
+which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
 python main.py KISSGP 4 1000 1
 ```
