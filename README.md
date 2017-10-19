@@ -3,13 +3,12 @@
 2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
 3. We implement batch knowledge gradient (q-KG and d-KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
+5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 ## Introduction:
 Below we show a small demo of Cornell-MOE on a 1-d synthetic function with a batch size q=2. The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
-![qKG demo](https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif)
-
+<center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="400" width="600"></center>
 Cornell-MOE implements a library of batch Bayesian optimization algorithms. It works by iteratively:
 
 1. Fitting a Gaussian Process (GP) with historical data
@@ -72,17 +71,25 @@ python main.py Hartmann3 4 1000 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line
+We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
 ```
+class KISSGP(object):
+    def __init__(self):
+        self._dim = 3
+        self._search_domain = numpy.array([[-1, 3], [-1, 3], [-1, 3]])
+        self._num_init_pts = 1
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._num_fidelity = 0
         self._num_observations = 3
 ```
-in the KISSGP class which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
+which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
 python main.py KISSGP 4 1000 1
 ```
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
-come soon
+coming soon
 
 ## Citation
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
@@ -111,9 +118,7 @@ See [Contributing Documentation][8]
 ## License
 Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
-[0]: https://www.youtube.com/watch?v=CC6qvzWp9_A
 [1]: http://yelp.github.io/MOE/
-[2]: http://yelp.github.io/MOE/moe.views.rest.html
 [3]: http://github.com/Yelp/MOE/pulls
 [4]: http://yelp.github.io/MOE/moe.views.rest.html#module-moe.views.rest.gp_ei
 [5]: http://yelp.github.io/MOE/moe.easy_interface.html
