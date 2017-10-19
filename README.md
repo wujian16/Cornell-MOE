@@ -72,8 +72,16 @@ python main.py Hartmann3 4 1000 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line
+We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
 ```
+class KISSGP(object):
+    def __init__(self):
+        self._dim = 3
+        self._search_domain = numpy.array([[-1, 3], [-1, 3], [-1, 3]])
+        self._num_init_pts = 1
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._num_fidelity = 0
         self._num_observations = 3
 ```
 in the KISSGP class which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
