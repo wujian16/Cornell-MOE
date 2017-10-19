@@ -12,7 +12,7 @@ Below we show a small demo of Cornell-MOE on a 1-d synthetic function with a bat
 
 <div class="image-container">
 <p class="image-holder">
-<img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif.gif" />
+<img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" />
 </p>
 </div>
 Cornell-MOE implements a library of batch Bayesian optimization algorithms. It works by iteratively:
