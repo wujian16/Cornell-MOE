@@ -67,7 +67,7 @@ with proper options.
 ```
 # python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
 # q = num_to_sample
-python main.py Hartmann3 4 1000 1
+$ python main.py Hartmann3 4 1000 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
@@ -85,7 +85,7 @@ class KISSGP(object):
 ```
 which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
-python main.py KISSGP 4 1000 1
+$ python main.py KISSGP 4 1000 1
 ```
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
