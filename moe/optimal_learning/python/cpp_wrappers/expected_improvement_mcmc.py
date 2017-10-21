@@ -359,9 +359,11 @@ class SoftExpectedImprovementMCMC:
 
     def __init__(
             self,
-            prior, chain_length, burnin_steps,
             gaussian_process_mcmc,
             num_to_sample,
+            prior=None,
+            chain_length=10000,
+            burnin_steps=1000,
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
             randomness=None,
