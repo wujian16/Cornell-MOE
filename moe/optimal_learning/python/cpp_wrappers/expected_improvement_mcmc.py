@@ -11,6 +11,7 @@ gpp_math.hpp/cpp for further details on expected improvement.
 
 """
 import numpy
+import emcee
 
 import moe.build.GPP as C_GP
 from moe.optimal_learning.python.constant import DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS, DEFAULT_MAX_NUM_THREADS
@@ -360,6 +361,7 @@ class SoftExpectedImprovementMCMC:
     def __init__(
             self,
             gaussian_process_mcmc,
+            search_domain,
             num_to_sample,
             prior=None,
             chain_length=10000,
@@ -389,10 +391,11 @@ class SoftExpectedImprovementMCMC:
         self.burnin_steps = burnin_steps
         self._models = []
 
-        self.n_chains = 2*num_to_sample*gaussian_process_mcmc.dim
+        self.n_chains = 2*(num_to_sample*gaussian_process_mcmc.dim + 1)
 
         self._num_mc_iterations = num_mc_iterations
         self._gaussian_process_mcmc = gaussian_process_mcmc
+        self._search_domain = search_domain
         self._num_to_sample = num_to_sample
 
         if gaussian_process_mcmc._historical_data.points_sampled_value.size > 0:
@@ -463,6 +466,13 @@ class SoftExpectedImprovementMCMC:
         :rtype: float64
 
         """
+        bounding_box = self._search_domain.get_bounding_box()
+        for num_point in xrange(self._num_to_sample):
+            for dim in xrange(self._gaussian_process_mcmc.dim):
+                value = points_to_sample[dim+num_point*self._gaussian_process_mcmc.dim]
+                if value < bounding_box[dim].min or value > bounding_box[dim].max:
+                    return -numpy.inf
+
         expected_improvement_mcmc = C_GP.compute_expected_improvement_mcmc(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
                 cpp_utils.cppify(points_to_sample),
@@ -494,14 +504,14 @@ class SoftExpectedImprovementMCMC:
 
         if do_optimize:
             # We have one walker for each hyperparameter configuration
-            sampler = emcee.EnsembleSampler(self.n_chains, 2*self._num_to_sample*self._gaussian_process_mcmc.dim,
+            sampler = emcee.EnsembleSampler(self.n_chains, self._num_to_sample*self._gaussian_process_mcmc.dim,
                                             self.compute_expected_improvement_mcmc)
 
             # Do a burn-in in the first iteration
             if not self.burned:
                 # Initialize the walkers by sampling from the prior
                 if self.prior is None:
-                    self.p0 = numpy.random.rand(self.n_chains, 2*self._num_to_sample*self._gaussian_process_mcmc.dim)
+                    self.p0 = numpy.random.rand(self.n_chains, self._num_to_sample*self._gaussian_process_mcmc.dim)
                 else:
                     self.p0 = self.prior.sample_from_prior(self.n_chains)
                 # Run MCMC sampling
@@ -512,7 +522,8 @@ class SoftExpectedImprovementMCMC:
                 self.burned = True
 
             # Start sampling
-            pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
+            pos, _, _ = sampler.run_mcmc(self.p0,
+                                         self.chain_length,
                                          rstate0=self.rng)
 
             # Save the current position, it will be the start point in
