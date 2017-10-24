@@ -87,9 +87,9 @@ which means that we access the first 3 partial derivatives. One can run this ben
 ```
 $ python main.py KISSGP 4 1000 1
 ```
-If one modifies ```self._num_observations = 0```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
+If one modifies to ```self._num_observations = 0```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
-<center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/example-kissgp.jpg" height="400" width="600"></center>
+<center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/example-kissgp.jpg" height="400" width="400"></center>
 
 ### Mode: continuous-fidelity knowledge gradient (cf-KG)
 coming soon
