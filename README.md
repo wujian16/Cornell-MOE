@@ -1,7 +1,7 @@
 ## What is Cornell-MOE?
 1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
 2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
-3. We implement batch knowledge gradient (q-KG and d-KG) in [Wu and Frazier, 2016][26] and [Wu et al, 2017][27] w/ and w/o derivative information.
+3. We implement batch knowledge gradient with ([Wu et al, 2017][27]) and without ([Wu and Frazier, 2016][26]) derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
 5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
@@ -71,7 +71,7 @@ python main.py Hartmann3 4 1000 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
+See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
 ```
 class KISSGP(object):
     def __init__(self):
