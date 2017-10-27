@@ -357,7 +357,6 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
         raise NotImplementedError('Currently we cannot compute the hessian of expected improvement.')
 
 class SoftExpectedImprovementMCMC:
-
     def __init__(
             self,
             gaussian_process_mcmc,
