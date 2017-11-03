@@ -543,6 +543,11 @@ void LogMarginalLikelihoodEvaluator::FillLogLikelihoodState(LogMarginalLikelihoo
                                                            dim_, num_sampled_, log_likelihood_state->noise_variance.data(),
                                                            derivatives_.data(), num_derivatives_, log_likelihood_state->K_chol.data());
 
+  // Adding the variance of measurement noise to the covariance matrix
+  for (int i = 0; i < num_sampled_ * (1+num_derivatives_); i++){
+     log_likelihood_state->K_chol[i + i*num_sampled_ * (1+num_derivatives_)] += 1.0e-6;
+  }
+
   // TODO(GH-211): Re-examine ignoring singular covariance matrices here
   int OL_UNUSED(chol_info) = ComputeCholeskyFactorL(num_sampled_*(num_derivatives_+1),
                                                     log_likelihood_state->K_chol.data());
@@ -556,8 +561,8 @@ void LogMarginalLikelihoodEvaluator::FillLogLikelihoodState(LogMarginalLikelihoo
   std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), log_likelihood_state->y.begin());
   std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), log_likelihood_state->K_inv_y.begin());
   for (int i=0; i<num_sampled_; ++i){
-     log_likelihood_state->K_inv_y[i*(num_derivatives_+1)] -= mean_;
-     log_likelihood_state->y[i*(num_derivatives_+1)] -= mean_;
+    log_likelihood_state->K_inv_y[i*(num_derivatives_+1)] -= mean_;
+    log_likelihood_state->y[i*(num_derivatives_+1)] -= mean_;
   }
   CholeskyFactorLMatrixVectorSolve(log_likelihood_state->K_chol.data(), num_sampled_*(num_derivatives_+1),
                                    log_likelihood_state->K_inv_y.data());

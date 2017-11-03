@@ -1,9 +1,37 @@
 import numpy
 
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import multistart_expected_improvement_mcmc_optimization
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import ExpectedImprovementMCMC as cppExpectedImprovementMCMC
+
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import KnowledgeGradientMCMC as cppKnowledgeGradientMCMC
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import multistart_knowledge_gradient_mcmc_optimization
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
+
+def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e3):
+    """
+    :param cpp_gp: trained cpp version of GaussianProcess model
+    :param cpp_search_domain: cpp version of TensorProductDomain
+    :param sgd_params: GradientDescentParameters
+    :param num_to_sample: number of points to sample for the next iteration
+    :param use_gpu: bool, whether to use gpu
+    :param which_gpu: gpu device number
+    :param num_mc: number of Monte Carlo iterations
+    :param lhc_itr: number of points used in latin hypercube search
+    :return: (points to sample next, knowledge gradient at this set of points)
+    """
+    cpp_ei_evaluator = cppExpectedImprovementMCMC(gaussian_process_mcmc = cpp_gp_mcmc,
+                                                  num_to_sample = num_to_sample, num_mc_iterations=int(num_mc))
+    optimizer = cppGradientDescentOptimizer(cpp_search_domain, cpp_ei_evaluator, sgd_params, int(lhc_itr))
+    points_to_sample_list = []
+    ei_list = []
+
+    points_to_sample_list.append(multistart_expected_improvement_mcmc_optimization(optimizer, None,
+                                                                                   num_to_sample=num_to_sample,
+                                                                                   max_num_threads=8))
+    cpp_ei_evaluator.set_current_point(points_to_sample_list[0])
+    ei_list.append(cpp_ei_evaluator.compute_objective_function())
+    return points_to_sample_list[numpy.argmax(ei_list)], numpy.amax(ei_list)
 
 def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_search_domain, num_fidelity,
                              discrete_pts_list, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e3):
