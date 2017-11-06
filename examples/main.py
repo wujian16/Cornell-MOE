@@ -23,21 +23,20 @@ import bgo_methods
 import obj_functions
 
 # arguments for calling this script:
-# python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
+# python main.py [obj_func_name] [num_to_sample] [job_id]
 # example: python main.py Branin 4 1000 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
 obj_func_name = str(argv[0])
 num_to_sample = int(argv[1])
-lhc_search_itr = int(argv[2])
-job_id = int(argv[3])
+job_id = int(argv[2])
 
 # constants
 num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'Branin': obj_functions.Branin(), 'RosenbrockNoNoise': obj_functions.Rosenbrock(),
+obj_func_dict = {'Branin': obj_functions.Branin(), 'Rosenbrock': obj_functions.Rosenbrock(),
                  'Hartmann3': obj_functions.Hartmann3()}
                  #'CIFAR10': obj_functions.CIFAR10(),
                  #'KISSGP': obj_functions.KISSGP()}
@@ -77,11 +76,11 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            chain_length = 2000, burnin_steps = 2000, n_hypers = 10, noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100, max_num_restarts=2,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restarts=2,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=1,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
                                                  max_relative_change=0.06, tolerance=1.0e-5)
 
@@ -115,7 +114,7 @@ for n in xrange(num_iteration):
     )
     time1 = time.time()
     discrete_pts_list = []
-    discrete = inner_search_domain.generate_uniform_random_points_in_domain(200)
+    discrete = inner_search_domain.generate_uniform_random_points_in_domain(100)
     for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
         discrete_pts_optima = np.array(discrete)
 
@@ -144,9 +143,13 @@ for n in xrange(num_iteration):
 
     ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
     ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
+    # KG method
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
-                                                            ps_sgd_optimizer, cpp_search_domain, num_fidelity,
-                                                            cpp_sgd_params_kg, num_to_sample, num_mc=1000, lhc_itr=lhc_search_itr)
+                                                            ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
+                                                            cpp_sgd_params_kg, num_to_sample, num_mc=10)
+    # EI method
+    # next_points, voi = bgo_methods.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+    #                                                         cpp_sgd_params_kg, num_to_sample, num_mc=1000)
     print "KG takes "+str((time.time()-time1)/60)+" mins"
     #time1 = time.time()
     print "KG suggest points:"

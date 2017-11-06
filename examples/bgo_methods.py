@@ -8,7 +8,7 @@ from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import mul
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
 
-def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e3):
+def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e4):
     """
     :param cpp_gp: trained cpp version of GaussianProcess model
     :param cpp_search_domain: cpp version of TensorProductDomain
