@@ -55,6 +55,7 @@ import copy
 
 import numpy
 import emcee
+from scipy import optimize
 
 import moe.build.GPP as C_GP
 from moe.optimal_learning.python.cpp_wrappers import cpp_utils
@@ -235,6 +236,46 @@ class GaussianProcessLogLikelihoodMCMC:
         self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
                                                           self._historical_data, self.derivatives)
 
+    def optimize(self, do_optimize=True, **kwargs):
+
+        if self.prior is None:
+            self.p0 = numpy.random.rand(1 + self.dim + self._num_derivatives + 1)
+        else:
+            self.p0 = self.prior.sample_from_prior(1)
+
+        print self.p0
+
+        self.hypers = [optimize.minimize(self.nll, self.p0.ravel()).x]
+
+        print self.hypers
+
+        self.is_trained = True
+        self._models = []
+        hypers_list = []
+        noises_list = []
+        for sample in self.hypers:
+            print sample
+            if numpy.any((-20 > sample) + (sample > 20)):
+                continue
+            sample = numpy.exp(sample)
+            # Instantiate a GP for each hyperparameter configuration
+            cov_hyps = sample[:(self.dim+1)]
+            hypers_list.append(cov_hyps)
+            se = SquareExponential(cov_hyps)
+            if self.noisy:
+                noise = sample[(self.dim+1):]
+            else:
+                noise = numpy.array((1+self._num_derivatives)*[1.e-8])
+            noises_list.append(noise)
+            model = GaussianProcess(se, noise,
+                                    self._historical_data,
+                                    self.derivatives)
+            self._models.append(model)
+
+        self._gaussian_process_mcmc = GaussianProcessMCMC(numpy.array(hypers_list), numpy.array(noises_list),
+                                                          self._historical_data, self.derivatives)
+
+
     def compute_log_likelihood(self, hyps):
         r"""Compute the objective_type measure at the specified hyperparameters.
 
@@ -270,6 +311,10 @@ class GaussianProcessLogLikelihoodMCMC:
                 cpp_utils.cppify(self._derivatives), self._num_derivatives,
                 cpp_utils.cppify(noise),
                 )
+
+    def nll(self, hyps):
+        result = self.compute_log_likelihood(hyps)
+        return -result
 
     def add_sampled_points(self, sampled_points):
         r"""Add sampled point(s) (point, value, noise) to the GP's prior data.

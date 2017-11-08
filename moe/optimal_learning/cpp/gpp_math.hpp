@@ -1316,9 +1316,14 @@ class OnePotentialSampleExpectedImprovementEvaluator final {
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
   OnePotentialSampleExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in, double best_so_far);
+  OnePotentialSampleExpectedImprovementEvaluator(OnePotentialSampleExpectedImprovementEvaluator&& other);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
+  }
+
+  double best_so_far() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return best_so_far_;
   }
 
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {

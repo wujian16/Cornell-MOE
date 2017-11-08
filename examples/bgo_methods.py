@@ -1,5 +1,7 @@
 import numpy
 
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement import ExpectedImprovement as cppExpectedImprovement
+from moe.optimal_learning.python.cpp_wrappers.expected_improvement import multistart_expected_improvement_optimization
 from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import multistart_expected_improvement_mcmc_optimization
 from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import ExpectedImprovementMCMC as cppExpectedImprovementMCMC
 
@@ -8,7 +10,33 @@ from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import mul
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
 
-def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e4):
+def gen_sample_from_qei(cpp_gp, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=2e4):
+    """
+    :param cpp_gp: trained cpp version of GaussianProcess model
+    :param cpp_search_domain: cpp version of TensorProductDomain
+    :param sgd_params: GradientDescentParameters
+    :param num_to_sample: number of points to sample for the next iteration
+    :param use_gpu: bool, whether to use gpu
+    :param which_gpu: gpu device number
+    :param num_mc: number of Monte Carlo iterations
+    :param lhc_itr: number of points used in latin hypercube search
+    :return: (points to sample next, expected improvement at this set of points)
+    """
+    cpp_ei_evaluator = cppExpectedImprovement(gaussian_process=cpp_gp, num_mc_iterations=int(num_mc))
+    #python_ei_evaluator = pythonExpectedImprovement(gaussian_process=cpp_gp, num_mc_iterations=int(num_mc))
+    #optimizer = pythonGradientDescentOptimizer(cpp_search_domain, python_ei_evaluator, sgd_params, int(lhc_itr))
+    optimizer = cppGradientDescentOptimizer(cpp_search_domain, cpp_ei_evaluator, sgd_params, int(lhc_itr))
+    points_to_sample_list = []
+    ei_list = []
+    points_to_sample_list.append(multistart_expected_improvement_optimization(optimizer, None, num_to_sample,
+                                                                              use_gpu=False, which_gpu=0,
+                                                                              max_num_threads=8))
+
+    cpp_ei_evaluator.set_current_point(points_to_sample_list[0])
+    ei_list.append(cpp_ei_evaluator.compute_expected_improvement())
+    return points_to_sample_list[numpy.argmax(ei_list)], numpy.amax(ei_list)
+
+def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=2e4):
     """
     :param cpp_gp: trained cpp version of GaussianProcess model
     :param cpp_search_domain: cpp version of TensorProductDomain
