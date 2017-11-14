@@ -449,7 +449,7 @@ struct KnowledgeGradientMCMCState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
   void SetCurrentPoint(const EvaluatorType& kg_evaluator,
-                       double const * restrict points_to_sample) OL_NONNULL_POINTERS;
+                       double const * restrict points_to_sample_in) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new ``points_to_sample``, the location of the potential samples whose KG is to be evaluated.
@@ -707,7 +707,7 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
   }
 
   std::priority_queue<std::pair<double, int>> q;
-  int k = 20; // number of indices we need
+  int k = 1; // number of indices we need
   for (int i = 0; i < KG_starting.size(); ++i) {
     if (i < k){
       q.push(std::pair<double, int>(-KG_starting[i], i));

@@ -17,9 +17,7 @@
 #include "gpp_covariance_test.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_domain_test.hpp"
-//#include "gpp_expected_improvement_gpu_test.hpp"
 #include "gpp_geometry_test.hpp"
-//#include "gpp_heuristic_expected_improvement_optimization_test.hpp"
 #include "gpp_linear_algebra_test.hpp"
 #include "gpp_math_test.hpp"
 #include "gpp_model_selection.hpp"
@@ -77,7 +75,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("KG inner tests\n");
   }
   total_errors += error;
-
+/*
   error = RunKGTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("KG tests failed\n");
@@ -85,7 +83,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("KG tests\n");
   }
   total_errors += error;
-/*
+
   error = RunEIConsistencyTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic, MC EI do not match for 1 potential sample case\n");

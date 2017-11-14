@@ -39,7 +39,7 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   gaussian_process_lst.reserve(num_mcmc_);
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
-  for (int i=0; i<num_mcmc_;++i){
+  for (int i=0; i<num_mcmc_; ++i){
     SquareExponential sqexp(dim_, hypers[0], hypers+1);
     gaussian_process_lst.emplace_back(sqexp, points_sampled_.data(), points_sampled_value_.data(),
                                       noises, derivatives_.data(), num_derivatives_,
@@ -185,10 +185,13 @@ template class KnowledgeGradientMCMCEvaluator<SimplexIntersectTensorProductDomai
 
 template <typename DomainType>
 void KnowledgeGradientMCMCState<DomainType>::SetCurrentPoint(const EvaluatorType& kg_evaluator,
-                                                             double const * restrict points_to_sample) {
+                                                             double const * restrict points_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(points_to_sample_in, points_to_sample_in + dim, union_of_points.data());
+
   // evaluate derived quantities for the GP
   for (int i=0; i<kg_evaluator.num_mcmc();++i){
-    (kg_state_list->at(i)).SetCurrentPoint(kg_evaluator.knowledge_gradient_evaluator_list()->at(i), points_to_sample);
+    (kg_state_list->at(i)).SetCurrentPoint(kg_evaluator.knowledge_gradient_evaluator_list()->at(i), points_to_sample_in);
   }
 }
 

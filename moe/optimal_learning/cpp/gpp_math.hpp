@@ -1316,9 +1316,14 @@ class OnePotentialSampleExpectedImprovementEvaluator final {
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
   OnePotentialSampleExpectedImprovementEvaluator(const GaussianProcess& gaussian_process_in, double best_so_far);
+  OnePotentialSampleExpectedImprovementEvaluator(OnePotentialSampleExpectedImprovementEvaluator&& other);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_;
+  }
+
+  double best_so_far() noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return best_so_far_;
   }
 
   const GaussianProcess * gaussian_process() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -1481,6 +1486,7 @@ struct OnePotentialSampleExpectedImprovementState final {
   std::vector<double> grad_mu;
   //! the gradient of the sqrt of the GP variance evaluated at point_to_sample wrt point_to_sample
   std::vector<double> grad_chol_decomp;
+
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(OnePotentialSampleExpectedImprovementState);
 };
 
