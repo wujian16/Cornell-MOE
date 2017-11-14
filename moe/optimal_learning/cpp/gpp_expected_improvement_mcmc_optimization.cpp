@@ -79,12 +79,14 @@ void ExpectedImprovementMCMCEvaluator::ComputeGradExpectedImprovement(StateType 
   }
 }
 
-
 void ExpectedImprovementMCMCState::SetCurrentPoint(const EvaluatorType& ei_evaluator,
-                                                   double const * restrict points_to_sample) {
+                                                   double const * restrict points_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(points_to_sample_in, points_to_sample_in + dim, union_of_points.data());
+
   // evaluate derived quantities for the GP
   for (int i=0; i<ei_evaluator.num_mcmc();++i){
-    (ei_state_list->at(i)).SetCurrentPoint(ei_evaluator.expected_improvement_evaluator_list()->at(i), points_to_sample);
+    (ei_state_list->at(i)).SetCurrentPoint(ei_evaluator.expected_improvement_evaluator_list()->at(i), points_to_sample_in);
   }
 }
 
@@ -123,8 +125,7 @@ void ExpectedImprovementMCMCState::SetupState(const EvaluatorType& ei_evaluator,
   SetCurrentPoint(ei_evaluator, points_to_sample);
 }
 
-OnePotentialSampleExpectedImprovementMCMCEvaluator::OnePotentialSampleExpectedImprovementMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc,
-                                                                                                       double const * best_so_far,
+OnePotentialSampleExpectedImprovementMCMCEvaluator::OnePotentialSampleExpectedImprovementMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc, double const * best_so_far,
                                                                                                        std::vector<typename OnePotentialSampleExpectedImprovementState::EvaluatorType> * evaluator_vector)
 : dim_(gaussian_process_mcmc.dim()),
   num_mcmc_hypers_(gaussian_process_mcmc.num_mcmc()),
@@ -133,7 +134,7 @@ OnePotentialSampleExpectedImprovementMCMCEvaluator::OnePotentialSampleExpectedIm
   expected_improvement_evaluator_lst(evaluator_vector) {
     expected_improvement_evaluator_lst->reserve(num_mcmc_hypers_);
     for (int i=0; i<num_mcmc_hypers_; ++i){
-        expected_improvement_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], best_so_far_[i]);
+      expected_improvement_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], best_so_far_[i]);
     }
 }
 
@@ -143,11 +144,11 @@ OnePotentialSampleExpectedImprovementMCMCEvaluator::OnePotentialSampleExpectedIm
   The discretization usually is: some set + points previous sampled + points being sampled + points to sample
 \endrst*/
 double OnePotentialSampleExpectedImprovementMCMCEvaluator::ComputeExpectedImprovement(StateType * ei_state) const {
-    double ei_value = 0.0;
-    for (int i=0; i<num_mcmc_hypers_; ++i){
-      ei_value += (*expected_improvement_evaluator_lst)[i].ComputeObjectiveFunction((*(ei_state->ei_state_list)).data()+i);
-    }
-    return ei_value/static_cast<double>(num_mcmc_hypers_);
+  double ei_value = 0.0;
+  for (int i=0; i<num_mcmc_hypers_; ++i){
+    ei_value += (*expected_improvement_evaluator_lst)[i].ComputeExpectedImprovement((*(ei_state->ei_state_list)).data()+i);
+  }
+  return ei_value/static_cast<double>(num_mcmc_hypers_);
 }
 
 /*!\rst
@@ -166,9 +167,12 @@ double OnePotentialSampleExpectedImprovementMCMCEvaluator::ComputeExpectedImprov
   .. Note:: comments here are copied to _compute_grad_knowledge_gradient_monte_carlo() in python_version/knowledge_gradient.py
 \endrst*/
 void OnePotentialSampleExpectedImprovementMCMCEvaluator::ComputeGradExpectedImprovement(StateType * ei_state, double * restrict grad_EI) const {
+  for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
+    grad_EI[k] = 0;
+  }
   for (int i=0; i<num_mcmc_hypers_; ++i){
     std::vector<double> temp(ei_state->dim*ei_state->num_to_sample, 0.0);
-    (*expected_improvement_evaluator_lst)[i].ComputeGradObjectiveFunction((*(ei_state->ei_state_list)).data()+i, temp.data());
+    (*expected_improvement_evaluator_lst)[i].ComputeGradExpectedImprovement((*(ei_state->ei_state_list)).data()+i, temp.data());
     for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
         grad_EI[k] += temp[k];
     }
@@ -180,10 +184,13 @@ void OnePotentialSampleExpectedImprovementMCMCEvaluator::ComputeGradExpectedImpr
 
 
 void OnePotentialSampleExpectedImprovementMCMCState::SetCurrentPoint(const EvaluatorType& ei_evaluator,
-                                                                     double const * restrict points_to_sample) {
+                                                                     double const * restrict point_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
+
   // evaluate derived quantities for the GP
   for (int i=0; i<ei_evaluator.num_mcmc();++i){
-    (ei_state_list->at(i)).SetCurrentPoint(ei_evaluator.expected_improvement_evaluator_list()->at(i), points_to_sample);
+    (ei_state_list->at(i)).SetCurrentPoint(ei_evaluator.expected_improvement_evaluator_list()->at(i), point_to_sample_in);
   }
 }
 
@@ -203,7 +210,8 @@ OnePotentialSampleExpectedImprovementMCMCState::OnePotentialSampleExpectedImprov
   ei_state_list->reserve(ei_evaluator.num_mcmc());
   // evaluate derived quantities for the GP
   for (int i=0; i<ei_evaluator.num_mcmc();++i){
-    ei_state_list->emplace_back(ei_evaluator.expected_improvement_evaluator_list()->at(i), point_to_sample_in,
+    ei_state_list->emplace_back(ei_evaluator.expected_improvement_evaluator_list()->at(i),
+                                point_to_sample_in,
                                 configure_for_gradients);
   }
 }

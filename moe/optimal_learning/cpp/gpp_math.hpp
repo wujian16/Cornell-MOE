@@ -1486,6 +1486,7 @@ struct OnePotentialSampleExpectedImprovementState final {
   std::vector<double> grad_mu;
   //! the gradient of the sqrt of the GP variance evaluated at point_to_sample wrt point_to_sample
   std::vector<double> grad_chol_decomp;
+
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(OnePotentialSampleExpectedImprovementState);
 };
 

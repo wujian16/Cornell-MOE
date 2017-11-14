@@ -1914,12 +1914,6 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
       ei_state->EI_this_step_from_var[j] = (*(ei_state->normal_rng))();  // EI_this_step now holds "normals"
     }
 
-    // compute EI_this_step_from_far = cholesky * normals   as  EI = cholesky * EI
-    // b/c normals currently held in EI_this_step_from_var
-    for (int j = 0; j < num_union; ++j) {
-      aggregate = ei_state->EI_this_step_from_var[j];  // EI_this_step now holds "normals"
-    }
-
     TriangularMatrixVectorMultiply(ei_state->cholesky_to_sample_var.data(), 'N', num_union,
                                    ei_state->EI_this_step_from_var.data());
     for (int j = 0; j < num_union; ++j) {

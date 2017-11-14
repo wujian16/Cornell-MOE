@@ -345,7 +345,7 @@ struct ExpectedImprovementMCMCState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
   void SetCurrentPoint(const EvaluatorType& kg_evaluator,
-                       double const * restrict points_to_sample) OL_NONNULL_POINTERS;
+                       double const * restrict points_to_sample_in) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new ``points_to_sample``, the location of the potential samples whose KG is to be evaluated.
@@ -555,7 +555,7 @@ struct OnePotentialSampleExpectedImprovementMCMCState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
   void GetCurrentPoint(double * restrict points_to_sample) const noexcept OL_NONNULL_POINTERS {
-    std::copy(point_to_sample.data(), point_to_sample.data() + num_to_sample*dim, points_to_sample);
+    std::copy(point_to_sample.data(), point_to_sample.data() + dim, points_to_sample);
   }
 
   /*!\rst
@@ -567,7 +567,7 @@ struct OnePotentialSampleExpectedImprovementMCMCState final {
       :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
   \endrst*/
   void SetCurrentPoint(const EvaluatorType& kg_evaluator,
-                       double const * restrict points_to_sample) OL_NONNULL_POINTERS;
+                       double const * restrict points_to_sample_in) OL_NONNULL_POINTERS;
 
   /*!\rst
     Configures this state object with new ``points_to_sample``, the location of the potential samples whose KG is to be evaluated.
@@ -878,7 +878,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                                             k, state_vector.data(), nullptr, &io_container);
     *found_flag = io_container.found_flag;
     std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
-  } else{
+  } else {
     std::vector<typename ExpectedImprovementState::EvaluatorType> ei_evaluator_lst;
     ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps, best_so_far, &ei_evaluator_lst);
 

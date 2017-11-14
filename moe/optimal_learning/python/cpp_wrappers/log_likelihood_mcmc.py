@@ -243,11 +243,7 @@ class GaussianProcessLogLikelihoodMCMC:
         else:
             self.p0 = self.prior.sample_from_prior(1)
 
-        print self.p0
-
         self.hypers = [optimize.minimize(self.nll, self.p0.ravel()).x]
-
-        print self.hypers
 
         self.is_trained = True
         self._models = []
