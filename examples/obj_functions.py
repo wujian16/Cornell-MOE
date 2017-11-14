@@ -147,6 +147,33 @@ class Hartmann6(object):
     def evaluate(self, x):
         return self.evaluate_true(x)
 
+class Cosine(object):
+    def __init__(self):
+        self._dim = 8
+        self._search_domain = numpy.repeat([[-1., 1.]], 8, axis=0)
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = -0.8
+        self._num_observations = 0
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        """ Global minimum is 0 at (1, 1)
+
+            :param x[2]: 2-dimension numpy array
+        """
+        value = 0.0
+        for i in xrange(len(x)):
+            value += -0.1*numpy.cos(5*numpy.pi*x[i]) + (x[i]**2)
+        results = [value]
+        for i in xrange(self._dim):
+            results += [0.5*numpy.pi*numpy.sin(5*numpy.pi*x[i]) + 2*x[i]]
+        return numpy.array(results)
+
+    def evaluate(self, x):
+        t = self.evaluate_true(x)
+        return t
+
 # class CIFAR10(object):
 #     def __init__(self):
 #         self._dim = 5
