@@ -297,16 +297,17 @@ class GaussianProcessLogLikelihoodMCMC:
         if posterior == -numpy.inf:
             return -numpy.inf
         else:
-            return posterior + C_GP.compute_log_likelihood(
-                cpp_utils.cppify(self._points_sampled),
-                cpp_utils.cppify(self._points_sampled_value),
-                self.dim,
-                self._num_sampled,
-                self.objective_type,
-                cpp_utils.cppify_hyperparameters(cov_hyps),
-                cpp_utils.cppify(self._derivatives), self._num_derivatives,
-                cpp_utils.cppify(noise),
-                )
+            val = posterior + C_GP.compute_log_likelihood(
+                    cpp_utils.cppify(self._points_sampled),
+                    cpp_utils.cppify(self._points_sampled_value),
+                    self.dim,
+                    self._num_sampled,
+                    self.objective_type,
+                    cpp_utils.cppify_hyperparameters(cov_hyps),
+                    cpp_utils.cppify(self._derivatives), self._num_derivatives,
+                    cpp_utils.cppify(noise),
+                    )
+            return val
 
     def nll(self, hyps):
         result = self.compute_log_likelihood(hyps)
