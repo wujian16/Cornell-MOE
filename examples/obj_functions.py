@@ -90,7 +90,7 @@ class Hartmann3(object):
         self._sample_var = 0.0
         self._min_value = -3.86278
         self._num_fidelity = 0
-        self._num_observations = 0
+        self._num_observations = 3
 
     def evaluate_true(self, x):
         """ domain is x_i \in (0, 1) for i = 1, ..., 3
@@ -101,13 +101,15 @@ class Hartmann3(object):
         alpha = numpy.array([1.0, 1.2, 3.0, 3.2])
         A = numpy.array([[3., 10., 30.], [0.1, 10., 35.], [3., 10., 30.], [0.1, 10., 35.]])
         P = 1e-4 * numpy.array([[3689, 1170, 2673], [4699, 4387, 7470], [1091, 8732, 5547], [381, 5743, 8828]])
-        value = 0.0
+        results = [0.0]*4
         for i in range(4):
             inner_value = 0.0
             for j in range(self._dim):
                 inner_value -= A[i, j] * pow(x[j] - P[i, j], 2.0)
-            value -= alpha[i] * numpy.exp(inner_value)
-        return numpy.array([value])
+            results[0] -= alpha[i] * numpy.exp(inner_value)
+            for j in xrange(self._dim-self._num_fidelity):
+                results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
+        return numpy.array(results)
 
     def evaluate(self, x):
         t = self.evaluate_true(x)
