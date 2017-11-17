@@ -118,39 +118,75 @@ SquareExponential::SquareExponential(const SquareExponential& OL_UNUSED(source))
   plus the Jessian vector
   plus the Hessian matrix
 */
-void SquareExponential::Covariance(double const * restrict point_one,
-                                   int const * restrict derivatives_one,
-                                   int num_derivatives_one,
-                                   double const * restrict point_two,
-                                   int const * restrict derivatives_two,
-                                   int num_derivatives_two,
+//void SquareExponential::Covariance(double const * restrict point_one,
+//                                   int const * restrict derivatives_one,
+//                                   int num_derivatives_one,
+//                                   double const * restrict point_two,
+//                                   int const * restrict derivatives_two,
+//                                   int num_derivatives_two,
+//                                   double * restrict cov) const noexcept {
+//  // correct by the kernel value
+//  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+//  const double kernel = alpha_*std::exp(-0.5*norm_val);
+//
+//  cov[0] = kernel;
+//  // the Jessian vector
+//  int index = 0;
+//  for (int i = 0; i < num_derivatives_one; ++i) {
+//    index = derivatives_one[i];
+//    cov[i+1] = kernel*((point_two[index] - point_one[index])/lengths_sq_[index]);
+//  }
+//  for (int i = 0; i < num_derivatives_two; ++i) {
+//    index = derivatives_two[i];
+//    cov[(i+1)*(1+num_derivatives_one)] = kernel*((point_one[index] - point_two[index])/lengths_sq_[index]);
+//  }
+//
+//  // the Hessian matrix
+//  int index_one = 0;
+//  int index_two = 0;
+//  for (int i = 0; i < num_derivatives_one; ++i) {
+//    for (int j = 0; j < num_derivatives_two; ++j) {
+//      index_one = derivatives_one[i];
+//      index_two = derivatives_two[j];
+//      cov[(i+1)+(j+1)*(1+num_derivatives_one)] = cov[i+1]*cov[(j+1)*(1+num_derivatives_one)]/kernel;
+//      if(index_one == index_two){
+//        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += kernel/lengths_sq_[index_two];
+//      }
+//    }
+//  }
+//}
+/*
+  Square Exponential: ``cov(x_1, x_2) = \alpha * \exp(-1/2 * ((x_1 - x_2)^T * L^{-1} * (x_1 - x_2)) )``
+  plus the Jessian vector
+  plus the Hessian matrix
+*/
+void SquareExponential::Covariance(double const * restrict point_one, int const * restrict derivatives_one, int num_derivatives_one,
+                                   double const * restrict point_two, int const * restrict derivatives_two, int num_derivatives_two,
                                    double * restrict cov) const noexcept {
-  // correct by the kernel value
   const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  const double kernel = alpha_*std::exp(-0.5*norm_val);
 
-  cov[0] = kernel;
-  // the Jessian vector
+  cov[0] = alpha_*std::exp(-0.5*norm_val);
   int index = 0;
+  int index1 = 0;
+  int index2 = 0;
+
   for (int i = 0; i < num_derivatives_one; ++i) {
     index = derivatives_one[i];
-    cov[i+1] = kernel*((point_two[index] - point_one[index])/lengths_sq_[index]);
+    cov[i+1] = ((point_two[index] - point_one[index])/lengths_sq_[index]) * cov[0];
   }
   for (int i = 0; i < num_derivatives_two; ++i) {
     index = derivatives_two[i];
-    cov[(i+1)*(1+num_derivatives_one)] = kernel*((point_one[index] - point_two[index])/lengths_sq_[index]);
+    cov[(i+1)*(1+num_derivatives_one)] = ((point_one[index] - point_two[index])/lengths_sq_[index]) * cov[0];
   }
 
-  // the Hessian matrix
-  int index_one = 0;
-  int index_two = 0;
   for (int i = 0; i < num_derivatives_one; ++i) {
     for (int j = 0; j < num_derivatives_two; ++j) {
-      index_one = derivatives_one[i];
-      index_two = derivatives_two[j];
-      cov[(i+1)+(j+1)*(1+num_derivatives_one)] = cov[i+1]*cov[(j+1)*(1+num_derivatives_one)]/kernel;
-      if(index_one == index_two){
-        cov[(i+1)+(j+1)*(1+num_derivatives_one)] += kernel/lengths_sq_[index_two];
+      index1 = derivatives_one[i];
+      index2 = derivatives_two[j];
+      cov[(i+1)+(j+1)*(1+num_derivatives_one)] = ((point_two[index1] - point_one[index1])/lengths_sq_[index1]) *
+                                                 ((point_one[index2] - point_two[index2])/lengths_sq_[index2]) * cov[0];
+      if(index1 == index2){
+          cov[(i+1)+(j+1)*(1+num_derivatives_one)] += cov[0]/lengths_sq_[index2];
       }
     }
   }
