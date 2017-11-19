@@ -264,7 +264,7 @@ void KnowledgeGradientState<DomainType>::PreCompute(const EvaluatorType& kg_eval
   for (int i = 0;i < num_union; i++){
     for (int j = 0; j < 1+num_gradients_to_sample; ++j){
       int row = i*(1+num_gradients_to_sample)+j;
-      cholesky_to_sample_var[row+row*num_union*(1+num_gradients_to_sample)] += kg_evaluator.gaussian_process()->noise_variance()[j] + 1.e-8;
+      cholesky_to_sample_var[row+row*num_union*(1+num_gradients_to_sample)] += kg_evaluator.gaussian_process()->noise_variance()[j] + 1.e-6;
     }
   }
   int leading_minor_index = ComputeCholeskyFactorL(num_union*(1+num_gradients_to_sample), cholesky_to_sample_var.data());
