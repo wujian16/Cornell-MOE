@@ -427,8 +427,8 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   }
 
   int num_being_sampled = 0;
-  int num_to_sample = 1;
-  int num_sampled = 1;
+  int num_to_sample = 2;
+  int num_sampled = 2;
 
   MockExpectedImprovementEnvironment EI_environment;
 
