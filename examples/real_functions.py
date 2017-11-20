@@ -33,8 +33,8 @@ class CIFAR10(object):
         self._num_init_pts = 1
         self._sample_var = 0.0
         self._min_value = 0.0
+        self._observations = []
         self._num_fidelity = 0
-        self._num_observations = 0
 
     def train(self, x):
         try:
@@ -163,8 +163,8 @@ class KISSGP(object):
         self._num_init_pts = 1
         self._sample_var = 0.0
         self._min_value = 0.0
+        self._num_observations = numpy.arange(self._dim)
         self._num_fidelity = 0
-        self._num_observations = 3
 
     def evaluate_true(self, x):
         value = numpy.array(octave.KISSGP(numpy.exp(x))).flatten()

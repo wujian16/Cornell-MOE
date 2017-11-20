@@ -60,12 +60,12 @@ $ python setup.py install
 ```
 
 ## Running Cornell-MOE
-See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in synthetic_functions.py and real_function.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
-See [Wu and Frazier, 2016][26]. We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
+See [Wu and Frazier, 2016][26]. We define four synthetic functions: Branin, Rosenbrock, Hartmann3 and Hartmann6, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
 with proper options.
 ```
-# python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
+# python main.py [obj_func_name] [num_to_sample] [job_id]
 # q = num_to_sample
 $ python main.py Hartmann3 4 1000 1
 ```
@@ -81,13 +81,13 @@ class KISSGP(object):
         self._sample_var = 0.0
         self._min_value = 0.0
         self._num_fidelity = 0
-        self._num_observations = 3
+        self._observations = numpy.arange(self._dim)
 ```
 which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
-$ python main.py KISSGP 4 1000 1
+$ python main.py KISSGP 4 1
 ```
-If one modifies to ```self._num_observations = 0```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
+If one modifies to ```self._observations = []```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 

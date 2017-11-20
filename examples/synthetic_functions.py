@@ -7,8 +7,8 @@ class Branin(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
-        self._num_fidelity = 0
         self._observations = numpy.arange(self._dim)
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ This function is usually evaluated on the square x_1 \in [0, 15], x_2 \in [-5, 15]. Global minimum
@@ -36,8 +36,8 @@ class Rosenbrock(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.0
-        self._num_fidelity = 0
         self._observations = numpy.array([2])
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ Global minimum is 0 at (1, 1, 1)
@@ -63,8 +63,8 @@ class Hartmann3(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.86278
-        self._num_fidelity = 0
         self._observations = numpy.arange(self._dim)
+        self._num_fidelity = 0
 
     def evaluate_true(self, x):
         """ domain is x_i \in (0, 1) for i = 1, ..., 3
@@ -96,7 +96,7 @@ class Hartmann6(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.32237
-        self._observations = numpy.arange(self._dim)
+        self._observations = []#numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
