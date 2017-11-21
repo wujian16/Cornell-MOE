@@ -80,8 +80,8 @@ class KISSGP(object):
         self._num_init_pts = 1
         self._sample_var = 0.0
         self._min_value = 0.0
-        self._num_fidelity = 0
         self._observations = numpy.arange(self._dim)
+        self._num_fidelity = 0
 ```
 which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
