@@ -33,7 +33,7 @@ num_to_sample = int(argv[1])
 job_id = int(argv[2])
 
 # constants
-num_func_eval = 100
+num_func_eval = 60
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
@@ -80,11 +80,11 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restar
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=10, max_num_restarts=2,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
                                                  max_relative_change=0.06, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=30, max_num_restarts=2,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=40, max_num_restarts=2,
                                                  num_steps_averaged=4, gamma=0.7, pre_mult=0.3,
                                                  max_relative_change=0.3, tolerance=1.0e-5)
 
@@ -147,13 +147,13 @@ for n in xrange(num_iteration):
     # KG method
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                             ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                            cpp_sgd_params_kg, num_to_sample, num_mc=20)
+                                                            cpp_sgd_params_kg, num_to_sample, num_mc=10)
 
     # EI method
     # next_points, voi = bgo_methods.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
     #                                                         cpp_sgd_params_kg, num_to_sample, num_mc=10000)
 
-    print "KG takes "+str((time.time()-time1)/60)+" mins"
+    print "KG takes "+str((time.time()-time1))+" seconds"
     #time1 = time.time()
     print "KG suggest points:"
     print next_points
@@ -169,7 +169,7 @@ for n in xrange(num_iteration):
                 value *= next_points[i, dim-1-j]
             capitals[i] = value
     capital_so_far += np.amax(capitals)
-    print "evaluating takes capital " + str(capital_so_far)
+    print "evaluating takes capital " + str(capital_so_far) +" so far"
 
     # retrain the model
     time1 = time.time()
@@ -177,7 +177,7 @@ for n in xrange(num_iteration):
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
     cpp_gp_loglikelihood.train()
 
-    print "retraining the model takes "+str((time.time()-time1)/60)+" mins"
+    print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()
 
     # report the point
@@ -205,7 +205,7 @@ for n in xrange(num_iteration):
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
 
-    print "recommended points: ",
+    print "the recommended point: ",
     print report_point
-    print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
+    print "recommending the point takes "+str((time.time()-time1))+" seconds"
     print "KG, VOI {0}, best so far {1}".format(voi, objective_func.evaluate_true(report_point)[0])

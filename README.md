@@ -71,7 +71,7 @@ $ python main.py Hartmann3 4 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
+See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._observations = numpy.arange(self._dim)``` in
 ```
 class KISSGP(object):
     def __init__(self):
@@ -122,10 +122,6 @@ See [Contributing Documentation][8]
 Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 [1]: http://yelp.github.io/MOE/
-[3]: http://github.com/Yelp/MOE/pulls
-[4]: http://yelp.github.io/MOE/moe.views.rest.html#module-moe.views.rest.gp_ei
-[5]: http://yelp.github.io/MOE/moe.easy_interface.html
-[6]: http://docs.docker.io/
 [7]: http://yelp.github.io/MOE/install.html
 [8]: http://yelp.github.io/MOE/contributing.html
 [9]: http://yelp.github.io/MOE/moe.optimal_learning.python.python_version.html
@@ -137,7 +133,6 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [15]: http://yelp.github.io/MOE/objective_functions.html#parameters
 [20]: http://people.orie.cornell.edu/pfrazier/Presentations/2014.01.Lancaster.BGO.pdf
 [21]: http://yelp.github.io/MOE/why_moe.html
-[22]: http://stackoverflow.com/questions/10065526/github-how-to-make-a-fork-of-public-repository-private
 [23]: http://google.github.io/styleguide/pyguide.html
 [24]: https://google.github.io/styleguide/cppguide.html
 [25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request

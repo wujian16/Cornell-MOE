@@ -58,7 +58,7 @@ def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_
     return points_to_sample_list[numpy.argmax(ei_list)], numpy.amax(ei_list)
 
 def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_search_domain, num_fidelity,
-                             discrete_pts_list, sgd_params, num_to_sample, num_mc=20, lhc_itr=1e3):
+                             discrete_pts_list, sgd_params, num_to_sample, num_mc=10, lhc_itr=1e3):
     """
     :param cpp_gp_mcmc: trained cpp version of GaussianProcess MCMC model
     :param cpp_gp_list:
