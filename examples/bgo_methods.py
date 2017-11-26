@@ -10,7 +10,7 @@ from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import mul
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
 
-def gen_sample_from_qei(cpp_gp, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=2e4):
+def gen_sample_from_qei(cpp_gp, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e4, lhc_itr=2e4):
     """
     :param cpp_gp: trained cpp version of GaussianProcess model
     :param cpp_search_domain: cpp version of TensorProductDomain
@@ -34,7 +34,7 @@ def gen_sample_from_qei(cpp_gp, cpp_search_domain, sgd_params, num_to_sample, nu
     ei_list.append(cpp_ei_evaluator.compute_expected_improvement())
     return points_to_sample_list[numpy.argmax(ei_list)], numpy.amax(ei_list)
 
-def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=2e4):
+def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_sample, num_mc=1e4, lhc_itr=2e4):
     """
     :param cpp_gp_mcmc: trained cpp version of GaussianProcess MCMC model
     :param cpp_search_domain: cpp version of TensorProductDomain
@@ -58,7 +58,7 @@ def gen_sample_from_qei_mcmc(cpp_gp_mcmc, cpp_search_domain, sgd_params, num_to_
     return points_to_sample_list[numpy.argmax(ei_list)], numpy.amax(ei_list)
 
 def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_search_domain, num_fidelity,
-                             discrete_pts_list, sgd_params, num_to_sample, num_mc=1e3, lhc_itr=1e3):
+                             discrete_pts_list, sgd_params, num_to_sample, num_mc=10, lhc_itr=1e3):
     """
     :param cpp_gp_mcmc: trained cpp version of GaussianProcess MCMC model
     :param cpp_gp_list:

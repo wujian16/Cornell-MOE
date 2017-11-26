@@ -20,7 +20,7 @@ from moe.optimal_learning.python.python_version.optimization import GradientDesc
 from moe.optimal_learning.python.python_version.optimization import multistart_optimize as multistart_optimize
 
 import bgo_methods
-import obj_functions
+import synthetic_functions
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [num_to_sample] [job_id]
@@ -33,13 +33,13 @@ num_to_sample = int(argv[1])
 job_id = int(argv[2])
 
 # constants
-num_func_eval = 100
+num_func_eval = 60
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'Branin': obj_functions.Branin(), 'Rosenbrock': obj_functions.Rosenbrock(),
-                 'Hartmann3': obj_functions.Hartmann3(), 'Hartmann6': obj_functions.Hartmann6()}
-                 #'CIFAR10': obj_functions.CIFAR10(),
-                 #'KISSGP': obj_functions.KISSGP()}
+obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
+                 'Hartmann3': synthetic_functions.Hartmann3(), 'Hartmann6': synthetic_functions.Hartmann6()}
+                 #'CIFAR10': real_functions.CIFAR10(),
+                 #'KISSGP': real_functions.KISSGP()}
 
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
@@ -60,10 +60,10 @@ for pt in init_pts:
     pt[objective_func._dim-objective_func._num_fidelity:] = np.ones(objective_func._num_fidelity)
 
 # observe
-derivatives = np.arange(objective_func._num_observations)
+derivatives = objective_func._observations
 observations = [0] + [i+1 for i in derivatives]
-init_pts_value = np.array([objective_func.evaluate(pt) for pt in init_pts])[:, observations]
-true_value_init = np.array([objective_func.evaluate_true(pt) for pt in init_pts])[:, observations]
+init_pts_value = np.array([objective_func.evaluate(pt) for pt in init_pts])#[:, observations]
+true_value_init = np.array([objective_func.evaluate_true(pt) for pt in init_pts])#[:, observations]
 
 init_data = HistoricalData(dim = objective_func._dim, num_derivatives = len(derivatives))
 init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in observations],
@@ -80,7 +80,7 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restar
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
                                                max_relative_change=0.1, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=10, max_num_restarts=2,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
                                                  num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
                                                  max_relative_change=0.06, tolerance=1.0e-5)
 
@@ -119,7 +119,8 @@ for n in xrange(num_iteration):
         discrete_pts_optima = np.array(discrete)
 
         eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
-        eval_pts = np.reshape(np.append(eval_pts, (cpp_gp.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
+        eval_pts = np.reshape(np.append(eval_pts,
+                                        (cpp_gp.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
                               (eval_pts.shape[0] + cpp_gp.num_sampled, cpp_gp.dim-objective_func._num_fidelity))
 
         test = np.zeros(eval_pts.shape[0])
@@ -152,7 +153,7 @@ for n in xrange(num_iteration):
     # next_points, voi = bgo_methods.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
     #                                                         cpp_sgd_params_kg, num_to_sample, num_mc=10000)
 
-    print "KG takes "+str((time.time()-time1)/60)+" mins"
+    print "KG takes "+str((time.time()-time1))+" seconds"
     #time1 = time.time()
     print "KG suggest points:"
     print next_points
@@ -168,7 +169,7 @@ for n in xrange(num_iteration):
                 value *= next_points[i, dim-1-j]
             capitals[i] = value
     capital_so_far += np.amax(capitals)
-    print "evaluating takes capital " + str(capital_so_far)
+    print "evaluating takes capital " + str(capital_so_far) +" so far"
 
     # retrain the model
     time1 = time.time()
@@ -176,7 +177,7 @@ for n in xrange(num_iteration):
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
     cpp_gp_loglikelihood.train()
 
-    print "retraining the model takes "+str((time.time()-time1)/60)+" mins"
+    print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()
 
     # report the point
@@ -204,7 +205,7 @@ for n in xrange(num_iteration):
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
 
-    print "recommended points: ",
+    print "the recommended point: ",
     print report_point
-    print "recommending the point takes "+str((time.time()-time1)/60)+" mins"
+    print "recommending the point takes "+str((time.time()-time1))+" seconds"
     print "KG, VOI {0}, best so far {1}".format(voi, objective_func.evaluate_true(report_point)[0])

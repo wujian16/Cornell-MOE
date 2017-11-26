@@ -390,57 +390,57 @@ OL_NONNULL_POINTERS void BuildHyperparameterGradCovarianceMatrix(const Covarianc
                                                                  int const * derivatives,
                                                                  int num_derivatives,
                                                                  double * restrict grad_cov_matrix) noexcept {
-    int num_hyperparameters = covariance.GetNumberOfHyperparameters();
-    num_hyperparameters += num_derivatives+1;
+  int num_hyperparameters = covariance.GetNumberOfHyperparameters();
+  num_hyperparameters += num_derivatives+1;
 
-    const int offset = (num_sampled*(num_derivatives+1))*(num_sampled*(num_derivatives+1));
+  const int offset = (num_sampled*(num_derivatives+1))*(num_sampled*(num_derivatives+1));
 
-    std::vector<double> grad_covariance((dim+1)*(num_derivatives+1)*(num_derivatives+1), 0.0);
+  std::vector<double> grad_covariance((dim+1)*(num_derivatives+1)*(num_derivatives+1), 0.0);
 
-    // pointer to row that we're copying from
-    // operator is symmetric, so we compute just the lower triangle & copy into the upper triangle
-    for (int i = 0; i < num_sampled; ++i) { // col
-        for (int j = 0; j < i; ++j) { // row
-            for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
-                for (int m = 0; m < num_derivatives+1; ++m){
-                    for (int n = 0; n < num_derivatives+1; ++n){
-                        int row = j*(num_derivatives+1)+m;
-                        int col = i*(num_derivatives+1)+n;
-                        grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
-                           grad_cov_matrix[col + row*num_sampled*(num_derivatives+1) + i_hyper*offset];
-                    }
-                }
-            }
-        }
+  // pointer to row that we're copying from
+  // operator is symmetric, so we compute just the lower triangle & copy into the upper triangle
+  for (int i = 0; i < num_sampled; ++i) { // col
+      for (int j = 0; j < i; ++j) { // row
+          for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
+              for (int m = 0; m < num_derivatives+1; ++m){
+                  for (int n = 0; n < num_derivatives+1; ++n){
+                      int row = j*(num_derivatives+1)+m;
+                      int col = i*(num_derivatives+1)+n;
+                      grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
+                         grad_cov_matrix[col + row*num_sampled*(num_derivatives+1) + i_hyper*offset];
+                  }
+              }
+          }
+      }
 
-        for (int j = i; j < num_sampled; ++j) { //row
-            // compute all hyperparameter derivs at once for efficiency
-            covariance.HyperparameterGradCovariance(points_sampled+j*dim, derivatives, num_derivatives,
-                                                    points_sampled+i*dim, derivatives, num_derivatives,
-                                                    grad_covariance.data());
-            for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
-                // have to write each deriv to the correct block, due to the block structure of the output
-                for (int m = 0; m < num_derivatives+1; ++m){
-                    for (int n = 0; n < num_derivatives+1; ++n){
-                        int row = j*(num_derivatives+1)+m;
-                        int col = i*(num_derivatives+1)+n;
-                        if (i_hyper < dim+1){
-                            grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
-                               grad_covariance[i_hyper + m*(dim+1) + n*(dim+1)*(num_derivatives+1)];
-                        }
-                        else{
-                            if (row == col && i_hyper == (m+dim+1)){
-                                grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 1;
-                            }
-                            else{
-                                grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+      for (int j = i; j < num_sampled; ++j) { //row
+          // compute all hyperparameter derivs at once for efficiency
+          covariance.HyperparameterGradCovariance(points_sampled+j*dim, derivatives, num_derivatives,
+                                                  points_sampled+i*dim, derivatives, num_derivatives,
+                                                  grad_covariance.data());
+          for (int i_hyper = 0; i_hyper < num_hyperparameters; ++i_hyper) {
+              // have to write each deriv to the correct block, due to the block structure of the output
+              for (int m = 0; m < num_derivatives+1; ++m){
+                  for (int n = 0; n < num_derivatives+1; ++n){
+                      int row = j*(num_derivatives+1)+m;
+                      int col = i*(num_derivatives+1)+n;
+                      if (i_hyper < dim+1){
+                          grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] =
+                             grad_covariance[i_hyper + m*(dim+1) + n*(dim+1)*(num_derivatives+1)];
+                      }
+                      else{
+                          if (row == col && i_hyper == (m+dim+1)){
+                              grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 1;
+                          }
+                          else{
+                              grad_cov_matrix[row + col*num_sampled*(num_derivatives+1) + i_hyper*offset] = 0;
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
 }
 
 /*!\rst

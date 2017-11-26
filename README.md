@@ -60,18 +60,18 @@ $ python setup.py install
 ```
 
 ## Running Cornell-MOE
-See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in obj_functions.py. One can also define their own functions there.
+See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in synthetic_functions.py and real_function.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
-See [Wu and Frazier, 2016][26]. We define three synthetic functions: Branin, Hartmann3 and Rosenbrock, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
+See [Wu and Frazier, 2016][26]. We define four synthetic functions: Branin, Rosenbrock, Hartmann3 and Hartmann6, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
 with proper options.
 ```
-# python main.py [obj_func_name] [num_to_sample] [num_lhc] [job_id]
+# python main.py [obj_func_name] [num_to_sample] [job_id]
 # q = num_to_sample
-$ python main.py Hartmann3 4 1000 1
+$ python main.py Hartmann3 4 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._num_observations = 3``` in
+See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._observations = numpy.arange(self._dim)``` in
 ```
 class KISSGP(object):
     def __init__(self):
@@ -80,14 +80,14 @@ class KISSGP(object):
         self._num_init_pts = 1
         self._sample_var = 0.0
         self._min_value = 0.0
+        self._observations = numpy.arange(self._dim)
         self._num_fidelity = 0
-        self._num_observations = 3
 ```
 which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
-$ python main.py KISSGP 4 1000 1
+$ python main.py KISSGP 4 1
 ```
-If one modifies to ```self._num_observations = 0```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
+If one modifies to ```self._observations = []```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 
@@ -122,10 +122,6 @@ See [Contributing Documentation][8]
 Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 [1]: http://yelp.github.io/MOE/
-[3]: http://github.com/Yelp/MOE/pulls
-[4]: http://yelp.github.io/MOE/moe.views.rest.html#module-moe.views.rest.gp_ei
-[5]: http://yelp.github.io/MOE/moe.easy_interface.html
-[6]: http://docs.docker.io/
 [7]: http://yelp.github.io/MOE/install.html
 [8]: http://yelp.github.io/MOE/contributing.html
 [9]: http://yelp.github.io/MOE/moe.optimal_learning.python.python_version.html
@@ -137,7 +133,6 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [15]: http://yelp.github.io/MOE/objective_functions.html#parameters
 [20]: http://people.orie.cornell.edu/pfrazier/Presentations/2014.01.Lancaster.BGO.pdf
 [21]: http://yelp.github.io/MOE/why_moe.html
-[22]: http://stackoverflow.com/questions/10065526/github-how-to-make-a-fork-of-public-repository-private
 [23]: http://google.github.io/styleguide/pyguide.html
 [24]: https://google.github.io/styleguide/cppguide.html
 [25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request

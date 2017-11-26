@@ -19,7 +19,7 @@ from moe.optimal_learning.python.cpp_wrappers.log_likelihood import GaussianProc
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood import multistart_hyperparameter_optimization
 
 import bgo_methods
-import obj_functions
+import synthetic_functions
 from moe.optimal_learning.python.random_features import sample_from_global_optima
 
 obj_func_name = "Branin"
@@ -27,8 +27,8 @@ obj_func_name = "Branin"
 num_func_eval_dict = {"Branin": 150, "LG": 60, "Hartmann": 60, "Ackley": 200, "Rosenbrock": 100, "Levy": 60}
 
 # constants
-obj_func_dict = {'Branin': obj_functions.Branin(), 'Hartmann': obj_functions.Hartmann(), 'Rosenbrock': obj_functions.Rosenbrock(),
-                 'Ackley': obj_functions.Ackley(), 'Levy': obj_functions.Levy()}
+obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Hartmann': synthetic_functions.Hartmann(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
+                 'Ackley': synthetic_functions.Ackley(), 'Levy': synthetic_functions.Levy()}
 
 # opt_method = {'qKGg': bgo_methods.gen_sample_from_qkg(), 'qEIg': bgo_methods.gen_sample_from_qei()}
 
