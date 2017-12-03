@@ -273,7 +273,7 @@ class KnowledgeGradientEvaluator final {
 
   //! best (minimum) objective function value (in points_sampled_value)
   double best_so_far_;
-
+  //! the gradient decsent parameter
   const GradientDescentParameters optimizer_parameters_;
   const DomainType domain_;
 
@@ -284,6 +284,10 @@ class KnowledgeGradientEvaluator final {
   std::vector<double> discrete_pts_;
   //! number of points in discrete_pts
   const int num_pts_;
+
+  //! normal distribution object
+  const boost::math::normal_distribution<double> std_normal_;
+  const boost::math::normal_distribution<double> normal_;
 };
 
 extern template class KnowledgeGradientEvaluator<TensorProductDomain>;
