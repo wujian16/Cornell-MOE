@@ -9,9 +9,9 @@
 ## Introduction:
 Below we show two demos: 
 
-#### a demo of Cornell-MOE on a 1-d derivative-free synthetic function with a batch size q=2. 
+#### a demo of q-KG on a 1-d derivative-free synthetic function with a batch size q=2. 
 The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
-<center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="400" width="600"></center>
+<center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="300" width="600"></center>
 
 #### a demo of d-KG vs. d-EI on a 1-d synthetic function. d-KG explores much more efficiently.
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/dKG-demo.gif" height="400" width="600"></center>
