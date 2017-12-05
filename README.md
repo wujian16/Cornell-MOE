@@ -1,19 +1,26 @@
 ## What is Cornell-MOE?
 1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
-2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available [Wu et al, 2017][27].
-3. We implement batch knowledge gradient with ([Wu et al, 2017][27]) and without ([Wu and Frazier, 2016][26]) derivative information.
+2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available (d-EI) [Wu et al, 2017][27].
+3. We implement batch knowledge gradient with (d-KG, [Wu et al, 2017][27]) and without (q-KG, [Wu and Frazier, 2016][26]) derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
 5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
 6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
 
 ## Introduction:
-Below we show a small demo of Cornell-MOE on a 1-d synthetic function with a batch size q=2. The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
+Below we show two demos: 
+
+#### a demo of Cornell-MOE on a 1-d deerivative-free synthetic function with a batch size q=2. 
+The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="400" width="600"></center>
+
+#### a demo of derivative-enabled knowledge gradient vs. derivative-enabled expected improvement on a 1-d synthetic function. d-KG explores much more efficiently.
+<center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/dkg-demo.gif" height="400" width="600"></center>
+
 Cornell-MOE implements a library of batch Bayesian optimization algorithms. It works by iteratively:
 
 1. Fitting a Gaussian Process (GP) with historical data
 2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement (q-EI) or batch knowledge gradient (q-KG) or derivative-enabled knowledge gradient (d-KG) or continuous-fidelity knowledge gradient (cf-KG)
+3. Finding the set of points to sample next with highest gain, by batch Expected Improvement or batch knowledge gradient or derivative-enabled knowledge gradient or continuous-fidelity knowledge gradient (cf-KG)
 4. Returning the points to sample
 
 Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder 'examples'.
@@ -60,7 +67,7 @@ $ python setup.py install
 ```
 
 ## Running Cornell-MOE
-See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in synthetic_functions.py and real_function.py. One can also define their own functions there.
+See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in synthetic_functions.py and real_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
 See [Wu and Frazier, 2016][26]. We define four synthetic functions: Branin, Rosenbrock, Hartmann3 and Hartmann6, and one real-world function: CIFRA10 (tuning a convolutional neural network on CIFAR-10). One can run main.py by the following command
 with proper options.
@@ -71,7 +78,7 @@ $ python main.py Hartmann3 4 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
-See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in obj_functions.py. One note that there is a line ```self._observations = numpy.arange(self._dim)``` in
+See [Wu et al, 2017][27]. We provide a large-scale kernel learning example: KISSGP class defined in real_functions.py. One note that there is a line ```self._observations = numpy.arange(self._dim)``` in
 ```
 class KISSGP(object):
     def __init__(self):
