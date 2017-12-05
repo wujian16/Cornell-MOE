@@ -9,7 +9,7 @@
 ## Introduction:
 Below we show two demos: 
 
-#### a demo of Cornell-MOE on a 1-d deerivative-free synthetic function with a batch size q=2. 
+#### a demo of Cornell-MOE on a 1-d derivative-free synthetic function with a batch size q=2. 
 The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="400" width="600"></center>
 
@@ -31,8 +31,8 @@ We recommend install from source (please see [Install Documentation][7] for deta
 #### step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
 ```bash
-$ apt-get update
-$ apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
+$ sudo apt-get update
+$ sudo apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
 ```
 
 #### step 2, we recommend install Cornell-MOE in the virtual environment
