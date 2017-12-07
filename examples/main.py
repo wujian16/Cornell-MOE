@@ -147,7 +147,7 @@ for n in xrange(num_iteration):
     # KG method
     next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                             ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                            cpp_sgd_params_kg, num_to_sample, num_mc=20)
+                                                            cpp_sgd_params_kg, num_to_sample, num_mc=10)
 
     # EI method
     # next_points, voi = bgo_methods.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
