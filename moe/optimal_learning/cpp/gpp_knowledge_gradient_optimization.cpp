@@ -42,9 +42,7 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(const Gaussia
     domain_(domain),
     gaussian_process_(&gaussian_process_in),
     discrete_pts_(discrete_points(discrete_pts, num_pts)),
-    num_pts_(num_pts),
-    std_normal_(0.0, 1.0),
-    normal_(-1.0, 1.0){
+    num_pts_(num_pts){
 }
 
 template <typename DomainType>
@@ -60,9 +58,7 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(KnowledgeGrad
     domain_(other.domain()),
     gaussian_process_(other.gaussian_process()),
     discrete_pts_(other.discrete_pts_copy()),
-    num_pts_(other.number_discrete_pts()),
-    std_normal_(0.0, 1.0),
-    normal_(-1.0, 1.0){
+    num_pts_(other.number_discrete_pts()){
 }
 
 /*!\rst
@@ -102,13 +98,6 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
                                       kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
                                       1, kg_state->discretized_set.data(), num_union + num_pts_,
                                       &best_function_value, kg_state->best_point.data());
-    for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-      //printf("norme %f\n", kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]);
-      //printf("de %f\n", boost::math::pdf(std_normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]));
-      //printf("nu %f\n", boost::math::pdf(normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]));
-      //best_function_value *= boost::math::pdf(std_normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]);
-      //best_function_value /= boost::math::pdf(normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]);
-    }
     aggregate += best_posterior + best_function_value;
   }
   return aggregate/static_cast<double>(num_mc_iterations_);
@@ -181,11 +170,6 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
                                       1, kg_state->discretized_set.data(), num_union + num_pts_,
                                       &best_function_value, kg_state->best_point.data() + i*dim_);
     aggregate += best_posterior + best_function_value;
-
-//    for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-//      best_function_value *= boost::math::pdf(std_normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]);
-//      best_function_value /= boost::math::pdf(normal_, kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)]);
-//    }
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
@@ -209,12 +193,6 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
     for (int i = 0; i < num_mc_iterations_; ++i){
       GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample), -1.0, 1.0,
                                   dim_, num_union*(1+num_gradients_to_sample), dim_, kg_state->aggregate.data() + k*dim_);
-//      for (int j = 0; j < dim_; ++j){
-//        for (int mc = 0; mc < num_union*(1+num_gradients_to_sample); ++mc) {
-//          kg_state->aggregate[k*dim_+j] *= boost::math::pdf(std_normal_, kg_state->normals[mc + i*num_union*(1+num_gradients_to_sample)]);
-//          kg_state->aggregate[k*dim_+j] /= boost::math::pdf(normal_, kg_state->normals[mc + i*num_union*(1+num_gradients_to_sample)]);
-//        }
-//      }
       grad_chol_decomp_winner_block += dim_*num_union*(1+num_gradients_to_sample);
     }
   }

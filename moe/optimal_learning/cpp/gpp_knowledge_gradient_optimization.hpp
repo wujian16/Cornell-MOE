@@ -284,10 +284,6 @@ class KnowledgeGradientEvaluator final {
   std::vector<double> discrete_pts_;
   //! number of points in discrete_pts
   const int num_pts_;
-
-  //! normal distribution object
-  const boost::math::normal_distribution<double> std_normal_;
-  const boost::math::normal_distribution<double> normal_;
 };
 
 extern template class KnowledgeGradientEvaluator<TensorProductDomain>;

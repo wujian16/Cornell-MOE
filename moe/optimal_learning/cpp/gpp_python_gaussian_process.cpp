@@ -145,7 +145,7 @@ boost::python::list GetVarWrapper(const GaussianProcess& gaussian_process,
 
   for (int i = 0; i < num_to_sample * (1+gaussian_process.num_derivatives()); ++i) {
     for (int j = 0; j < num_to_sample * (1+gaussian_process.num_derivatives()); ++j) {
-      result.append(to_sample_var[j*num_to_sample + i]);
+      result.append(to_sample_var[j*num_to_sample * (1+gaussian_process.num_derivatives()) + i]);
     }
   }
 
