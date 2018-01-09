@@ -19,7 +19,6 @@
 #include "gpp_covariance.hpp"
 
 #include <cmath>
-
 #include <limits>
 #include <vector>
 
@@ -74,7 +73,7 @@ OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha,
     OL_THROW_EXCEPTION(LowerBoundException<int>, "Negative spatial dimension.", dim, 0);
   }
 
-  if (static_cast<unsigned>(dim) != lengths_in.size()) {
+  if (fidelity_ == 0 && static_cast<unsigned>(dim) != lengths_in.size()) {
     OL_THROW_EXCEPTION(InvalidValueException<int>, "dim (truth) and length vector size do not match.", lengths_in.size(), dim);
   }
 
@@ -83,24 +82,41 @@ OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha,
   }
 
   // fill lengths_sq array
-  for (int i = 0; i < dim; ++i) {
+  for (int i = 0; i < dim-fidelity_; ++i) {
     lengths_sq[i] = Square(lengths_in[i]);
     if (unlikely(lengths_in[i] <= 0.0)) {
       OL_THROW_EXCEPTION(LowerBoundException<double>, "Invalid hyperparameter (length).", lengths_in[i],
                          std::numeric_limits<double>::min());
     }
   }
-}
 
+  if (fidelity_ != 0 && fidelity_ != 2){
+    OL_THROW_EXCEPTION(InvalidValueException<int>, "Invalid number of fidelity", fidelity_, 2);
+  }
+  else if (fidelity_ == 2){
+    if (static_cast<unsigned>(dim+2) != lengths_in.size()) {
+      OL_THROW_EXCEPTION(InvalidValueException<int>, "dim (truth) and length vector size do not match.", lengths_in.size(), dim+2);
+    }
+    beta_0 = lengths_in[dim-2];
+    beta_1 = lengths_in[dim-1];
+    gamma = lengths_in[dim];
+    delta = lengths_in[dim+1];
+  }
+}
 }  // end unnamed namespace
 
 void SquareExponential::Initialize() {
   InitializeCovariance(dim_, alpha_, lengths_, lengths_sq_.data());
 }
 
-SquareExponential::SquareExponential(int dim, double alpha, std::vector<double> lengths)
-    : dim_(dim), alpha_(alpha), lengths_(lengths), lengths_sq_(dim) {
+SquareExponential::SquareExponential(int dim, int fidelity, double alpha, std::vector<double> lengths)
+    : dim_(dim), fidelity_(fidelity), alpha_(alpha), lengths_(lengths), lengths_sq_(dim-fidelity_),
+      beta_0(0.0), beta_1(0.0), gamma(0.0), delta(0.0) {
   Initialize();
+}
+
+SquareExponential::SquareExponential(int dim, double alpha, std::vector<double> lengths)
+    : SquareExponential(dim, 0, alpha, lengths) {
 }
 
 SquareExponential::SquareExponential(int dim, double alpha, double const * restrict lengths)
@@ -126,8 +142,13 @@ void SquareExponential::Covariance(double const * restrict point_one,
                                    int num_derivatives_two,
                                    double * restrict cov) const noexcept {
   // correct by the kernel value
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  const double kernel = alpha_*std::exp(-0.5*norm_val);
+  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_-fidelity_);
+  double kernel = alpha_*std::exp(-0.5*norm_val);
+
+  if (fidelity_ == 2){
+    kernel *= beta_0 + std::pow(beta_1, gamma)/std::pow(beta_1+point_one[dim_-2]+point_two[dim_-2], gamma);
+    kernel *= delta + (1.0 - point_one[dim_-1]) * (1.0 - point_two[dim_-1]);
+  }
 
   cov[0] = kernel;
 
@@ -177,7 +198,12 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
                                        double * restrict grad_cov) const noexcept {
   //std::vector<double> cov((1+num_derivatives_one)*(1+num_derivatives_two));
   const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
-  const double kernel = alpha_*std::exp(-0.5*norm_val);
+  double kernel = alpha_*std::exp(-0.5*norm_val);
+
+  if (fidelity_ == 2){
+    kernel *= beta_0 + std::pow(beta_1, gamma)/std::pow(beta_1+point_one[dim_-2]+point_two[dim_-2], gamma);
+    kernel *= delta + (1.0 - point_one[dim_-1]) * (1.0 - point_two[dim_-1]);
+  }
 
   int index1 = 0;
   int index2 = 0;
@@ -193,7 +219,7 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
     derivatives_point_two[n] = (point_one[index2] - point_two[index2])/lengths_sq_[index2];
   }
 
-  for (int i = 0; i < dim_; ++i) {
+  for (int i = 0; i < dim_-fidelity_; ++i) {
     // ditance between point one and point two at the dim i
     const double distance_i = (point_two[i] - point_one[i])/lengths_sq_[i];
     grad_cov[i] = distance_i*kernel;
@@ -205,7 +231,7 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
         grad_cov[i + (m+1)*dim_] -= kernel/lengths_sq_[index1];
       }
     }
-    for (int n =0; n < num_derivatives_two; ++n){
+    for (int n = 0; n < num_derivatives_two; ++n){
       index2 = derivatives_two[n];
       grad_cov[i + (n+1)*dim_*(num_derivatives_one+1)] = distance_i*derivatives_point_two[n]*kernel;
       if (i == index2){
@@ -254,30 +280,30 @@ void SquareExponential::HyperparameterGradCovariance(double const * restrict poi
 
   // deriv wrt alpha does not have the same form as the length terms, special case it
   grad_hyperparameter_cov[0] = cov_matrix[0]/alpha_;
-  for (int i = 0; i < dim_; ++i) {
+  for (int i = 0; i < dim_-fidelity_; ++i) {
     grad_hyperparameter_cov[i+1] = cov_matrix[0]*Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
   }
 
   for (int m = 0; m < num_derivatives_one; ++m){
-    grad_hyperparameter_cov[(m+1)*(dim_+1)] = cov_matrix[m+1]/alpha_;
+    grad_hyperparameter_cov[(m+1)*(dim_-fidelity_+1)] = cov_matrix[m+1]/alpha_;
     index1 = derivatives_one[m];
-    for (int i = 0; i < dim_; ++i) {
-      grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] = cov_matrix[m+1]*
+    for (int i = 0; i < dim_-fidelity_; ++i) {
+      grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)] = cov_matrix[m+1]*
                                                     Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
       if (index1 == i){
-        grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)] -= (2*cov_matrix[0]*(point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
+        grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)] -= (2*cov_matrix[0]*(point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
       }
     }
   }
 
   for (int n = 0; n < num_derivatives_two; ++n){
-    grad_hyperparameter_cov[(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]/alpha_;
+    grad_hyperparameter_cov[(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]/alpha_;
     index2 = derivatives_two[n];
-    for (int i = 0; i < dim_; ++i){
-      grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]*
+    for (int i = 0; i < dim_-fidelity_; ++i){
+      grad_hyperparameter_cov[i+1+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] = cov_matrix[(n+1)*(num_derivatives_one+1)]*
                                                                          Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
       if (index2 == i){
-        grad_hyperparameter_cov[i+1+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]*(point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
+        grad_hyperparameter_cov[i+1+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]*(point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
       }
     }
   }
@@ -286,24 +312,24 @@ void SquareExponential::HyperparameterGradCovariance(double const * restrict poi
     index1 = derivatives_one[m];
     for (int n = 0; n < num_derivatives_two; ++n){
       index2 = derivatives_two[n];
-      grad_hyperparameter_cov[(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]/alpha_;
-      for (int i = 0; i < dim_; ++i){
-        grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]*
+      grad_hyperparameter_cov[(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]/alpha_;
+      for (int i = 0; i < dim_-fidelity_; ++i){
+        grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] = cov_matrix[m+1+(n+1)*(num_derivatives_one+1)]*
                                                                                     Square((point_one[i] - point_two[i])/lengths_[i])/lengths_[i];
         if (index1 == index2){
           if (index1 == i){
-            grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] += ((4*cov_matrix[0]*Square(point_one[i]-point_two[i])/
+            grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] += ((4*cov_matrix[0]*Square(point_one[i]-point_two[i])/
                                                                                          lengths_sq_[i])/lengths_sq_[i])/lengths_[i];
-            grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]/lengths_sq_[i])/lengths_[i];
+            grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[0]/lengths_sq_[i])/lengths_[i];
           }
         }
         else{
           if (index1 == i){
-            grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[(n+1)*(num_derivatives_one+1)]*
+            grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[(n+1)*(num_derivatives_one+1)]*
                                                                                          (point_two[i]-point_one[i])/lengths_sq_[i])/lengths_[i];
           }
           if (index2 == i){
-            grad_hyperparameter_cov[i+1+(m+1)*(dim_+1)+(n+1)*(dim_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[m+1]*
+            grad_hyperparameter_cov[i+1+(m+1)*(dim_-fidelity_+1)+(n+1)*(dim_-fidelity_+1)*(num_derivatives_one+1)] -= (2*cov_matrix[m+1]*
                                                                                          (point_one[i]-point_two[i])/lengths_sq_[i])/lengths_[i];
           }
         }
