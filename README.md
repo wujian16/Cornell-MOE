@@ -1,6 +1,6 @@
 ## What is Cornell-MOE?
 1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
-2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available (d-EI) [Wu et al, 2017][27].
+2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available (d-EI, [Wu et al, 2017][27]).
 3. We implement batch knowledge gradient with (d-KG, [Wu et al, 2017][27]) and without (q-KG, [Wu and Frazier, 2016][26]) derivative information.
 4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
 5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
