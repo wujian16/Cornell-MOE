@@ -457,6 +457,17 @@ class RepeatedDomain {
       }
       random_point += dim();
     }
+
+    // order the first dim
+    std::vector<double> temp(num_repeats_);
+    for (int i = 0; i < num_repeats_; ++i) {
+      temp[i] = random_point[i*dim()];
+    }
+    std::sort(temp.begin(), temp.end());
+    for (int i = 0; i < num_repeats_; ++i) {
+      random_point[i*dim()] = temp[i];
+    }
+
     return true;
   }
 
