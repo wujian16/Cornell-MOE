@@ -322,11 +322,12 @@ class SquareExponential final : public CovarianceInterface {
   std::vector<double> lengths_;
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
-  //! three values determining the kernel for the learning curve
-  double beta_0;
-  double beta_1
+  //! three hypers determining the kernel for the learning curve
+  double w;
+  double beta
   double gamma;
-  //! one value determining the kernel for the extrapolation from subset of the data to the full training data
+  //! two hypers determining the kernel for the extrapolation from subset of the data to the full training data
+  double c;
   double delta;
 };
 
