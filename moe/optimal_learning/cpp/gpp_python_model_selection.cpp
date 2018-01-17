@@ -54,7 +54,7 @@ double ComputeLogLikelihoodWrapper(const boost::python::list& points_sampled,
   PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());
 
   switch (objective_type) {
     case LogLikelihoodTypes::kLogMarginalLikelihood: {
@@ -100,7 +100,7 @@ boost::python::list ComputeHyperparameterGradLogLikelihoodWrapper(const boost::p
   PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());
 
   std::vector<double> grad_log_likelihood(sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives);
   switch (objective_type) {
@@ -235,7 +235,7 @@ boost::python::list MultistartHyperparameterOptimizationWrapper(const boost::pyt
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());
 
   int num_hyperparameters = sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives;
   std::vector<double> new_hyperparameters(num_hyperparameters);
@@ -294,7 +294,7 @@ boost::python::list EvaluateLogLikelihoodAtHyperparameterListWrapper(const boost
   PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());
 
   std::vector<double> new_hyperparameters_C(sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives);
   std::vector<double> result_function_values_C(num_multistarts);
@@ -357,7 +357,7 @@ boost::python::list RestartedGradientDescentHyperparameterOptimizationWrapper(co
                                                 points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
 
 
-  SquareExponential sqexp(input_container.dim, input_container.alpha, input_container.lengths.data());
+  SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());
 
   int num_hyperparameters = sqexp.GetNumberOfHyperparameters() + 1 + num_derivatives;
   std::vector<double> new_hyperparameters(num_hyperparameters);

@@ -40,7 +40,7 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
   for (int i=0; i<num_mcmc_; ++i){
-    SquareExponential sqexp(dim_, hypers[0], hypers+1);
+    SquareExponential sqexp(dim_, 2, hypers[0], hypers+1);
     gaussian_process_lst.emplace_back(sqexp, points_sampled_.data(), points_sampled_value_.data(),
                                       noises, derivatives_.data(), num_derivatives_,
                                       dim_, num_sampled_);

@@ -120,7 +120,7 @@ PythonInterfaceInputContainer::PythonInterfaceInputContainer(const boost::python
       points_to_sample(dim*num_to_sample),
       derivatives(num_derivatives) {
   const boost::python::list& lengths_in = boost::python::extract<boost::python::list>(hyperparameters_in[1]);
-  CopyPylistToVector(lengths_in, dim, lengths);
+  CopyPylistToVector(lengths_in, dim+3, lengths);
   CopyPylistToVector(points_sampled_in, dim*num_sampled, points_sampled);
   CopyPylistToVector(points_sampled_value_in, num_sampled*(1+num_derivatives_in), points_sampled_value);
   CopyPylistToVector(noise_variance_in, 1+num_derivatives, noise_variance);

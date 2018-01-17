@@ -230,6 +230,16 @@ class SquareExponential final : public CovarianceInterface {
     \param
       :dim: the number of spatial dimensions
       :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
+      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
+  \endrst*/
+  SquareExponential(int dim, int fidelity, double alpha, double const * restrict lengths) OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Constructs a SquareExponential object with the specified hyperparameters.
+
+    \param
+      :dim: the number of spatial dimensions
+      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
       :lengths: the hyperparameter length scales, one per spatial dimension
   \endrst*/
   SquareExponential(int dim, int fidelity, double alpha, std::vector<double> lengths);

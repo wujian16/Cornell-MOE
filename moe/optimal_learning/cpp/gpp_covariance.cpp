@@ -119,6 +119,10 @@ SquareExponential::SquareExponential(int dim, int fidelity, double alpha, std::v
   }
 }
 
+SquareExponential::SquareExponential(int dim, int fidelity, double alpha, double const * restrict lengths)
+    : SquareExponential(dim, fidelity, alpha, std::vector<double>(lengths, lengths + dim + 3)) {
+}
+
 SquareExponential::SquareExponential(int dim, double alpha, std::vector<double> lengths)
     : SquareExponential(dim, 0, alpha, lengths) {
 }
