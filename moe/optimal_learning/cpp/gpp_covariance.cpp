@@ -199,7 +199,7 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
                                        int num_derivatives_two,
                                        double * restrict grad_cov) const noexcept {
   //std::vector<double> cov((1+num_derivatives_one)*(1+num_derivatives_two));
-  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_-fidelity_);
   double kernel = alpha_*std::exp(-0.5*norm_val);
   double kernel_epoch = kernel;
   double kernel_datasize = kernel;

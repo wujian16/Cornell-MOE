@@ -59,7 +59,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("covariance ping tests\n");
   }
   total_errors += error;
-
+/*
   error = RunGPTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("GP (mean, var, EI) tests failed\n");
@@ -75,6 +75,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("KG inner tests\n");
   }
   total_errors += error;
+*/
 /*
   error = RunKGTests();
   if (error != 0) {

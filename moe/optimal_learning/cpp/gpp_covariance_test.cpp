@@ -271,7 +271,7 @@ class PingGradCovarianceHyperparameters final : public PingableMatrixInputVector
 \endrst*/
 template <typename PingCovarianceClass>
 OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTest(char const * class_name, double epsilon[2], double tolerance_fine, double tolerance_coarse, double input_output_ratio) {
-  const  int dim = 5;
+  const int dim = 5;
 //  double point1[dim] = {0.2, -1.7, 0.91};
 //  double point2[dim] = {-2.1, 0.32, 1.12};
 //  double point3[dim] = {0.0};
@@ -279,8 +279,8 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   int errors_this_iteration;
   int total_errors = 0;
 
-  int* derivatives = new int[5]{0, 1, 2, 3, 4};
-  int num_derivatives = 5;
+  int* derivatives = nullptr;//new int[3]{0, 1, 2};
+  int num_derivatives = 0;
 
   std::vector<double> lengths(dim+3);
   double alpha = 2.80723;
@@ -343,7 +343,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
 
     errors_this_iteration = covariance_evaluator.CheckSymmetry();
     if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("hyperparameter gradients from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
+      OL_PARTIAL_FAILURE_PRINTF("covariance kernels from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
     }
 
     errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
