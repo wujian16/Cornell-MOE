@@ -354,7 +354,8 @@ boost::python::list RestartedGradientDescentHyperparameterOptimizationWrapper(co
   const int num_to_sample = 0;
   const boost::python::list points_to_sample_dummy;
   PythonInterfaceInputContainer input_container(hyperparameters, points_sampled, points_sampled_value, noise_variance,
-                                                points_to_sample_dummy, derivatives, num_derivatives, dim, num_sampled, num_to_sample);
+                                                points_to_sample_dummy, derivatives, num_derivatives, dim,
+                                                num_sampled, num_to_sample);
 
 
   SquareExponential sqexp(input_container.dim, 2, input_container.alpha, input_container.lengths.data());

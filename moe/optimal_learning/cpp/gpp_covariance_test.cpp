@@ -54,7 +54,7 @@ class PingCovarianceSpatialDerivatives final : public PingableMatrixInputVectorO
         point_delta_base_(dim),
         reference_point_(reference_point, reference_point + dim),
         grad_covariance_(dim*Square(1+num_derivatives_)),
-        covariance_(dim_, 2, alpha, std::vector<double>(lengths, lengths + dim_ + 3)) {
+        covariance_(dim_, 2, alpha, std::vector<double>(lengths, lengths + dim_ + 1)) {
   }
 
   virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
@@ -282,7 +282,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   int* derivatives = nullptr;//new int[3]{0, 1, 2};
   int num_derivatives = 0;
 
-  std::vector<double> lengths(dim+3);
+  std::vector<double> lengths(dim+1);
   double alpha = 2.80723;
 
   UniformRandomGenerator uniform_generator(31415);
@@ -333,7 +333,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   for (int i = 0; i < 50; ++i) {
     EI_environment.Initialize(dim, num_to_sample, num_being_sampled, num_sampled, num_derivatives);
 
-    for (int j = 0; j < dim+3; ++j) {
+    for (int j = 0; j < dim+1; ++j) {
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 

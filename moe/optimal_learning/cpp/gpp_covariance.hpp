@@ -269,7 +269,7 @@ class SquareExponential final : public CovarianceInterface {
     if (fidelity_ == 0){
       return 1 + dim_;
     } else{
-      return 3 + dim_;
+      return 2 + dim_;
     }
   }
 
@@ -294,11 +294,9 @@ class SquareExponential final : public CovarianceInterface {
       }
     }
     if (fidelity_ == 2){
-      w = lengths_[dim_-2];
-      beta = lengths_[dim_-1];
-      gamma = lengths_[dim_];
-      c = lengths_[dim_+1];
-      delta = lengths_[dim_+2];
+      beta = lengths_[dim_-2];
+      gamma = lengths_[dim_-1];
+      c = lengths_[dim_];
     }
   }
 
@@ -334,12 +332,12 @@ class SquareExponential final : public CovarianceInterface {
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
   //! three hypers determining the kernel for the learning curve
-  double w;
+  //double w;
   double beta;
   double gamma;
   //! two hypers determining the kernel for the extrapolation from subset of the data to the full training data
   double c;
-  double delta;
+  //double delta;
 };
 
 ///*!\rst

@@ -445,7 +445,7 @@ OL_NONNULL_POINTERS void BuildCovarianceMatrixWithNoiseVariance(const Covariance
                   cov_matrix[row+col*num_sampled*(num_derivatives+1)] = cov_temp[m+n*(num_derivatives+1)];
               }
               if (row == col){
-                  cov_matrix[row+col*num_sampled*(num_derivatives+1)] += noise_variance[m];
+                  cov_matrix[row+col*num_sampled*(num_derivatives+1)] += noise_variance[m] + 1.e-6;
               }
           }
       }

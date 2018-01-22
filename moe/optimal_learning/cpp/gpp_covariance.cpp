@@ -95,8 +95,8 @@ OL_NONNULL_POINTERS void InitializeCovariance(int dim, double alpha,
     OL_THROW_EXCEPTION(InvalidValueException<int>, "Invalid number of fidelity", fidelity, 2);
   }
   else if (fidelity == 2){
-    if (static_cast<unsigned>(dim+3) != lengths_in.size()) {
-      OL_THROW_EXCEPTION(InvalidValueException<int>, "dim (truth) and length vector size do not match.", lengths_in.size(), dim+2);
+    if (static_cast<unsigned>(dim+1) != lengths_in.size()) {
+      OL_THROW_EXCEPTION(InvalidValueException<int>, "dim (truth) and length vector size do not match.", lengths_in.size(), dim+1);
     }
   }
 }
@@ -108,19 +108,19 @@ void SquareExponential::Initialize() {
 
 SquareExponential::SquareExponential(int dim, int fidelity, double alpha, std::vector<double> lengths)
     : dim_(dim), fidelity_(fidelity), alpha_(alpha), lengths_(lengths), lengths_sq_(dim-fidelity_),
-      w(0.0), beta(0.0), gamma(0.0), c(0.0), delta(0.0) {
+      beta(0.0), gamma(0.0), c(0.0) {
   Initialize();
   if(fidelity == 2){
-    w = lengths[dim-2];
-    beta = lengths[dim-1];
-    gamma = lengths[dim];
-    c = lengths[dim+1];
-    delta = lengths[dim+2];
+    //w = lengths[dim-2];
+    beta = lengths[dim-2];
+    gamma = lengths[dim-1];
+    c = lengths[dim];
+    //delta = lengths[dim+2];
   }
 }
 
 SquareExponential::SquareExponential(int dim, int fidelity, double alpha, double const * restrict lengths)
-    : SquareExponential(dim, fidelity, alpha, std::vector<double>(lengths, lengths + dim + 3)) {
+    : SquareExponential(dim, fidelity, alpha, std::vector<double>(lengths, lengths + dim + 1)) {
 }
 
 SquareExponential::SquareExponential(int dim, double alpha, std::vector<double> lengths)
@@ -154,8 +154,8 @@ void SquareExponential::Covariance(double const * restrict point_one,
   double kernel = alpha_*std::exp(-0.5*norm_val);
 
   if (fidelity_ == 2){
-    kernel *= w + std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
-    kernel *= c + std::pow((1.0 - point_one[dim_-1]), 1+delta) * std::pow((1.0 - point_two[dim_-1]), 1+delta);
+    kernel *= std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
+    kernel *= c + std::pow((1.0 - point_one[dim_-1]), 2.) * std::pow((1.0 - point_two[dim_-1]), 2.);
   }
 
   cov[0] = kernel;
@@ -209,14 +209,14 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
   double kernel_datasize = kernel;
 
   if (fidelity_ == 2){
-    kernel *= w + std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
-    kernel *= c + std::pow((1.0 - point_one[dim_-1]), 1+delta) * std::pow((1.0 - point_two[dim_-1]), 1+delta);
+    kernel *= std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
+    kernel *= c + std::pow((1.0 - point_one[dim_-1]), 2.0) * std::pow((1.0 - point_two[dim_-1]), 2.0);
 
     kernel_epoch *= -gamma * std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma+1);
-    kernel_epoch *= c + std::pow((1.0 - point_one[dim_-1]), 1+delta) * std::pow((1.0 - point_two[dim_-1]), 1+delta);
+    kernel_epoch *= c + std::pow((1.0 - point_one[dim_-1]), 2.0) * std::pow((1.0 - point_two[dim_-1]), 2.0);
 
-    kernel_datasize *= w + std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
-    kernel_datasize *= -(1+delta)*std::pow((1.0 - point_one[dim_-1]), delta) * std::pow((1.0 - point_two[dim_-1]), 1+delta);
+    kernel_datasize *= std::pow(beta, gamma)/std::pow(beta+point_one[dim_-2]+point_two[dim_-2], gamma);
+    kernel_datasize *= -2.0*std::pow((1.0 - point_one[dim_-1]), 1.0) * std::pow((1.0 - point_two[dim_-1]), 2.0);
   }
 
   int index1 = 0;

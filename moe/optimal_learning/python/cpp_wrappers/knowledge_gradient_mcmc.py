@@ -183,6 +183,8 @@ class GaussianProcessMCMC(object):
 
         self._num_derivatives = len(cpp_utils.cppify(self._derivatives))
 
+        print self._hyperparameters_list
+
         # C++ will maintain its own copy of the contents of hyperparameters and historical_data
         self._gaussian_process_mcmc = C_GP.GaussianProcessMCMC(
             cpp_utils.cppify(self._hyperparameters_list),

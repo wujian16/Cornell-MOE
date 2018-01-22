@@ -44,7 +44,7 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
     gaussian_process_lst.emplace_back(sqexp, points_sampled_.data(), points_sampled_value_.data(),
                                       noises, derivatives_.data(), num_derivatives_,
                                       dim_, num_sampled_);
-    hypers += dim_+1;
+    hypers += dim_+2;
     noises += num_derivatives_+1;
   }
 }
