@@ -100,7 +100,7 @@ double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeCost(StateType * kg_st
         cost = point_cost;
       }
     }
-    return cost;
+    return cost + 0.1;
   }
 }
 
