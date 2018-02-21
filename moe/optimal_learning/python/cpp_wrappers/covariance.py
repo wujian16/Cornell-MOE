@@ -46,7 +46,7 @@ class SquareExponential(CovarianceInterface):
     @staticmethod
     def make_default_hyperparameters(dim):
         """Return a default set up hyperparameters given the dimension of the space."""
-        return numpy.ones(dim + 1)
+        return numpy.ones(dim + 4)
 
     def get_hyperparameters(self):
         """Get the hyperparameters (array of float64 with shape (num_hyperparameters)) of this covariance."""

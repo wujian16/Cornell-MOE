@@ -190,9 +190,9 @@ class MockExpectedImprovementEnvironment {
   //! default seed for repeatability in testing
   static constexpr EngineType::result_type kDefaultSeed = 314;
   //! minimum coordinate value
-  static constexpr double range_min = -5.0;
+  static constexpr double range_min = 0.0;
   //! maximum coordinate value
-  static constexpr double range_max = 5.0;
+  static constexpr double range_max = 0.5;
 
   /*!\rst
     Construct a MockExpectedImprovementEnvironment and set invalid values for all size parameters
