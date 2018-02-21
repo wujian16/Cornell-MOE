@@ -224,26 +224,6 @@ class SquareExponential final : public CovarianceInterface {
   \endrst*/
   SquareExponential(int dim, double alpha, std::vector<double> lengths);
 
-  /*!\rst
-    Constructs a SquareExponential object with the specified hyperparameters.
-
-    \param
-      :dim: the number of spatial dimensions
-      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-      :lengths[dim]: the hyperparameter length scales, one per spatial dimension
-  \endrst*/
-  SquareExponential(int dim, int fidelity, double alpha, double const * restrict lengths) OL_NONNULL_POINTERS;
-
-  /*!\rst
-    Constructs a SquareExponential object with the specified hyperparameters.
-
-    \param
-      :dim: the number of spatial dimensions
-      :alpha: the hyperparameter ``\alpha``, (e.g., signal variance, ``\sigma_f^2``)
-      :lengths: the hyperparameter length scales, one per spatial dimension
-  \endrst*/
-  SquareExponential(int dim, int fidelity, double alpha, std::vector<double> lengths);
-
   // covariance function of point_one and point_two
   // [1+num_derivatives_one][1+num_derivatives_two]
   virtual void Covariance(double const * restrict point_one,
@@ -266,11 +246,7 @@ class SquareExponential final : public CovarianceInterface {
 
   // return the number of hyperparameters, dim+1
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    if (fidelity_ == 0){
-      return 1 + dim_;
-    } else{
-      return 2 + dim_;
-    }
+    return 1 + dim_;
   }
 
   // gradient of the covariance function wrt the hyperparameter (tensor)
@@ -289,14 +265,7 @@ class SquareExponential final : public CovarianceInterface {
     hyperparameters += 1;
     for (int i = 0; i < dim_; ++i) {
       lengths_[i] = hyperparameters[i];
-      if (i < dim_ - fidelity_){
-        lengths_sq_[i] = Square(hyperparameters[i]);
-      }
-    }
-    if (fidelity_ == 2){
-      beta = lengths_[dim_-2];
-      gamma = lengths_[dim_-1];
-      c = lengths_[dim_];
+      lengths_sq_[i] = Square(hyperparameters[i]);
     }
   }
 
@@ -321,8 +290,6 @@ class SquareExponential final : public CovarianceInterface {
   \endrst*/
   void Initialize();
 
-  //! dimension of the fidelities which need special care, i.e. the number of training epochs and the training data size
-  int fidelity_;
   //! dimension of the problem
   int dim_;
   //! ``\sigma_f^2``, signal variance
@@ -331,13 +298,6 @@ class SquareExponential final : public CovarianceInterface {
   std::vector<double> lengths_;
   //! square of the length scales, one per dimension
   std::vector<double> lengths_sq_;
-  //! three hypers determining the kernel for the learning curve
-  //double w;
-  double beta;
-  double gamma;
-  //! two hypers determining the kernel for the extrapolation from subset of the data to the full training data
-  double c;
-  //double delta;
 };
 
 ///*!\rst

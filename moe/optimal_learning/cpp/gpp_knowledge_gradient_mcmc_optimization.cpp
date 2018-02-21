@@ -40,11 +40,11 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
   for (int i=0; i<num_mcmc_; ++i){
-    SquareExponential sqexp(dim_, 2, hypers[0], hypers+1);
+    SquareExponential sqexp(dim_, hypers[0], hypers+1);
     gaussian_process_lst.emplace_back(sqexp, points_sampled_.data(), points_sampled_value_.data(),
                                       noises, derivatives_.data(), num_derivatives_,
                                       dim_, num_sampled_);
-    hypers += dim_+2;
+    hypers += dim_+1;
     noises += num_derivatives_+1;
   }
 }
@@ -100,7 +100,7 @@ double KnowledgeGradientMCMCEvaluator<DomainType>::ComputeCost(StateType * kg_st
         cost = point_cost;
       }
     }
-    return cost + 0.1;
+    return cost;
   }
 }
 
