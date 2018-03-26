@@ -83,12 +83,12 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
   for (int i = 0; i < num_mc_iterations_; ++i) {
     if (i % 2 == 1){
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = -kg_state->normals[j + (i-1)*num_union*(1+num_gradients_to_sample)];// - 2.0;
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = -kg_state->normals[j + (i-1)*num_union*(1+num_gradients_to_sample)];
       }
     }
     else {
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();//- 1.0;
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();
       }
     }
 
