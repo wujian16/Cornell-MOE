@@ -36,7 +36,7 @@ class Rosenbrock(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.0
-        self._observations = numpy.array([2])
+        self._observations = []#numpy.array([2])
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
@@ -63,7 +63,7 @@ class Hartmann3(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.86278
-        self._observations = numpy.arange(self._dim)
+        self._observations = []#numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):

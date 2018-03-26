@@ -34,7 +34,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 60
+num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
@@ -149,7 +149,7 @@ for n in xrange(num_iteration):
         # KG method
         next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                 ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 4)
+                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
 
     elif method == 'EI':
         # EI method
