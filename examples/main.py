@@ -181,7 +181,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
-    cpp_gp_loglikelihood.train()
+    cpp_gp_loglikelihood.optimize()
 
     print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()
@@ -212,7 +212,6 @@ for n in xrange(num_iteration):
 
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
-
 
     print "the recommended point: ",
     print report_point

@@ -259,7 +259,6 @@ boost::python::list MultistartExpectedImprovementOptimizationWrapper(const boost
     }  // end case OptimizerTypes::kTensorProduct
     case DomainTypes::kSimplex: {
       SimplexIntersectTensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
-
       DispatchExpectedImprovementOptimization(optimizer_parameters, gaussian_process, input_container,
                                               domain, optimizer_type, num_to_sample, best_so_far,
                                               max_int_steps, max_num_threads, use_gpu, which_gpu,

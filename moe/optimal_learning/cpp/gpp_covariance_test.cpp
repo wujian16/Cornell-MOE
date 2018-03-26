@@ -612,11 +612,11 @@ int RunCovarianceTests() {
   }
   total_errors += current_errors;
 
-//  current_errors = RunCovarianceHyperparameterDerivativesTests();
-//  if (current_errors != 0) {
-//    OL_PARTIAL_FAILURE_PRINTF("Pinging covariance hyperparameter derivatives failed with %d errors\n", current_errors);
-//  }
-//  total_errors += current_errors;
+  current_errors = RunCovarianceHyperparameterDerivativesTests();
+  if (current_errors != 0) {
+    OL_PARTIAL_FAILURE_PRINTF("Pinging covariance hyperparameter derivatives failed with %d errors\n", current_errors);
+  }
+  total_errors += current_errors;
 
   return total_errors;
 }
