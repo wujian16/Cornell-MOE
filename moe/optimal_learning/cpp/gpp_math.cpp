@@ -1625,7 +1625,7 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPoints(StateType * p
 
 void GaussianProcess::AddPointsToGP(double const * restrict new_points,
                                     double const * restrict new_points_value,
-//                                    double const * restrict new_points_noise_variance,
+//                                  double const * restrict new_points_noise_variance,
                                     int num_new_points) {
   // update sizes
   num_sampled_ += num_new_points;
@@ -1637,8 +1637,8 @@ void GaussianProcess::AddPointsToGP(double const * restrict new_points,
   points_sampled_value_.resize(num_sampled_*(num_derivatives_+1));
   std::copy_backward(new_points_value, new_points_value + num_new_points*(num_derivatives_+1), points_sampled_value_.end());
 
-//  noise_variance_.resize(num_sampled_);
-//  std::copy_backward(new_points_noise_variance, new_points_noise_variance + num_new_points, noise_variance_.end());
+  // noise_variance_.resize(num_sampled_);
+  // std::copy_backward(new_points_noise_variance, new_points_noise_variance + num_new_points, noise_variance_.end());
 
   // recompute derived quantities
   // TODO(GH-192): Insert the new covariance (and cholesky covariance) rows into the current matrix  (O(N^2))

@@ -213,7 +213,7 @@ void ComputeOptimalFuturePosteriorMean(
     OL_THROW_EXCEPTION(LowerBoundException<int>, "num_multistarts must be > 1", num_multistarts, 1);
   }
 
-  ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
+  //ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
 
   bool configure_for_gradients = true;
 
@@ -222,7 +222,7 @@ void ComputeOptimalFuturePosteriorMean(
                                              num_derivatives, chol, train_sample);
 
   std::vector<typename FuturePosteriorMeanEvaluator::StateType> fpm_state_vector;
-  SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, max_num_threads, configure_for_gradients, num_fidelity, &fpm_state_vector);
+  SetupFuturePosteriorMeanState(fpm_evaluator, start_point_set, 1, configure_for_gradients, num_fidelity, &fpm_state_vector);
 
   std::vector<double> future_mean_starting(num_multistarts);
   for (int i=0; i<num_multistarts; ++i){
@@ -253,18 +253,23 @@ void ComputeOptimalFuturePosteriorMean(
     q.pop();
   }
 
-  // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
-  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -INFINITY, top_k_starting.data());
+  RestartedGradientDescentFuturePosteriorMeanOptimization(gaussian_process, num_fidelity, coefficient, to_sample,
+                                                          num_to_sample, to_sample_derivatives, num_derivatives,
+                                                          chol, train_sample, optimizer_parameters, domain, top_k_starting.data(),
+                                                          *best_function_value, best_next_point);
 
-  GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
-  MultistartOptimizer<GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> > multistart_optimizer;
-
-  multistart_optimizer.MultistartOptimize(gd_opt, fpm_evaluator, optimizer_parameters,
-                                          domain, thread_schedule, top_k_starting.data(), k,
-                                          fpm_state_vector.data(), nullptr, &io_container);
-
-  *best_function_value = io_container.best_objective_value_so_far;
-  std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
+//  // init winner to be first point in set and 'force' its value to be -INFINITY; we cannot do worse than this
+//  OptimizationIOContainer io_container(fpm_state_vector[0].GetProblemSize(), -INFINITY, top_k_starting.data());
+//
+//  GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> gd_opt;
+//  MultistartOptimizer<GradientDescentOptimizer<FuturePosteriorMeanEvaluator, DomainType> > multistart_optimizer;
+//
+//  multistart_optimizer.MultistartOptimize(gd_opt, fpm_evaluator, optimizer_parameters,
+//                                          domain, thread_schedule, top_k_starting.data(), k,
+//                                          fpm_state_vector.data(), nullptr, &io_container);
+//
+//  *best_function_value = io_container.best_objective_value_so_far;
+//  std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6

@@ -1,9 +1,9 @@
 /*!
-  \file gpp_knowledge_gradient_inner_optimization.cpp
+  \file gpp_expected_improvement_second_optimization.cpp
   \rst
 \endrst*/
 
-#include "gpp_knowledge_gradient_inner_optimization.hpp"
+#include "gpp_expected_improvement_second_optimization.hpp"
 
 #include <cmath>
 
@@ -11,6 +11,8 @@
 
 #include <stdlib.h>
 #include <queue>
+
+#include <boost/math/distributions/normal.hpp>  // NOLINT(build/include_order)
 
 #include "gpp_common.hpp"
 #include "gpp_domain.hpp"
@@ -21,6 +23,7 @@
 namespace optimal_learning {
 
 FutureValueFunctionEvaluator::FutureValueFunctionEvaluator(const GaussianProcess& gaussian_process_in,
+  double const best_so_far,
   double const * coefficient,
   double const * to_sample,
   const int num_to_sample,
@@ -29,6 +32,8 @@ FutureValueFunctionEvaluator::FutureValueFunctionEvaluator(const GaussianProcess
   double const * chol,
   double const * train_sample)
   : dim_(gaussian_process_in.dim()),
+    best_so_far_(best_so_far),
+    normal_(0.0, 1.0),
     gaussian_process_(&gaussian_process_in),
     to_sample_(to_sample_points(to_sample, num_to_sample)),
     num_to_sample_(num_to_sample),
@@ -45,6 +50,7 @@ FutureValueFunctionEvaluator::FutureValueFunctionEvaluator(const GaussianProcess
   See Ginsbourger, Le Riche, and Carraro.
 \endrst*/
 double FutureValueFunctionEvaluator::ComputeValueFunction(StateType * vf_state) const {
+  // posterior mean after sampling
   double to_sample_mean = gaussian_process_->get_mean();
   int num_observations = gaussian_process_->num_sampled();
 
@@ -58,18 +64,21 @@ double FutureValueFunctionEvaluator::ComputeValueFunction(StateType * vf_state) 
                                              num_derivatives_, temp.data());
 
   to_sample_mean += DotProduct(temp.data(), coeff_.data(), num_to_sample_*(1+num_derivatives_));
-  return -to_sample_mean;
 
-
-  gaussian_process_->ComputeMeanOfPoints(ei_state->points_to_sample_state, &to_sample_mean);
-  gaussian_process_->ComputeVarianceOfPoints(&(ei_state->points_to_sample_state),
-                                             ei_state->points_to_sample_state.gradients.data(),
-                                             ei_state->points_to_sample_state.num_gradients_to_sample,
-                                             &to_sample_var);
+  // posterior variance after sampling
+  double to_sample_var;
+//  std::vector<double> make_up_function_value(num_to_sample_*(1+num_derivatives_));
+//  GaussianProcess gaussian_process_after(*gaussian_process_);
+//  gaussian_process_after.AddPointsToGP(to_sample_.data(), make_up_function_value.data(), num_to_sample_);
+  gaussian_process_->ComputeVarianceOfPoints(&(vf_state->points_to_sample_state),
+                                            vf_state->points_to_sample_state.gradients.data(),
+                                            vf_state->points_to_sample_state.num_gradients_to_sample,
+                                            &to_sample_var);
   to_sample_var = std::sqrt(std::fmax(kMinimumVarianceEI, to_sample_var));
 
-  double temp = best_so_far_ - to_sample_mean;
-  double EI = temp*boost::math::cdf(normal_, temp/to_sample_var) + to_sample_var*boost::math::pdf(normal_, temp/to_sample_var);
+  double mu_diff = best_so_far_ - to_sample_mean;
+  double EI = mu_diff*boost::math::cdf(normal_, mu_diff/to_sample_var) + to_sample_var*boost::math::pdf(normal_, mu_diff/to_sample_var);
+  return EI;
 }
 
 /*!\rst
@@ -80,7 +89,9 @@ double FutureValueFunctionEvaluator::ComputeValueFunction(StateType * vf_state) 
   See Ginsbourger, Le Riche, and Carraro.
 \endrst*/
 void FutureValueFunctionEvaluator::ComputeGradValueFunction(
-    StateType * vf_state, double * restrict grad_PS) const {
+    StateType * vf_state,
+    double * restrict grad_VF) const {
+  // derivative of the after posterior mean wrt point_to_sample
   std::vector<double> temp(dim_*num_to_sample_*(1+num_derivatives_));
   for (int i = 0; i < num_to_sample_; ++i){
     gaussian_process_->covariance_ptr_->GradCovariance(vf_state->point_to_sample.data(), nullptr, 0,
@@ -96,8 +107,46 @@ void FutureValueFunctionEvaluator::ComputeGradValueFunction(
   GeneralMatrixVectorMultiply(vf_state->grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
                               dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_temp.data());
 
+  // the after posterior mean
+  double to_sample_mean = gaussian_process_->get_mean();
+  GeneralMatrixVectorMultiply(vf_state->K_star.data(), 'T', coeff_combined_.data(), 1.0, 1.0, num_observations*(gaussian_process_->num_derivatives()+1),
+                              1, num_observations*(gaussian_process_->num_derivatives()+1), &to_sample_mean);
+
+  std::vector<double> cov_temp(num_to_sample_*(1+num_derivatives_));
+  // Vars = Kst
+  optimal_learning::BuildMixCovarianceMatrix(*gaussian_process_->covariance_ptr_, vf_state->point_to_sample.data(),
+                                             to_sample_.data(), dim_, 1, num_to_sample_, nullptr, 0, to_sample_derivatives_.data(),
+                                             num_derivatives_, cov_temp.data());
+
+  to_sample_mean += DotProduct(cov_temp.data(), coeff_.data(), num_to_sample_*(1+num_derivatives_));
+
+  // the after posterior std
+  double to_sample_var;
+//  std::vector<double> make_up_function_value(num_to_sample_*(1+num_derivatives_));
+//  GaussianProcess gaussian_process_after(*gaussian_process_);
+//  gaussian_process_after.AddPointsToGP(to_sample_.data(), make_up_function_value.data(), num_to_sample_);
+  gaussian_process_->ComputeVarianceOfPoints(&(vf_state->points_to_sample_state),
+                                             vf_state->points_to_sample_state.gradients.data(),
+                                             vf_state->points_to_sample_state.num_gradients_to_sample,
+                                             &to_sample_var);
+  to_sample_var = std::fmax(kMinimumVarianceGradEI, to_sample_var);
+  double sigma = std::sqrt(to_sample_var);
+
+  double * restrict grad_chol_decomp = vf_state->grad_chol_decomp.data();
+  // there is only 1 point, so gradient wrt 0-th point
+  gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(vf_state->points_to_sample_state), &sigma, grad_chol_decomp);
+
+  double mu_diff = best_so_far_ - to_sample_mean;
+  double C = mu_diff/sigma;
+  double pdf_C = boost::math::pdf(normal_, C);
+  double cdf_C = boost::math::cdf(normal_, C);
+
   for (int i = 0; i < dim_-vf_state->num_fidelity; ++i) {
-    grad_PS[i] = -grad_temp[i];
+    double d_C = (-sigma*grad_temp[i] - grad_chol_decomp[i]*mu_diff)/to_sample_var;
+    double d_A = -grad_temp[i]*cdf_C + mu_diff*pdf_C*d_C;
+    double d_B = grad_chol_decomp[i]*pdf_C + sigma*(-C)*pdf_C*d_C;
+
+    grad_VF[i] = d_A + d_B;
   }
 }
 
@@ -131,6 +180,11 @@ void FutureValueFunctionState::SetCurrentPoint(const EvaluatorType& vf_evaluator
   // update current point in union_of_points
   std::copy(point_to_sample_in, point_to_sample_in + dim - num_fidelity, point_to_sample.data());
   std::fill(point_to_sample.data() + dim - num_fidelity, point_to_sample.data() + dim, 1.0);
+
+  // evaluate derived quantities
+  points_to_sample_state.SetupState(*vf_evaluator.gaussian_process(), point_to_sample.data(),
+                                    num_to_sample, 0, num_derivatives, (num_derivatives>0));
+
   // evaluate derived quantities
   Initialize(vf_evaluator);
 }
@@ -144,8 +198,11 @@ FutureValueFunctionState::FutureValueFunctionState(
     num_fidelity(num_fidelity_in),
     num_derivatives(configure_for_gradients ? num_to_sample : 0),
     point_to_sample(BuildUnionOfPoints(point_to_sample_in)),
+    points_to_sample_state(*vf_evaluator.gaussian_process(), point_to_sample.data(), 1,
+                           nullptr, 0, num_derivatives, configure_for_gradients),
     K_star(vf_evaluator.gaussian_process()->num_sampled()*(1+vf_evaluator.gaussian_process()->num_derivatives())),
     grad_K_star(dim*vf_evaluator.gaussian_process()->num_sampled()*(1+vf_evaluator.gaussian_process()->num_derivatives())),
+    grad_chol_decomp(dim*num_derivatives),
     randomGenerator() {
   Initialize(vf_evaluator);
 }
@@ -214,7 +271,7 @@ void FutureValueFunctionState::SetupState(const EvaluatorType& vf_evaluator,
 \endrst*/
 template <typename DomainType>
 void ComputeOptimalFutureValueFunction(
-  const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+  const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
   double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
   int num_derivatives, double const * chol, double const * train_sample,
   const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
@@ -228,7 +285,7 @@ void ComputeOptimalFutureValueFunction(
 
   bool configure_for_gradients = true;
 
-  FutureValueFunctionEvaluator fpm_evaluator(gaussian_process, coefficient, to_sample,
+  FutureValueFunctionEvaluator fpm_evaluator(gaussian_process, best_so_far, coefficient, to_sample,
                                              num_to_sample, to_sample_derivatives,
                                              num_derivatives, chol, train_sample);
 
@@ -279,14 +336,14 @@ void ComputeOptimalFutureValueFunction(
 }
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
                                                 double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                 int num_derivatives, double const * chol, double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters, const TensorProductDomain& domain,
                                                 int max_num_threads, double const * restrict start_point_set,
                                                 int num_multistarts, double * restrict best_function_value,
                                                 double * restrict best_next_point);
-template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
                                                 double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                 int num_derivatives, double const * chol, double const * train_sample,
                                                 const GradientDescentParameters& optimizer_parameters, const SimplexIntersectTensorProductDomain& domain,

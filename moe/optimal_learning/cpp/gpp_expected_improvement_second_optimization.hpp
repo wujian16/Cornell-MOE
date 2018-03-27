@@ -1,5 +1,5 @@
-#ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_INNER_OPTIMIZATION_HPP_
-#define MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_INNER_OPTIMIZATION_HPP_
+#ifndef MOE_OPTIMAL_LEARNING_CPP_GPP_EXPECTED_IMPROVEMENT_SECOND_OPTIMIZATION_HPP_
+#define MOE_OPTIMAL_LEARNING_CPP_GPP_EXPECTED_IMPROVEMENT_SECOND_OPTIMIZATION_HPP_
 
 #include <algorithm>
 #include <limits>
@@ -37,6 +37,22 @@ class FutureValueFunctionEvaluator final {
  public:
   using StateType = FutureValueFunctionState;
 
+  //! Minimum allowed variance value in the "1D" analytic EI computation.
+  //! Values that are too small result in problems b/c we may compute ``std_dev/var`` (which is enormous
+  //! if ``std_dev = 1.0e-150`` and ``var = 1.0e-300``) since this only arises when we fail to compute ``std_dev = var = 0.0``.
+  //! Note: this is only relevant if noise = 0.0; this minimum will not affect EI computation with noise since this value
+  //! is below the smallest amount of noise users can meaningfully add.
+  //! This is the smallest possible value that prevents the denominator (best_so_far - mean) / sqrt(variance)
+  //! from being 0. 1D analytic EI is simple and no other robustness considerations are needed.
+  static constexpr double kMinimumVarianceEI = std::numeric_limits<double>::min();
+
+  //! Minimum allowed variance value in the "1D" analytic grad EI computation.
+  //! See kMinimumVarianceEI for more details.
+  //! This value was chosen so its sqrt would be a little larger than GaussianProcess::kMinimumStdDev (by ~12x).
+  //! The 150.0 was determined by numerical experiment with the setup in EIOnePotentialSampleEdgeCasesTest
+  //! in order to find a setting that would be robust (no 0/0) while introducing minimal error.
+  static constexpr double kMinimumVarianceGradEI = 150.0*Square(GaussianProcess::kMinimumStdDev);
+
   /*!\rst
     Constructs a OnePotentialSampleExpectedImprovementEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
     \param
@@ -45,6 +61,7 @@ class FutureValueFunctionEvaluator final {
       :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
   \endrst*/
   FutureValueFunctionEvaluator(const GaussianProcess& gaussian_process_in,
+                               const double best_so_far,
                                double const * coefficient,
                                double const * to_sample,
                                const int num_to_sample,
@@ -140,6 +157,12 @@ class FutureValueFunctionEvaluator final {
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
   const int dim_;
 
+  //! best (minimum) objective function value (in ``points_sampled_value``)
+  double best_so_far_;
+
+  //! normal distribution object
+  const boost::math::normal_distribution<double> normal_;
+
   //! pointer to gaussian process used in computations
   const GaussianProcess * gaussian_process_;
 
@@ -183,7 +206,8 @@ struct FutureValueFunctionState final {
       :point_to_sample[dim]: point at which to evaluate EI and/or its gradient to check their value in future experiments (i.e., test point for GP predictions)
       :configure_for_gradients: true if this object will be used to compute gradients, false otherwise
   \endrst*/
-  FutureValueFunctionState(const EvaluatorType& vf_evaluator, const int num_fidelity_in, double const * restrict point_to_sample_in, bool configure_for_gradients);
+  FutureValueFunctionState(const EvaluatorType& vf_evaluator, const int num_fidelity_in,
+                           double const * restrict point_to_sample_in, bool configure_for_gradients);
 
   FutureValueFunctionState(FutureValueFunctionState&& other);
 
@@ -245,9 +269,14 @@ struct FutureValueFunctionState final {
 
   //! point at which to evaluate EI and/or its gradient (e.g., to check its value in future experiments)
   std::vector<double> point_to_sample;
+  //! gaussian process state
+  GaussianProcess::StateType points_to_sample_state;
 
   std::vector<double> K_star;
   std::vector<double> grad_K_star;
+
+  //! the gradient of the sqrt of the GP variance evaluated at point_to_sample wrt point_to_sample
+  std::vector<double> grad_chol_decomp;
 
   UniformRandomGenerator randomGenerator;
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(FutureValueFunctionState);
@@ -316,7 +345,7 @@ inline OL_NONNULL_POINTERS void SetupFutureValueFunctionState(
     :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
 \endrst*/
 template <typename DomainType>
-void RestartedGradientDescentFutureValueFunctionOptimization(const GaussianProcess& gaussian_process, const int num_fidelity,
+void RestartedGradientDescentFutureValueFunctionOptimization(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity,
                                                              double const * coefficient, double const * to_sample, const int num_to_sample,
                                                              int const * to_sample_derivatives, int num_derivatives,
                                                              double const * chol, double const * train_sample,
@@ -330,7 +359,7 @@ void RestartedGradientDescentFutureValueFunctionOptimization(const GaussianProce
   OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
   // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
-  FutureValueFunctionEvaluator vf_evaluator(gaussian_process, coefficient, to_sample,
+  FutureValueFunctionEvaluator vf_evaluator(gaussian_process, best_so_far, coefficient, to_sample,
                                             num_to_sample, to_sample_derivatives,
                                             num_derivatives, chol, train_sample);
 
@@ -372,7 +401,7 @@ void RestartedGradientDescentFutureValueFunctionOptimization(const GaussianProce
     :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
                                        double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                        int num_derivatives, double const * chol, double const * train_sample,
                                        const GradientDescentParameters& optimizer_parameters, const DomainType& domain,
@@ -380,14 +409,14 @@ void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, 
                                        int num_multistarts, double * restrict best_function_value, double * restrict best_next_point);
 
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-extern template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+extern template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
                                                        double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                        int num_derivatives, double const * chol, double const * train_sample,
                                                        const GradientDescentParameters& optimizer_parameters, const TensorProductDomain& domain,
                                                        int max_num_threads, double const * restrict start_point_set,
                                                        int num_multistarts, double * restrict best_function_value,
                                                        double * restrict best_next_point);
-extern template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const int num_fidelity, double const * coefficient,
+extern template void ComputeOptimalFutureValueFunction(const GaussianProcess& gaussian_process, const double best_so_far, const int num_fidelity, double const * coefficient,
                                                        double const * to_sample, const int num_to_sample, int const * to_sample_derivatives,
                                                        int num_derivatives, double const * chol, double const * train_sample,
                                                        const GradientDescentParameters& optimizer_parameters, const SimplexIntersectTensorProductDomain& domain,
@@ -395,4 +424,4 @@ extern template void ComputeOptimalFutureValueFunction(const GaussianProcess& ga
                                                        int num_multistarts, double * restrict best_function_value,
                                                        double * restrict best_next_point);
 }  // end namespace optimal_learning
-#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_KNOWLEDGE_GRADIENT_INNER_OPTIMIZATION_HPP_
+#endif  // MOE_OPTIMAL_LEARNING_CPP_GPP_EXPECTED_IMPROVEMENT_SECOND_OPTIMIZATION_HPP_

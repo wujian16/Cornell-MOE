@@ -74,7 +74,7 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 prior = DefaultPrior(1+dim+len(observations), len(observations))
 # noisy = False means the underlying function being optimized is noise-free
 cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 1000, burnin_steps = 2000, n_hypers = 10, noisy = False)
+                                                           chain_length = 1000, burnin_steps = 2000, n_hypers = 2 ** 4, noisy = False)
 cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restarts=2,
@@ -149,7 +149,7 @@ for n in xrange(num_iteration):
         # KG method
         next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                 ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
+                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
 
     elif method == 'EI':
         # EI method
@@ -181,7 +181,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
-    cpp_gp_loglikelihood.optimize()
+    cpp_gp_loglikelihood.train()
 
     print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()
