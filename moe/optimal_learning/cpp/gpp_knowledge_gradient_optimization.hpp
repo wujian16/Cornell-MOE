@@ -689,17 +689,17 @@ struct PosteriorMeanState final {
 template <typename DomainType>
 void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                  const GradientDescentParameters& optimizer_parameters,
-                                 const DomainType& domain, double const * restrict initial_guess,
-                                 bool * restrict found_flag, double * restrict best_next_point);
+                                 const DomainType& domain, double const * restrict initial_guess, const int num_starts,
+                                 bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                                 const GradientDescentParameters& optimizer_parameters,
-                                                 const TensorProductDomain& domain, double const * restrict initial_guess,
-                                                 bool * restrict found_flag, double * restrict best_next_point);
+                                          const GradientDescentParameters& optimizer_parameters,
+                                          const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                                 const GradientDescentParameters& optimizer_parameters,
-                                                 const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                                 bool * restrict found_flag, double * restrict best_next_point);
+                                          const GradientDescentParameters& optimizer_parameters,
+                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 
 /*!\rst
   Set up vector of KnowledgeGradientEvaluator::StateType.

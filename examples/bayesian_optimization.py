@@ -81,11 +81,8 @@ def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_sear
     points_to_sample_list.append(multistart_knowledge_gradient_mcmc_optimization(optimizer, inner_optimizer, None, discrete_pts_list,
                                                                                  num_to_sample=num_to_sample,
                                                                                  num_pts=discrete_pts_list[0].shape[0],
-                                                                                 max_num_threads=16))
+                                                                                 max_num_threads=20))
 
     cpp_kg_evaluator.set_current_point(points_to_sample_list[0])
     kg_list.append(cpp_kg_evaluator.compute_objective_function())
     return points_to_sample_list[numpy.argmax(kg_list)], numpy.amax(kg_list)
-
-
-

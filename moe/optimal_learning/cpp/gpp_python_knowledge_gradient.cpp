@@ -319,6 +319,7 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
     CopyPylistToClosedIntervalVector(domain_bounds, dim-num_fidelity, domain_bounds_C);
 
     std::vector<double> best_points_to_sample_C(dim-num_fidelity);
+    double best_function_value;
 
     bool found_flag = false;
     const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
@@ -329,14 +330,14 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
         TensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
 
         ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
-                                    &found_flag, best_points_to_sample_C.data());
+                                    1, &found_flag, best_points_to_sample_C.data(), &best_function_value);
         break;
       }  // end case OptimizerTypes::kTensorProduct
       case DomainTypes::kSimplex: {
         SimplexIntersectTensorProductDomain inner_domain(domain_bounds_C.data(), dim - num_fidelity);
 
         ComputeOptimalPosteriorMean(gaussian_process, num_fidelity, gradient_descent_parameters, inner_domain, input_container.points_to_sample.data(),
-                                    &found_flag, best_points_to_sample_C.data());
+                                    1, &found_flag, best_points_to_sample_C.data(), &best_function_value);
         break;
       }  // end case OptimizerTypes::kSimplex
       default: {

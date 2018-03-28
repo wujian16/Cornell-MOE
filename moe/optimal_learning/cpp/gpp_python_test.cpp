@@ -25,7 +25,6 @@
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
 #include "gpp_knowledge_gradient_optimization_test.hpp"
-#include "gpp_knowledge_gradient_inner_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -68,13 +67,6 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = RunKGInnerTests();
-  if (error != 0) {
-    OL_FAILURE_PRINTF("KG inner tests failed\n");
-  } else {
-    OL_SUCCESS_PRINTF("KG inner tests\n");
-  }
-  total_errors += error;
 /*
   error = RunKGTests();
   if (error != 0) {
