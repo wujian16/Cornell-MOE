@@ -5,7 +5,6 @@
 
 
 #include "gpp_knowledge_gradient_optimization.hpp"
-#include "gpp_knowledge_gradient_inner_optimization.hpp"
 
 #include <cmath>
 
@@ -83,21 +82,29 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
   for (int i = 0; i < num_mc_iterations_; ++i) {
     if (i % 2 == 1){
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = -kg_state->normals[j + (i-1)*num_union*(1+num_gradients_to_sample)];// - 2.0;
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = -kg_state->normals[j + (i-1)*num_union*(1+num_gradients_to_sample)];
       }
     }
     else {
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();//- 1.0;
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();
       }
     }
 
     double best_function_value = 0.0;
-    ComputeOptimalFuturePosteriorMean(*gaussian_process_, num_fidelity_, kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample), kg_state->union_of_points.data(),
-                                      num_union, kg_state->gradients.data(), num_gradients_to_sample, kg_state->cholesky_to_sample_var.data(),
-                                      kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                      1, kg_state->discretized_set.data(), num_union + num_pts_,
-                                      &best_function_value, kg_state->best_point.data());
+    bool found_flag;
+    std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
+    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
+                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+    GeneralMatrixVectorMultiply(kg_state->cholesky_to_sample_var.data(), 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample),
+                                1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
+                                make_up_function_value.data());
+    GaussianProcess gaussian_process_after(*gaussian_process_);
+    gaussian_process_after.AddPointsToGP(kg_state->union_of_points.data(), make_up_function_value.data(), num_union);
+
+    ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
+                                domain_, kg_state->discretized_set.data(), num_union + num_pts_,
+                                &found_flag, kg_state->best_point.data(), &best_function_value);
     aggregate += best_posterior + best_function_value;
   }
   return aggregate/static_cast<double>(num_mc_iterations_);
@@ -164,11 +171,19 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
     }
 
     double best_function_value = 0.0;
-    ComputeOptimalFuturePosteriorMean(*gaussian_process_, num_fidelity_, kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample),
-                                      kg_state->union_of_points.data(), num_union, kg_state->gradients.data(), num_gradients_to_sample,
-                                      kg_state->cholesky_to_sample_var.data(), kg_state->points_to_sample_state.K_inv_times_K_star.data(), optimizer_parameters_, domain_,
-                                      1, kg_state->discretized_set.data(), num_union + num_pts_,
-                                      &best_function_value, kg_state->best_point.data() + i*dim_);
+    bool found_flag;
+    std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
+    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
+                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+    GeneralMatrixVectorMultiply(kg_state->cholesky_to_sample_var.data(), 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample),
+                                1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
+                                make_up_function_value.data());
+    GaussianProcess gaussian_process_after(*gaussian_process_);
+    gaussian_process_after.AddPointsToGP(kg_state->union_of_points.data(), make_up_function_value.data(), num_union);
+
+    ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
+                                domain_, kg_state->discretized_set.data(), num_union + num_pts_,
+                                &found_flag, kg_state->best_point.data(), &best_function_value);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);
@@ -273,7 +288,7 @@ void KnowledgeGradientState<DomainType>::PreCompute(const EvaluatorType& kg_eval
   }
 
   kg_evaluator.gaussian_process()->ComputeMeanOfAdditionalPoints(union_of_points.data(), num_union, nullptr, 0,
-                                                                to_sample_mean_.data());
+                                                                 to_sample_mean_.data());
 
   kg_evaluator.gaussian_process()->ComputeVarianceOfPoints(&(points_to_sample_state), gradients.data(),
                                                           num_gradients_to_sample, cholesky_to_sample_var.data());
@@ -397,8 +412,8 @@ void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
 template <typename DomainType>
 void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                  const GradientDescentParameters& optimizer_parameters,
-                                 const DomainType& domain, double const * restrict initial_guess,
-                                 bool * restrict found_flag, double * restrict best_next_point) {
+                                 const DomainType& domain, double const * restrict initial_guess, const int num_starts,
+                                 bool * restrict found_flag, double * restrict best_next_point, double * best_function_value) {
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
     return;
   }
@@ -409,20 +424,48 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
   PosteriorMeanEvaluator ps_evaluator(gaussian_process);
   typename PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, initial_guess, configure_for_gradients);
 
+  std::priority_queue<std::pair<double, int>> q;
+  double val;
+  int k = 1; // number of indices we need
+  for (int i = 0; i < num_starts; ++i) {
+    ps_state.SetCurrentPoint(ps_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
+    val = ps_evaluator.ComputePosteriorMean(&ps_state);
+    if (i < k){
+      q.push(std::pair<double, int>(-val, i));
+    }
+    else{
+      if (q.top().first > -val){
+        q.pop();
+        q.push(std::pair<double, int>(-val, i));
+      }
+    }
+  }
+
+  std::vector<double> top_k_starting(k*(gaussian_process.dim()-num_fidelity));
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<gaussian_process.dim()-num_fidelity; ++d){
+      top_k_starting[i*(gaussian_process.dim()-num_fidelity) + d] = initial_guess[ki*(gaussian_process.dim()-num_fidelity) + d];
+    }
+    q.pop();
+  }
+
   GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
+  ps_state.SetCurrentPoint(ps_evaluator, top_k_starting.data());
   gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
   ps_state.GetCurrentPoint(best_next_point);
+  *best_function_value = ps_evaluator.ComputePosteriorMean(&ps_state);
 }
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
 template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                           const GradientDescentParameters& optimizer_parameters,
-                                          const TensorProductDomain& domain, double const * restrict initial_guess,
-                                          bool * restrict found_flag, double * restrict best_next_point);
+                                          const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
                                           const GradientDescentParameters& optimizer_parameters,
-                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess,
-                                          bool * restrict found_flag, double * restrict best_next_point);
+                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 
 /*!\rst
   This is a simple wrapper around ComputeKGOptimalPointsToSampleWithRandomStarts() and

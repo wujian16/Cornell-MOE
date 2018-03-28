@@ -103,6 +103,7 @@ class PingCovarianceSpatialDerivatives final : public PingableMatrixInputVectorO
         for (int j=0; j<1+num_derivatives_; ++j){
             if (!CheckDoubleWithinRelative(covariance_val[i+j*(1+num_derivatives_)],
                                            covariance_val_transpose[j+i*(1+num_derivatives_)], 0.0)) {
+              OL_PARTIAL_FAILURE_PRINTF("row %d, col %d failed!\n", i, j);
               ++total_errors;
             }
         }
@@ -445,10 +446,10 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
 
     errors_this_iteration = covariance_evaluator.CheckSymmetry();
     if (errors_this_iteration != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("hyperparameter gradients from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
+      OL_PARTIAL_FAILURE_PRINTF("kernel matrix from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
     }
 
-    errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+    //errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
 
     if (errors_this_iteration != 0) {
       OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
@@ -495,7 +496,7 @@ OL_WARN_UNUSED_RESULT int RunCovarianceSpatialDerivativesTests() {
     }
     total_errors += current_errors;
   }
-
+*/
   {
     double epsilon_matern_nu_2p5[2] = {1.0e-2, 1.0e-3};
     current_errors = PingCovarianceSpatialDerivativesTest<PingCovarianceSpatialDerivatives<MaternNu2p5> >("Matern nu=2.5", epsilon_matern_nu_2p5, 4.0e-3, 1.0e-2, 1.0e-18);
@@ -503,7 +504,7 @@ OL_WARN_UNUSED_RESULT int RunCovarianceSpatialDerivativesTests() {
       OL_PARTIAL_FAILURE_PRINTF("pinging matern 2.5 covariance failed with %d errors\n", current_errors);
     }
     total_errors += current_errors;
-  }*/
+  }
 
   return total_errors;
 }

@@ -5,7 +5,6 @@
 
 
 #include "gpp_knowledge_gradient_mcmc_optimization.hpp"
-#include "gpp_knowledge_gradient_inner_optimization.hpp"
 
 #include <cmath>
 
@@ -40,7 +39,7 @@ GaussianProcessMCMC::GaussianProcessMCMC(double const * restrict hypers_mcmc,
   const double * hypers = hypers_mcmc;
   const double * noises = noises_mcmc;
   for (int i=0; i<num_mcmc_; ++i){
-    SquareExponential sqexp(dim_, hypers[0], hypers+1);
+    MaternNu2p5 sqexp(dim_, hypers[0], hypers+1);
     gaussian_process_lst.emplace_back(sqexp, points_sampled_.data(), points_sampled_value_.data(),
                                       noises, derivatives_.data(), num_derivatives_,
                                       dim_, num_sampled_);
