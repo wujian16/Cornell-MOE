@@ -19,7 +19,7 @@ from moe.optimal_learning.python.python_version.optimization import GradientDesc
 from moe.optimal_learning.python.python_version.optimization import GradientDescentOptimizer as pyGradientDescentOptimizer
 from moe.optimal_learning.python.python_version.optimization import multistart_optimize as multistart_optimize
 
-import bgo_methods
+import bayesian_optimization
 import synthetic_functions
 
 # arguments for calling this script:
@@ -116,7 +116,9 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG':
         discrete_pts_list = []
-        discrete = inner_search_domain.generate_uniform_random_points_in_domain(200)
+        #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
+        discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+                                                                cpp_sgd_params_kg, 10, num_mc=2 ** 10)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
@@ -147,14 +149,15 @@ for n in xrange(num_iteration):
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
         # KG method
-        next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
-                                                                ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+
+        next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
+                                                                          ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
 
     elif method == 'EI':
         # EI method
-        next_points, voi = bgo_methods.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
-                                                           cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
+        next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
     else:
         print method + str(" not supported")
         sys.exit(0)

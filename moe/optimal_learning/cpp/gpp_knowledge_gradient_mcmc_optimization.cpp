@@ -5,7 +5,6 @@
 
 
 #include "gpp_knowledge_gradient_mcmc_optimization.hpp"
-#include "gpp_knowledge_gradient_inner_optimization.hpp"
 
 #include <cmath>
 

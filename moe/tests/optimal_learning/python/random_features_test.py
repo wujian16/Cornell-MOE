@@ -18,7 +18,7 @@ from moe.optimal_learning.python.python_version.domain import TensorProductDomai
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood import GaussianProcessLogLikelihood as cppGaussianProcessLogLikelihood
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood import multistart_hyperparameter_optimization
 
-import bgo_methods
+import bayesian_optimization
 import synthetic_functions
 from moe.optimal_learning.python.random_features import sample_from_global_optima
 
