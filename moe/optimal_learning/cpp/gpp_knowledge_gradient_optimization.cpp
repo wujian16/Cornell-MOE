@@ -104,7 +104,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
 
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
-                                &found_flag, kg_state->best_point.data(), &best_function_value);
+                                &found_flag, kg_state->best_point.data() + i*dim_, &best_function_value);
     aggregate += best_posterior + best_function_value;
   }
   return aggregate/static_cast<double>(num_mc_iterations_);
@@ -183,7 +183,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
 
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
-                                &found_flag, kg_state->best_point.data(), &best_function_value);
+                                &found_flag, kg_state->best_point.data() + i*dim_, &best_function_value);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);

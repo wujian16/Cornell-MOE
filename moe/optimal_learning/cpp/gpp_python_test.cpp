@@ -67,7 +67,6 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-/*
   error = RunKGTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("KG tests failed\n");
@@ -75,7 +74,7 @@ int RunCppTestsWrapper() {
     OL_SUCCESS_PRINTF("KG tests\n");
   }
   total_errors += error;
-
+/*
   error = RunEIConsistencyTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("analytic, MC EI do not match for 1 potential sample case\n");
