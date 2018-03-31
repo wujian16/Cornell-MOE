@@ -1490,6 +1490,21 @@ struct OnePotentialSampleExpectedImprovementState final {
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(OnePotentialSampleExpectedImprovementState);
 };
 
+template <typename DomainType>
+void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                 const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                 const DomainType& domain, double const * restrict initial_guess, const int num_starts,
+                                 bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
+// template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
+extern template void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                          const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                          const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
+extern template void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                          const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
+
 /*!\rst
   Set up vector of OnePotentialSampleExpectedImprovementEvaluator::StateType.
 

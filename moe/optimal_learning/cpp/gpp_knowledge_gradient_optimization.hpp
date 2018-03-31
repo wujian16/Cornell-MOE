@@ -658,7 +658,7 @@ struct PosteriorMeanState final {
 };
 
 /*!\rst
-  Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
+  Perform multistart gradient descent (MGD) to solve the posterior-mean problem (see ComputeOptimalPointsToSample and/or
   header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
   This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
   generates a set of random starting points and is just here for convenience when better initial guesses are not

@@ -2199,6 +2199,93 @@ void OnePotentialSampleExpectedImprovementState::SetupState(const EvaluatorType&
 }
 
 /*!\rst
+  Perform multistart gradient descent (MGD) to solve the posterior-mean problem (see ComputeOptimalPointsToSample and/or
+  header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
+  This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
+  generates a set of random starting points and is just here for convenience when better initial guesses are not
+  available.
+  See ComputeOptimalPointsToSampleViaMultistartGradientDescent() for more details.
+  \param
+    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+      that describes the underlying GP
+    :optimizer_parameters: GradientDescentParameters object that describes the parameters controlling EI optimization
+      (e.g., number of iterations, tolerances, learning rate)
+    :domain: object specifying the domain to optimize over (see ``gpp_domain.hpp``)
+    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
+      max_num_threads (num cpu cores), schedule type (omp_sched_dynamic), chunk_size (0).
+    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-EI)
+    :best_so_far: value of the best sample so far (must be ``min(points_sampled_value)``)
+    :max_int_steps: maximum number of MC iterations
+    :uniform_generator[1]: a UniformRandomGenerator object providing the random engine for uniform random numbers
+    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
+      the (pesudo)random source for MC integration
+  \output
+    :found_flag[1]: true if best_next_point corresponds to a nonzero EI
+    :uniform_generator[1]: UniformRandomGenerator object will have its state changed due to random draws
+    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :best_next_point[dim][num_to_sample]: points yielding the best EI according to MGD
+\endrst*/
+template <typename DomainType>
+void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                 const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                 const DomainType& domain, double const * restrict initial_guess, const int num_starts,
+                                 bool * restrict found_flag, double * restrict best_next_point, double * best_function_value) {
+  if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
+    return;
+  }
+  bool configure_for_gradients = true;
+  OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
+
+  // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
+  OnePotentialSampleExpectedImprovementEvaluator ei_evaluator(gaussian_process, best_so_far);
+  typename OnePotentialSampleExpectedImprovementEvaluator::StateType ei_state(ps_evaluator, initial_guess, configure_for_gradients);
+
+  std::priority_queue<std::pair<double, int>> q;
+  double val;
+  int k = 1; // number of indices we need
+  for (int i = 0; i < num_starts; ++i) {
+    ei_state.SetCurrentPoint(ei_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
+    val = ei_evaluator.ComputeExpectedImprovement(&ei_state);
+    if (i < k){
+      q.push(std::pair<double, int>(-val, i));
+    }
+    else{
+      if (q.top().first > -val){
+        q.pop();
+        q.push(std::pair<double, int>(-val, i));
+      }
+    }
+  }
+
+  std::vector<double> top_k_starting(k*(gaussian_process.dim()-num_fidelity));
+  for (int i = 0; i < k; ++i) {
+    int ki = q.top().second;
+    for (int d = 0; d<gaussian_process.dim()-num_fidelity; ++d){
+      top_k_starting[i*(gaussian_process.dim()-num_fidelity) + d] = initial_guess[ki*(gaussian_process.dim()-num_fidelity) + d];
+    }
+    q.pop();
+  }
+
+  GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
+  ei_state.SetCurrentPoint(ei_evaluator, top_k_starting.data());
+  gd_opt.Optimize(ei_evaluator, optimizer_parameters, domain, &ei_state);
+  ei_state.GetCurrentPoint(best_next_point);
+  *best_function_value = ei_evaluator.ComputePosteriorMean(&ei_state);
+}
+
+// template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
+template void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                          const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                          const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
+template void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& gaussian_process, const int num_fidelity,
+                                          const GradientDescentParameters& optimizer_parameters, double best_so_far,
+                                          const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
+                                          bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
+
+/*!\rst
   Routes the EI computation through MultistartOptimizer + NullOptimizer to perform EI function evaluations at the list of input
   points, using the appropriate EI evaluator (e.g., monte carlo vs analytic) depending on inputs.
 \endrst*/

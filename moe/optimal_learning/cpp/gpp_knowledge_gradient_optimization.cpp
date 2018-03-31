@@ -183,7 +183,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
 
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
-                                &found_flag, kg_state->best_point.data(), &best_function_value);
+                                &found_flag, kg_state->best_point.data() + i*dim_, &best_function_value);
     aggregate += best_posterior + best_function_value;
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);
@@ -381,7 +381,7 @@ void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
 }
 
 /*!\rst
-  Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
+  Perform multistart gradient descent (MGD) to solve the posterior-mean problem (see ComputeOptimalPointsToSample and/or
   header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.
   This function is a simple wrapper around ComputeOptimalPointsToSampleViaMultistartGradientDescent(). It additionally
   generates a set of random starting points and is just here for convenience when better initial guesses are not
