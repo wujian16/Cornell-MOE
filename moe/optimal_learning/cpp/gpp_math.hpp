@@ -393,7 +393,8 @@ class GaussianProcess final {
   void AddPointsToGP(double const * restrict new_points,
                      double const * restrict new_points_value,
                      //double const * restrict new_points_noise_variance,
-                     int num_new_points);
+                     int num_new_points,
+                     bool mean_change = true);
 
   /*!\rst
     Sample a function value from a Gaussian Process prior, provided a point at which to sample.
@@ -818,7 +819,7 @@ class GaussianProcess final {
     Recomputes (including resizing as needed) the derived quantities in this class.
     This function should be called any time state variables are changed.
   \endrst*/
-  void RecomputeDerivedVariables();
+  void RecomputeDerivedVariables(bool mean_change = true);
 
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)

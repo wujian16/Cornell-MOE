@@ -211,6 +211,15 @@ class FuturePosteriorMeanEvaluator final {
     return result;
   }
 
+  std::vector<double> coeff_test(double const * coefficient, double const * chol,
+                            int num_to_sample, int num_derivatives) noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> result(num_to_sample*(1+num_derivatives));
+    std::copy(coefficient, coefficient + num_to_sample*(1+num_derivatives), result.data());
+    TriangularMatrixVectorMultiply(chol, 'N', num_to_sample_*(1+num_derivatives_),
+                                   result.data());
+    return result;
+  }
+
   /*!\rst
     Wrapper for ComputeExpectedImprovement(); see that function for details.
   \endrst*/
@@ -272,6 +281,7 @@ class FuturePosteriorMeanEvaluator final {
   //! transpose(Chol)^-1 * (sampled Z)
   const std::vector<double> coeff_;
   const std::vector<double> coeff_combined_;
+  const std::vector<double> coeff_test_;
 };
 
 /*!\rst

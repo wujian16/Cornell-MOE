@@ -101,6 +101,12 @@ class PingFuturePosteriorMean final : public PingableMatrixInputVectorOutputInte
                                                 num_to_sample_, gradients_.data(), num_gradients_, 0);
      gaussian_process_.ComputeVarianceOfPoints(&points_to_sample_state, gradients_.data(),
                                                 num_gradients_, chol_.data());
+     for (int i = 0;i < num_to_sample_; i++){
+       for (int j = 0; j < 1+num_gradients_; ++j){
+          int row = i*(1+num_gradients_)+j;
+          chol_[row+row*num_to_sample_*(1+num_gradients_)] += gaussian_process_.noise_variance()[j];
+       }
+     }
      int leading_minor_index = ComputeCholeskyFactorL(num_to_sample_*(1+num_gradients_), chol_.data());
      ZeroUpperTriangle(num_to_sample_*(1+num_gradients_), chol_.data());
      return chol_;

@@ -35,7 +35,8 @@ FuturePosteriorMeanEvaluator::FuturePosteriorMeanEvaluator(const GaussianProcess
     to_sample_derivatives_(derivatives(to_sample_derivatives, num_derivatives)),
     num_derivatives_(num_derivatives),
     coeff_(coeff(coefficient, chol, num_to_sample, num_derivatives)),
-    coeff_combined_(coeff_combine(coeff_.data(), train_sample, num_to_sample, num_derivatives)) {
+    coeff_combined_(coeff_combine(coeff_.data(), train_sample, num_to_sample, num_derivatives)),
+    coeff_test_(coeff_test(coefficient, chol, num_to_sample, num_derivatives)) {
 }
 
 /*!\rst
@@ -58,6 +59,20 @@ double FuturePosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) 
                                              num_derivatives_, temp.data());
 
   to_sample_mean += DotProduct(temp.data(), coeff_.data(), num_to_sample_*(1+num_derivatives_));
+
+//  std::vector<double> temp(num_to_sample_*(1+num_derivatives_));
+//  gaussian_process_->ComputeMeanOfAdditionalPoints(to_sample_.data(), num_to_sample_, to_sample_derivatives_.data(),
+//                                                   num_derivatives_, temp.data());
+//
+//  for (int val = 0; val < num_to_sample_*(1+num_derivatives_); ++val){
+//    temp[val] += coeff_test_[val];
+//  }
+//  GaussianProcess gaussian_process_after(*gaussian_process_);
+//  gaussian_process_after.AddPointsToGP(to_sample_.data(), temp.data(), num_to_sample_, false);
+//
+//  gaussian_process_after.ComputeMeanOfAdditionalPoints(ps_state->point_to_sample.data(), 1, nullptr,
+//                                                       0, &to_sample_mean);
+
   return -to_sample_mean;
 }
 
@@ -84,6 +99,19 @@ void FuturePosteriorMeanEvaluator::ComputeGradPosteriorMean(
   int num_observations = gaussian_process_->num_sampled();
   GeneralMatrixVectorMultiply(ps_state->grad_K_star.data(), 'N', coeff_combined_.data(), 1.0, 1.0,
                               dim_, num_observations*(gaussian_process_->num_derivatives()+1), dim_, grad_temp.data());
+
+//  std::vector<double> temp(num_to_sample_*(1+num_derivatives_));
+//  gaussian_process_->ComputeMeanOfAdditionalPoints(to_sample_.data(), num_to_sample_, to_sample_derivatives_.data(),
+//                                                   num_derivatives_, temp.data());
+//
+//  for (int val = 0; val < num_to_sample_*(1+num_derivatives_); ++val){
+//    temp[val] += coeff_test_[val];
+//  }
+//  GaussianProcess gaussian_process_after(*gaussian_process_);
+//  gaussian_process_after.AddPointsToGP(to_sample_.data(), temp.data(), num_to_sample_, false);
+//  PointsToSampleState state_temp(gaussian_process_after, ps_state->point_to_sample.data(), 1, nullptr, 0, dim_);
+//
+//  gaussian_process_after.ComputeGradMeanOfPoints(state_temp, grad_temp.data());
 
   for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
     grad_PS[i] = -grad_temp[i];
