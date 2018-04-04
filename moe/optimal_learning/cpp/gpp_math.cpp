@@ -478,7 +478,7 @@ void GaussianProcess::BuildMixCovarianceMatrix(double const * restrict points_to
                                              covariance_matrix);
 }
 
-void GaussianProcess::RecomputeDerivedVariables() {
+void GaussianProcess::RecomputeDerivedVariables(bool mean_change /* = true*/) {
   // resize if needed
   if (unlikely(static_cast<int>(K_inv_y_.size()) != num_sampled_*(num_derivatives_+1))) {
     K_chol_.resize(Square(num_sampled_*(num_derivatives_+1)));
@@ -495,11 +495,13 @@ void GaussianProcess::RecomputeDerivedVariables() {
                        K_chol_.data(), num_sampled_*(num_derivatives_+1), leading_minor_index);
   }
 
-  mean_ = 0.0;
-  for (int i=0; i<num_sampled_; ++i){
-     mean_ += points_sampled_value_[i*(num_derivatives_+1)];
+  if (mean_change == true) {
+    mean_ = 0.0;
+    for (int i=0; i<num_sampled_; ++i){
+       mean_ += points_sampled_value_[i*(num_derivatives_+1)];
+    }
+    mean_ /= num_sampled_;
   }
-  mean_ /= num_sampled_;
 
   std::copy(points_sampled_value_.begin(), points_sampled_value_.end(), K_inv_y_.begin());
   for (int i=0; i<num_sampled_; ++i){
@@ -1626,7 +1628,8 @@ void GaussianProcess::ComputeGradInverseCholeskyCovarianceOfPoints(StateType * p
 void GaussianProcess::AddPointsToGP(double const * restrict new_points,
                                     double const * restrict new_points_value,
 //                                    double const * restrict new_points_noise_variance,
-                                    int num_new_points) {
+                                    int num_new_points,
+                                    bool mean_change /* = true*/) {
   // update sizes
   num_sampled_ += num_new_points;
 
@@ -1643,7 +1646,7 @@ void GaussianProcess::AddPointsToGP(double const * restrict new_points,
   // recompute derived quantities
   // TODO(GH-192): Insert the new covariance (and cholesky covariance) rows into the current matrix  (O(N^2))
   // instead of recomputing everything (O(N^3)).
-  RecomputeDerivedVariables();
+  RecomputeDerivedVariables(mean_change);
 }
 
 /*!\rst

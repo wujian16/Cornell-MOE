@@ -100,7 +100,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
                                 1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
                                 make_up_function_value.data());
     GaussianProcess gaussian_process_after(*gaussian_process_);
-    gaussian_process_after.AddPointsToGP(kg_state->union_of_points.data(), make_up_function_value.data(), num_union);
+    gaussian_process_after.AddPointsToGP(kg_state->union_of_points.data(), make_up_function_value.data(), num_union, false);
 
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
@@ -296,7 +296,7 @@ void KnowledgeGradientState<DomainType>::PreCompute(const EvaluatorType& kg_eval
   for (int i = 0;i < num_union; i++){
     for (int j = 0; j < 1+num_gradients_to_sample; ++j){
       int row = i*(1+num_gradients_to_sample)+j;
-      cholesky_to_sample_var[row+row*num_union*(1+num_gradients_to_sample)] += kg_evaluator.gaussian_process()->noise_variance()[j] + 1.e-6;
+      cholesky_to_sample_var[row+row*num_union*(1+num_gradients_to_sample)] += kg_evaluator.gaussian_process()->noise_variance()[j];// + 1.e-6;
     }
   }
   int leading_minor_index = ComputeCholeskyFactorL(num_union*(1+num_gradients_to_sample), cholesky_to_sample_var.data());
