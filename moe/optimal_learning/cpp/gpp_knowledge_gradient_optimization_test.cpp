@@ -406,9 +406,9 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   const double gamma = 0.7;
   const double pre_mult = 1.0;
   const double max_relative_change = 0.7;
-  const double tolerance = 1.0e-1;
+  const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 250;
+  const int max_gradient_descent_steps = 500;
   const int max_num_restarts = 3;
   const int num_steps_averaged = 15;
 

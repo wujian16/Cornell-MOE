@@ -3,7 +3,7 @@
 from collections import namedtuple
 
 import moe.optimal_learning.python.python_version.optimization as python_optimization
-import moe.views.constant as views_constant
+#import moe.views.constant as views_constant
 
 # Multithreading constants
 #: Default number of threads to use in computation
@@ -232,51 +232,51 @@ EI_COMPUTE_TYPE_MONTE_CARLO = 'ei_monte_carlo'
 SINGLE_POINT_EI = 'single_point_ei'
 MULTI_POINT_EI = 'multi_point_ei'
 
-#: dict mapping from tuples describing endpoints and objective functions to optimizer type strings;
-#: i.e., one of :const:`moe.optimal_learning.python.constant.OPTIMIZER_TYPES`.
-ENDPOINT_TO_DEFAULT_OPTIMIZER_TYPE = {
-    views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME: GRADIENT_DESCENT_OPTIMIZER,
-    views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME: GRADIENT_DESCENT_OPTIMIZER,
-    (views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, MULTI_POINT_EI): L_BFGS_B_OPTIMIZER,
-    (views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, SINGLE_POINT_EI): GRADIENT_DESCENT_OPTIMIZER,
-    (views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): GRADIENT_DESCENT_OPTIMIZER,
-    (views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): NEWTON_OPTIMIZER,
-}
-
-#: dict mapping from tuples of optimizer type, endpoint, etc. to default optimizer parameters. The default parameter
-#: structs are of type :class:`moe.optimal_learning.python.constant.DefaultOptimizerInfoTuple` and the actual default
-#: parameters are defined in :mod:`moe.optimal_learning.python.constant`.
-#: Note: (NEWTON_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD)
-#: does not have an entry because this combination is not yet implemented.
-#: Newton is also not implemented for any of the GP_NEXT_POINTS_* endpoints.
-OPTIMIZER_TYPE_AND_OBJECTIVE_TO_DEFAULT_PARAMETERS = {
-    (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME): _EI_ANALYTIC_NULL_OPTIMIZER,
-    (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME): _EI_ANALYTIC_NULL_OPTIMIZER,
-    (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_ANALYTIC_NULL_OPTIMIZER,
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
-    (L_BFGS_B_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_MULTIPOINT_DEFAULT_OPTIMIZER,
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
-    (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_MONTE_CARLO): DefaultOptimizerInfoTuple(
-        1,  # unused but the min value is 1
-        DEFAULT_NULL_NUM_RANDOM_SAMPLES_EI_MC,
-        python_optimization.NullParameters(),
-    ),
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_MONTE_CARLO): DefaultOptimizerInfoTuple(
-        DEFAULT_GRADIENT_DESCENT_MULTISTARTS_EI_MC,
-        DEFAULT_GRADIENT_DESCENT_NUM_RANDOM_SAMPLES_EI_MC,
-        DEFAULT_GRADIENT_DESCENT_PARAMETERS_EI_MC,
-    ),
-    (NULL_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): _MODEL_SELECTION_NULL_OPTIMIZER,
-    (NULL_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): _MODEL_SELECTION_NULL_OPTIMIZER,
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): _MODEL_SELECTION_GRADIENT_DESCENT_OPTIMIZER,
-    (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): _MODEL_SELECTION_GRADIENT_DESCENT_OPTIMIZER,
-    (NEWTON_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): DefaultOptimizerInfoTuple(
-        DEFAULT_NEWTON_MULTISTARTS_MODEL_SELECTION,
-        DEFAULT_NEWTON_NUM_RANDOM_SAMPLES_MODEL_SELECTION,
-        DEFAULT_NEWTON_PARAMETERS_MODEL_SELECTION,
-    ),
-}
+# #: dict mapping from tuples describing endpoints and objective functions to optimizer type strings;
+# #: i.e., one of :const:`moe.optimal_learning.python.constant.OPTIMIZER_TYPES`.
+# ENDPOINT_TO_DEFAULT_OPTIMIZER_TYPE = {
+#     views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME: GRADIENT_DESCENT_OPTIMIZER,
+#     views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME: GRADIENT_DESCENT_OPTIMIZER,
+#     (views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, MULTI_POINT_EI): L_BFGS_B_OPTIMIZER,
+#     (views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, SINGLE_POINT_EI): GRADIENT_DESCENT_OPTIMIZER,
+#     (views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): GRADIENT_DESCENT_OPTIMIZER,
+#     (views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): NEWTON_OPTIMIZER,
+# }
+#
+# #: dict mapping from tuples of optimizer type, endpoint, etc. to default optimizer parameters. The default parameter
+# #: structs are of type :class:`moe.optimal_learning.python.constant.DefaultOptimizerInfoTuple` and the actual default
+# #: parameters are defined in :mod:`moe.optimal_learning.python.constant`.
+# #: Note: (NEWTON_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD)
+# #: does not have an entry because this combination is not yet implemented.
+# #: Newton is also not implemented for any of the GP_NEXT_POINTS_* endpoints.
+# OPTIMIZER_TYPE_AND_OBJECTIVE_TO_DEFAULT_PARAMETERS = {
+#     (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME): _EI_ANALYTIC_NULL_OPTIMIZER,
+#     (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME): _EI_ANALYTIC_NULL_OPTIMIZER,
+#     (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_ANALYTIC_NULL_OPTIMIZER,
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_KRIGING_ROUTE_NAME): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_CONSTANT_LIAR_ROUTE_NAME): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
+#     (L_BFGS_B_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_MULTIPOINT_DEFAULT_OPTIMIZER,
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_ANALYTIC): _EI_ANALYTIC_DEFAULT_OPTIMIZER,
+#     (NULL_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_MONTE_CARLO): DefaultOptimizerInfoTuple(
+#         1,  # unused but the min value is 1
+#         DEFAULT_NULL_NUM_RANDOM_SAMPLES_EI_MC,
+#         python_optimization.NullParameters(),
+#     ),
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_NEXT_POINTS_EPI_ROUTE_NAME, EI_COMPUTE_TYPE_MONTE_CARLO): DefaultOptimizerInfoTuple(
+#         DEFAULT_GRADIENT_DESCENT_MULTISTARTS_EI_MC,
+#         DEFAULT_GRADIENT_DESCENT_NUM_RANDOM_SAMPLES_EI_MC,
+#         DEFAULT_GRADIENT_DESCENT_PARAMETERS_EI_MC,
+#     ),
+#     (NULL_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): _MODEL_SELECTION_NULL_OPTIMIZER,
+#     (NULL_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): _MODEL_SELECTION_NULL_OPTIMIZER,
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LEAVE_ONE_OUT_LOG_LIKELIHOOD): _MODEL_SELECTION_GRADIENT_DESCENT_OPTIMIZER,
+#     (GRADIENT_DESCENT_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): _MODEL_SELECTION_GRADIENT_DESCENT_OPTIMIZER,
+#     (NEWTON_OPTIMIZER, views_constant.GP_HYPER_OPT_ROUTE_NAME, LOG_MARGINAL_LIKELIHOOD): DefaultOptimizerInfoTuple(
+#         DEFAULT_NEWTON_MULTISTARTS_MODEL_SELECTION,
+#         DEFAULT_NEWTON_NUM_RANDOM_SAMPLES_MODEL_SELECTION,
+#         DEFAULT_NEWTON_PARAMETERS_MODEL_SELECTION,
+#     ),
+# }
 
 # Constant Liar constants
 CONSTANT_LIAR_MIN = 'constant_liar_min'
