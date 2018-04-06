@@ -396,6 +396,14 @@ class GaussianProcess final {
                      int num_new_points,
                      bool mean_change = true);
 
+  void AddSampledPointsToGP(double const * restrict new_points,
+                            double const * restrict new_points_value,
+                            int num_new_points);
+
+  void NewSampledValue(double const * restrict new_points_value,
+                       int num_new_points,
+                       int sampling_point_index,
+                       bool mean_change /* = true*/);
   /*!\rst
     Sample a function value from a Gaussian Process prior, provided a point at which to sample.
 
@@ -414,9 +422,7 @@ class GaussianProcess final {
       function value drawn from this GP
   \endrst*/
   void SamplePointFromGP(double const * restrict point_to_sample,
-//                       double noise_variance_this_point,
                          double * results) noexcept OL_NONNULL_POINTERS;
-
 
   /*!\rst
     Sample only function values for a list of points
@@ -820,6 +826,10 @@ class GaussianProcess final {
     This function should be called any time state variables are changed.
   \endrst*/
   void RecomputeDerivedVariables(bool mean_change = true);
+
+  void RecomputeCholeskyVariables();
+
+  void RecomputeMeanVariables(bool mean_change = true);
 
   // size information
   //! spatial dimension (e.g., entries per point of ``points_sampled``)
