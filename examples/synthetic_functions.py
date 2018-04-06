@@ -31,7 +31,7 @@ class Branin(object):
 
 class Rosenbrock(object):
     def __init__(self):
-        self._dim = 2
+        self._dim = 4
         self._search_domain = numpy.repeat([[-2., 2.]], self._dim, axis=0)
         self._num_init_pts = 3
         self._sample_var = 0.0
