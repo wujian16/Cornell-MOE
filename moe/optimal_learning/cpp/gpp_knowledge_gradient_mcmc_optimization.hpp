@@ -537,7 +537,7 @@ inline OL_NONNULL_POINTERS void SetupKnowledgeGradientMCMCState(
     //kg_state_vector.reserve(0);
     state_vector->emplace_back(kg_evaluator, points_to_sample, points_being_sampled, num_to_sample,
                                num_being_sampled, num_pts, gradients, num_gradients, configure_for_gradients,
-                               normal_rng + i, kg_state_vector+i);
+                               normal_rng+i, kg_state_vector+i);
   }
 }
 
@@ -664,10 +664,12 @@ void RestartedGradientDescentKGMCMCOptimization(const KnowledgeGradientMCMCEvalu
 \endrst*/
 template <typename DomainType>
 OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(
-    GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+    GaussianProcessMCMC& gaussian_process_mcmc,
+    const int num_fidelity,
     const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
-    const DomainType& domain, const DomainType& inner_domain,
+    const DomainType& domain,
+    const DomainType& inner_domain,
     const ThreadSchedule& thread_schedule,
     double const * restrict start_point_set,
     double const * restrict points_being_sampled,
@@ -701,10 +703,10 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
                                   normal_rng, kg_state_vector.data(), &state_vector);
 
   std::vector<double> KG_starting(num_multistarts);
-  for (int i=0; i<num_multistarts; ++i){
-    state_vector[0].SetCurrentPoint(kg_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
-    KG_starting[i] = kg_evaluator.ComputeKnowledgeGradient(&state_vector[0]);
-  }
+  EvaluateKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule,
+                            start_point_set, points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
+                            num_being_sampled, num_pts, best_so_far, max_int_steps, found_flag, normal_rng,
+                            KG_starting.data(), best_next_point);
 
   std::priority_queue<std::pair<double, int>> q;
   int k = 20; // number of indices we need
