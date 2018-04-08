@@ -201,6 +201,7 @@ class RandomnessSourceContainer {
     \param
       :seed: base seed value to use
   \endrst*/
+
   void SetRandomizedNormalRNGSeed(NormalRNG::EngineType::result_type seed);
 
   /*!\rst

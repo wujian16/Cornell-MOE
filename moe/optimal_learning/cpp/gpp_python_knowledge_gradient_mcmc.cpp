@@ -208,7 +208,6 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
                                                RandomnessSourceContainer& randomness_source,
                                                boost::python::dict& status,
                                                double * restrict best_points_to_sample) {
-
   bool found_flag = false;
 
   switch (optimizer_type) {

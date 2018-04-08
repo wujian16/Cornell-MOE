@@ -37,8 +37,11 @@ job_id = int(argv[3])
 num_func_eval = 60
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
-                 'Hartmann3': synthetic_functions.Hartmann3(), 'Hartmann6': synthetic_functions.Hartmann6()}
+obj_func_dict = {'Branin': synthetic_functions.Branin(),
+                 'Rosenbrock': synthetic_functions.Rosenbrock(),
+                 'Hartmann3': synthetic_functions.Hartmann3(),
+                 'Levy4': synthetic_functions.Levy4(),
+                 'Hartmann6': synthetic_functions.Hartmann6()}
                  #'CIFAR10': real_functions.CIFAR10(),
                  #'KISSGP': real_functions.KISSGP()}
 
@@ -77,22 +80,23 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            chain_length = 1000, burnin_steps = 2000, n_hypers = 2 ** 4, noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restarts=3,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=1.0,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=500, max_num_restarts=3,
+                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.001,
                                                max_relative_change=0.02, tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=60, max_num_restarts=2,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=1.0,
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=2,
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.005,
                                                  max_relative_change=0.1, tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=50, max_num_restarts=1,
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=50, max_num_restarts=3,
                                                  num_steps_averaged=4, gamma=0.7, pre_mult=1.0,
                                                  max_relative_change=0.5, tolerance=1.0e-5)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
 eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
-                      (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
+                      (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled,
+                       cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
 
 test = np.zeros(eval_pts.shape[0])
 ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models, num_fidelity)
@@ -152,7 +156,6 @@ for n in xrange(num_iteration):
         next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                           ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
                                                                           cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
-
     elif method == 'EI':
         # EI method
         next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
