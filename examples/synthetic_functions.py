@@ -1,4 +1,5 @@
 import numpy
+from numpy import abs, cos, exp, mean, pi, prod, sin, sqrt, sum
 
 class Branin(object):
     def __init__(self):
@@ -31,7 +32,7 @@ class Branin(object):
 
 class Rosenbrock(object):
     def __init__(self):
-        self._dim = 2
+        self._dim = 4
         self._search_domain = numpy.repeat([[-2., 2.]], self._dim, axis=0)
         self._num_init_pts = 3
         self._sample_var = 0.0
@@ -40,9 +41,9 @@ class Rosenbrock(object):
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
-        """ Global minimum is 0 at (1, 1, 1)
+        """ Global minimum is 0 at (1, 1, 1, 1)
 
-            :param x[3]: 3-dimension numpy array
+            :param x[4]: 4-dimension numpy array
         """
         value = 0.0
         for i in range(self._dim-1):
@@ -84,6 +85,44 @@ class Hartmann3(object):
             for j in xrange(self._dim-self._num_fidelity):
                 results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
         return numpy.array(results)
+
+    def evaluate(self, x):
+        t = self.evaluate_true(x)
+        return t
+
+class Levy4(object):
+    def __init__(self):
+        self._dim = 4
+        self._search_domain = numpy.repeat([[-5., 5.]], self._dim, axis=0)
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._observations = []#numpy.arange(self._dim)
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        """ Global minimum is 0 at (1, 1, 1, 1)
+
+            :param x[4]: 4-dimension numpy array
+
+            a difficult test case for KG-type methods.
+        """
+        x = numpy.asarray_chkfinite(x)
+        n = len(x)
+        z = 1 + (x - 1) / 4
+
+        results = [0] * (n+1)
+        results[0] = (sin( pi * z[0] )**2
+                      + sum( (z[:-1] - 1)**2 * (1 + 10 * sin( pi * z[:-1] + 1 )**2 ))
+                      +       (z[-1] - 1)**2 * (1 + sin( 2 * pi * z[-1] )**2 ))
+        results[1] = 2. * sin(pi * z[0]) * cos(pi * z[0]) * pi * (0.25)
+        results[n] = (((z[-1] - 1)**2) * (2. * sin(2 * pi * z[-1]) * cos(2. * pi * z[-1]) * 2. * pi *(0.25))
+                      + 2. * (z[-1]-1) * (0.25) * (1 + sin( 2. * pi * z[-1] )**2 ))
+
+        results[1:-1] += (((z[:-1] - 1)**2) * (20. * sin(pi * z[:-1] + 1) * cos(pi * z[:-1] + 1) * pi *(0.25))
+                          + 2 * (z[:-1]-1) * (0.25) * (1 + 10. * sin(pi * z[:-1] + 1)**2 ))
+        return numpy.array(results)
+
 
     def evaluate(self, x):
         t = self.evaluate_true(x)
