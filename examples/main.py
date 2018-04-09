@@ -75,22 +75,42 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 
 # initialize the model
 prior = DefaultPrior(1+dim+len(observations), len(observations))
+
 # noisy = False means the underlying function being optimized is noise-free
-cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 1000, burnin_steps = 2000, n_hypers = 2 ** 4, noisy = False)
+cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data,
+                                                           derivatives = derivatives,
+                                                           prior = prior,
+                                                           chain_length = 1000,
+                                                           burnin_steps = 2000,
+                                                           n_hypers = 2 ** 4,
+                                                           noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=500, max_num_restarts=3,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.005,
-                                               max_relative_change=0.02, tolerance=1.0e-5)
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=500,
+                                               max_num_restarts=3,
+                                               num_steps_averaged=15,
+                                               gamma=0.7,
+                                               pre_mult=0.005,
+                                               max_relative_change=0.02,
+                                               tolerance=1.0e-5)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=50, max_num_restarts=4,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.005,
-                                                 max_relative_change=0.1, tolerance=1.0e-5)
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
+                                                 max_num_steps=50,
+                                                 max_num_restarts=4,
+                                                 num_steps_averaged=3,
+                                                 gamma=0.7,
+                                                 pre_mult=0.005,
+                                                 max_relative_change=0.1,
+                                                 tolerance=1.0e-5)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=50, max_num_restarts=2,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=1.0,
-                                                 max_relative_change=0.5, tolerance=1.0e-5)
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
+                                                 max_num_steps=50,
+                                                 max_num_restarts=2,
+                                                 num_steps_averaged=4,
+                                                 gamma=0.7,
+                                                 pre_mult=1.0,
+                                                 max_relative_change=0.5,
+                                                 tolerance=1.0e-5)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
