@@ -152,6 +152,23 @@ template <typename DomainType>
 class TwoStepExpectedImprovementEvaluator final {
  public:
   using StateType = TwoStepExpectedImprovementState<DomainType>;
+
+  //! Minimum allowed variance value in the "1D" analytic EI computation.
+  //! Values that are too small result in problems b/c we may compute ``std_dev/var`` (which is enormous
+  //! if ``std_dev = 1.0e-150`` and ``var = 1.0e-300``) since this only arises when we fail to compute ``std_dev = var = 0.0``.
+  //! Note: this is only relevant if noise = 0.0; this minimum will not affect EI computation with noise since this value
+  //! is below the smallest amount of noise users can meaningfully add.
+  //! This is the smallest possible value that prevents the denominator (best_so_far - mean) / sqrt(variance)
+  //! from being 0. 1D analytic EI is simple and no other robustness considerations are needed.
+  static constexpr double kMinimumVarianceEI = std::numeric_limits<double>::min();
+
+  //! Minimum allowed variance value in the "1D" analytic grad EI computation.
+  //! See kMinimumVarianceEI for more details.
+  //! This value was chosen so its sqrt would be a little larger than GaussianProcess::kMinimumStdDev (by ~12x).
+  //! The 150.0 was determined by numerical experiment with the setup in EIOnePotentialSampleEdgeCasesTest
+  //! in order to find a setting that would be robust (no 0/0) while introducing minimal error.
+  static constexpr double kMinimumVarianceGradEI = 150.0*Square(GaussianProcess::kMinimumStdDev);
+
   /*!\rst
     Constructs a KnowledgeGradientEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
 
@@ -277,6 +294,8 @@ class TwoStepExpectedImprovementEvaluator final {
   const GradientDescentParameters optimizer_parameters_;
   const DomainType domain_;
 
+  //! normal distribution object
+  const boost::math::normal_distribution<double> normal_;
   //! pointer to gaussian process used in KG computations
   const GaussianProcess * gaussian_process_;
 
@@ -475,6 +494,12 @@ struct TwoStepExpectedImprovementState final {
   std::vector<double> chol_inverse_cov;
   //! grad_chol_inverse_cov
   std::vector<double> grad_chol_inverse_cov;
+  //! the mean difference at step two
+  std::vector<double> best_mean_difference;
+  //! the standard deviation at step two
+  std::vector<double> best_standard_deviation;
+  //! the gradient of the step one best point wrt the step-one sampled point
+  std::vector<double> step_one_gradient;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(TwoStepExpectedImprovementState);
 };
