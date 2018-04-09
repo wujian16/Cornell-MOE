@@ -239,15 +239,15 @@ class TwoStepExpectedImprovementEvaluator final {
   /*!\rst
     Wrapper for ComputeKnowledgeGradient(); see that function for details.
   \endrst*/
-  double ComputeObjectiveFunction(StateType * kg_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
-    return ComputeKnowledgeGradient(kg_state);
+  double ComputeObjectiveFunction(StateType * vf_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
+    return ComputeValueFunction(vf_state);
   }
 
   /*!\rst
     Wrapper for ComputeGradKnowledgeGradient(); see that function for details.
   \endrst*/
-  void ComputeGradObjectiveFunction(StateType * kg_state, double * restrict grad_KG) const OL_NONNULL_POINTERS {
-    ComputeGradKnowledgeGradient(kg_state, grad_KG);
+  void ComputeGradObjectiveFunction(StateType * vf_state, double * restrict grad_VF) const OL_NONNULL_POINTERS {
+    ComputeGradValueFunction(vf_state, grad_VF);
   }
 
   /*!\rst

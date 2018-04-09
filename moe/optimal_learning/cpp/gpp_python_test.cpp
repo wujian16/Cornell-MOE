@@ -25,7 +25,7 @@
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
 #include "gpp_knowledge_gradient_optimization_test.hpp"
-#include "gpp_expected_improvement_second_optimization_test.hpp"
+#include "gpp_two_step_expected_improvement_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -68,19 +68,19 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = Run2EISecondTests();
+//  error = RunKGTests();
+//  if (error != 0) {
+//    OL_FAILURE_PRINTF("KG tests failed\n");
+//  } else {
+//    OL_SUCCESS_PRINTF("KG tests\n");
+//  }
+//  total_errors += error;
+
+  error = RunTwoEITests();
   if (error != 0) {
-    OL_FAILURE_PRINTF("2EI second optimization tests failed\n");
+    OL_FAILURE_PRINTF("Two-step EI tests failed\n");
   } else {
-    OL_SUCCESS_PRINTF("2EI second optimization tests\n");
-  }
-  total_errors += error;
-/*
-  error = RunKGTests();
-  if (error != 0) {
-    OL_FAILURE_PRINTF("KG tests failed\n");
-  } else {
-    OL_SUCCESS_PRINTF("KG tests\n");
+    OL_SUCCESS_PRINTF("Two-step EI tests\n");
   }
   total_errors += error;
 /*

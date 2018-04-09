@@ -97,7 +97,7 @@ set(OPTIMAL_LEARNING_CORE_SOURCES
   #gpp_expected_improvement_gpu.cpp
   gpp_knowledge_gradient_optimization.cpp
   gpp_knowledge_gradient_mcmc_optimization.cpp
-  gpp_expected_improvement_second_optimization.cpp
+  gpp_two_step_expected_improvement_optimization.cpp
   )
 
 # readonly
@@ -109,7 +109,7 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_linear_algebra_test.cpp
   gpp_math_test.cpp
   gpp_knowledge_gradient_optimization_test.cpp
-  gpp_expected_improvement_second_optimization_test.cpp
+  gpp_two_step_expected_improvement_optimization_test.cpp
   gpp_model_selection_test.cpp
   gpp_optimization_test.cpp
   gpp_random_test.cpp

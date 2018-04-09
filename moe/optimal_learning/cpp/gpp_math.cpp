@@ -2309,7 +2309,7 @@ void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& 
 
   // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
   OnePotentialSampleExpectedImprovementEvaluator ei_evaluator(gaussian_process, best_so_far);
-  typename OnePotentialSampleExpectedImprovementEvaluator::StateType ei_state(ps_evaluator, initial_guess, configure_for_gradients);
+  typename OnePotentialSampleExpectedImprovementEvaluator::StateType ei_state(ei_evaluator, initial_guess, configure_for_gradients);
 
   std::priority_queue<std::pair<double, int>> q;
   double val;
@@ -2337,11 +2337,11 @@ void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& 
     q.pop();
   }
 
-  GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
+  GradientDescentOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> gd_opt;
   ei_state.SetCurrentPoint(ei_evaluator, top_k_starting.data());
   gd_opt.Optimize(ei_evaluator, optimizer_parameters, domain, &ei_state);
   ei_state.GetCurrentPoint(best_next_point);
-  *best_function_value = ei_evaluator.ComputePosteriorMean(&ei_state);
+  *best_function_value = ei_evaluator.ComputeExpectedImprovement(&ei_state);
 }
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
