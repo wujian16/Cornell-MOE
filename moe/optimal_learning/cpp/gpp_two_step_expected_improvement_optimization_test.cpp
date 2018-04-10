@@ -87,7 +87,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
         points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_*(1+num_gradients_)),
         points_being_sampled_(points_being_sampled, points_being_sampled + num_being_sampled_*dim_),
         discrete_pts_(random_discrete(dim_, num_pts_)),
-        grad_KG_(dim_*num_to_sample_),
+        grad_VF_(dim_*num_to_sample_),
         sqexp_covariance_(dim_, alpha, lengths),
         gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
                           gradients_.data(), num_gradients_, dim_, num_sampled_),
@@ -130,10 +130,10 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
                                                                         num_to_sample_, num_being_sampled_, twoei_evaluator_.num_mc_iterations(), gradients_.data(),
                                                                         num_gradients_, configure_for_gradients, &normal_rng);
 
-    twoei_evaluator_.ComputeGradValueFunction(&twoei_state, grad_KG_.data());
+    twoei_evaluator_.ComputeGradValueFunction(&twoei_state, grad_VF_.data());
 
     if (gradients != nullptr) {
-      std::copy(grad_KG_.begin(), grad_KG_.end(), gradients);
+      std::copy(grad_VF_.begin(), grad_VF_.end(), gradients);
     }
   }
 
@@ -142,7 +142,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
       OL_THROW_EXCEPTION(OptimalLearningException, "PingKnowledgeGradient::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
     }
 
-    return grad_KG_[column_index*dim_ + row_index];
+    return grad_VF_[column_index*dim_ + row_index];
   }
 
   virtual void EvaluateFunction(double const * restrict points_to_sample, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
@@ -189,7 +189,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
   //! points to approximate KG
   std::vector<double> discrete_pts_;
   //! the gradient of KG at union_of_points, wrt union_of_points[0:num_to_sample]
-  std::vector<double> grad_KG_;
+  std::vector<double> grad_VF_;
 
   //! covariance class (for computing covariance and its gradients)
   SquareExponential sqexp_covariance_;
@@ -244,7 +244,7 @@ OL_WARN_UNUSED_RESULT int PingTwoEITest(int num_to_sample, int num_being_sampled
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 500;
+  const int max_gradient_descent_steps = 1000;
   const int max_num_restarts = 20;
   const int num_steps_averaged = 15;
 
@@ -307,7 +307,7 @@ OL_WARN_UNUSED_RESULT int PingTwoEITest(int num_to_sample, int num_being_sampled
 \endrst*/
 
 int PingTwoEIGeneralTest() {
-  double epsilon_KG[2] = {1.0e-3, 1.0e-4};
+  double epsilon_KG[2] = {1.0e-4, 1.0e-5};
   int total_errors = PingTwoEITest<PingTwoExpectedImprovement>(1, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingTwoEITest<PingTwoExpectedImprovement>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);

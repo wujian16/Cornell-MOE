@@ -229,8 +229,7 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeGradValueFunction
     // update the standard deviation
     PointsToSampleState best_point(gaussian_process_after, vf_state->best_point.data() + i*dim_, 1, nullptr, 0, 0);
     gaussian_process_after.ComputeVarianceOfPoints(&(best_point),
-                                                   nullptr,
-                                                   0,
+                                                   nullptr, 0,
                                                    vf_state->best_standard_deviation.data()+i);
     vf_state->best_standard_deviation[i] = std::fmax(kMinimumVarianceGradEI, vf_state->best_standard_deviation[i]);
     vf_state->best_standard_deviation[i] = sqrt(vf_state->best_standard_deviation[i]);
