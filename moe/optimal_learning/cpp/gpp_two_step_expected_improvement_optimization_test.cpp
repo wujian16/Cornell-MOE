@@ -119,7 +119,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
 
   virtual void EvaluateAndStoreAnalyticGradient(double const * restrict points_to_sample, double * restrict gradients) noexcept override OL_NONNULL_POINTERS_LIST(2) {
     if (gradients_already_computed_ == true) {
-      OL_WARNING_PRINTF("WARNING: grad_KG data already set.  Overwriting...\n");
+      OL_WARNING_PRINTF("WARNING: grad_two_step data already set.  Overwriting...\n");
     }
     gradients_already_computed_ = true;
 
@@ -139,7 +139,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
 
   virtual double GetAnalyticGradient(int row_index, int column_index, int OL_UNUSED(output_index)) const override OL_WARN_UNUSED_RESULT {
     if (gradients_already_computed_ == false) {
-      OL_THROW_EXCEPTION(OptimalLearningException, "PingKnowledgeGradient::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingTwoExpectedImprovement::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
     }
 
     return grad_VF_[column_index*dim_ + row_index];
@@ -244,8 +244,8 @@ OL_WARN_UNUSED_RESULT int PingTwoEITest(int num_to_sample, int num_being_sampled
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 1000;
-  const int max_num_restarts = 20;
+  const int max_gradient_descent_steps = 500;
+  const int max_num_restarts = 50;
   const int num_steps_averaged = 15;
 
   GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
@@ -287,9 +287,9 @@ OL_WARN_UNUSED_RESULT int PingTwoEITest(int num_to_sample, int num_being_sampled
   }
 
   if (total_errors != 0) {
-    OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-KG) gradient pings failed with %d errors\n", TwoEIEvaluator::kName, num_to_sample, num_being_sampled, total_errors);
+    OL_PARTIAL_FAILURE_PRINTF("%s (%d,%d-two-step) gradient pings failed with %d errors\n", TwoEIEvaluator::kName, num_to_sample, num_being_sampled, total_errors);
   } else {
-    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-KG) gradient pings passed\n", TwoEIEvaluator::kName, num_to_sample, num_being_sampled);
+    OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-two-step) gradient pings passed\n", TwoEIEvaluator::kName, num_to_sample, num_being_sampled);
   }
 
   delete [] gradients;

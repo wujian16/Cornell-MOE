@@ -68,13 +68,13 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-//  error = RunKGTests();
-//  if (error != 0) {
-//    OL_FAILURE_PRINTF("KG tests failed\n");
-//  } else {
-//    OL_SUCCESS_PRINTF("KG tests\n");
-//  }
-//  total_errors += error;
+  error = RunKGTests();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("KG tests\n");
+  }
+  total_errors += error;
 
   error = RunTwoEITests();
   if (error != 0) {

@@ -1,6 +1,7 @@
 import numpy as np
 import os, sys
 import time
+import copy
 
 from moe.optimal_learning.python.cpp_wrappers.domain import TensorProductDomain as cppTensorProductDomain
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import PosteriorMeanMCMC
@@ -99,7 +100,7 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  max_num_restarts=4,
                                                  num_steps_averaged=3,
                                                  gamma=0.7,
-                                                 pre_mult=0.005,
+                                                 pre_mult=0.1,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-5)
 
@@ -138,11 +139,12 @@ for n in xrange(num_iteration):
             job_id, n, obj_func_name, num_to_sample
     )
     time1 = time.time()
-    if method == 'KG':
+
+    if method == 'KG' or method == 'two-step':
         discrete_pts_list = []
         #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
         discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
-                                                                cpp_sgd_params_kg, 10, num_mc=2 ** 10)
+                                                                     cpp_sgd_params_kg, 10, num_mc=2 ** 10)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
@@ -172,15 +174,22 @@ for n in xrange(num_iteration):
 
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
-        # KG method
 
-        next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
-                                                                          ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+        if method == 'KG':
+            # KG method
+            next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
+                                                                              ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
+                                                                              cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+        else:
+            # two-step method
+            next_points, voi = bayesian_optimization.gen_sample_from_two_step_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
+                                                                                   ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
+                                                                                   cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
     elif method == 'EI':
         # EI method
         next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
                                                                           cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
+
     else:
         print method + str(" not supported")
         sys.exit(0)
@@ -206,6 +215,15 @@ for n in xrange(num_iteration):
     # retrain the model
     time1 = time.time()
 
+    cpp_gp_copy = cppGaussianProcessLogLikelihoodMCMC(historical_data = cpp_gp_loglikelihood.get_historical_data_copy(),
+                                                      derivatives = derivatives,
+                                                      prior = prior,
+                                                      chain_length = 1000,
+                                                      burnin_steps = 2000,
+                                                      n_hypers = 2 ** 4,
+                                                      noisy = False)
+    cpp_gp_copy.train()
+
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
     cpp_gp_loglikelihood.train()
 
@@ -213,7 +231,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     # report the point
-    if method == 'KG':
+    if method == 'KG':# or method == 'two-step':
         eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
                               (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
@@ -232,6 +250,14 @@ for n in xrange(num_iteration):
         ps.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
         if -ps.compute_objective_function() > np.min(test):
             report_point = initial_point
+    elif method == 'two-step':
+        next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_copy._gaussian_process_mcmc, cpp_search_domain,
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
+        sampled_points = [SamplePoint(pt, objective_func.evaluate(pt)[observations], objective_func._sample_var) for pt in next_points]
+        cpp_gp_copy.add_sampled_points(sampled_points)
+        cpp_gp_copy.train()
+        cpp_gp = cpp_gp_copy.models[0]
+        report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]
     else:
         cpp_gp = cpp_gp_loglikelihood.models[0]
         report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]
