@@ -48,10 +48,10 @@ class Rosenbrock(object):
         value = 0.0
         for i in range(self._dim-1):
             value += pow(1. - x[i], 2.0) + 100. * pow(x[i+1] - pow(x[i], 2.0), 2.0)
-        results = [numpy.log(1+value)]
+        results = [value]
         for i in range(self._dim-1):
-            results += [(2.*(x[i]-1) - 400.*x[i]*(x[i+1]-pow(x[i], 2.0)))/(1+value)]
-        results += [(200. * (x[self._dim-1]-pow(x[self._dim-2], 2.0)))/(1+value)]
+            results += [(2.*(x[i]-1) - 400.*x[i]*(x[i+1]-pow(x[i], 2.0)))]
+        results += [(200. * (x[self._dim-1]-pow(x[self._dim-2], 2.0)))]
         return numpy.array(results)
 
     def evaluate(self, x):

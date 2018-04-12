@@ -34,7 +34,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 60
+num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
@@ -99,7 +99,7 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  max_num_restarts=4,
                                                  num_steps_averaged=3,
                                                  gamma=0.7,
-                                                 pre_mult=1.0,
+                                                 pre_mult=0.1,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-5)
 
