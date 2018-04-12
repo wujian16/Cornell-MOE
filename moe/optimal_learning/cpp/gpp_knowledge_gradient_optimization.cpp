@@ -72,8 +72,8 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
 
   double best_posterior = best_so_far_;
   for (int j = 0; j < num_union; ++j) {
-    if (kg_state->to_sample_mean_[j] < best_posterior){
-      best_posterior = kg_state->to_sample_mean_[j];
+    if (kg_state->to_sample_mean_[j*(1+kg_state->num_gradients_to_sample)] < best_posterior){
+      best_posterior = kg_state->to_sample_mean_[j*(1+kg_state->num_gradients_to_sample)];
     }
   }
 
@@ -99,8 +99,9 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
     double best_function_value = 0.0;
     bool found_flag;
 
-    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
-                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+//    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
+//                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+    std::copy(kg_state->to_sample_mean_.begin(), kg_state->to_sample_mean_.end(), make_up_function_value.begin());
     GeneralMatrixVectorMultiply(kg_state->cholesky_to_sample_var.data(), 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample),
                                 1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
                                 make_up_function_value.data());
@@ -147,9 +148,9 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
   int winner_so_far = -1;
   double best_posterior = best_so_far_;
   for (int j = 0; j < num_union; ++j){
-    if (kg_state->to_sample_mean_[j] < best_posterior){
+    if (kg_state->to_sample_mean_[j*(1+kg_state->num_gradients_to_sample)] < best_posterior){
       winner_so_far = j;
-      best_posterior = kg_state->to_sample_mean_[j];
+      best_posterior = kg_state->to_sample_mean_[j*(1+kg_state->num_gradients_to_sample)];
     }
   }
 
@@ -183,8 +184,9 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
     double best_function_value = 0.0;
     bool found_flag;
 
-    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
-                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+//    gaussian_process_->ComputeMeanOfAdditionalPoints(kg_state->union_of_points.data(), num_union, kg_state->gradients.data(),
+//                                                     kg_state->num_gradients_to_sample, make_up_function_value.data());
+    std::copy(kg_state->to_sample_mean_.begin(), kg_state->to_sample_mean_.end(), make_up_function_value.begin());
     GeneralMatrixVectorMultiply(kg_state->cholesky_to_sample_var.data(), 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample),
                                 1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
                                 make_up_function_value.data());
@@ -266,7 +268,7 @@ KnowledgeGradientState<DomainType>::KnowledgeGradientState(const EvaluatorType& 
     normal_rng(normal_rng_in),
     cholesky_to_sample_var(Square(num_union*(1+num_gradients_to_sample))),
     grad_chol_decomp(dim*Square(num_union*(1+num_gradients_to_sample))*num_derivatives),
-    to_sample_mean_(num_union),
+    to_sample_mean_(num_union*(1+num_gradients_to_sample)),
     grad_mu(dim*num_derivatives),
     aggregate(dim*num_derivatives),
     normals(num_union*(1+num_gradients_to_sample)*num_iterations),
@@ -297,7 +299,7 @@ void KnowledgeGradientState<DomainType>::PreCompute(const EvaluatorType& kg_eval
     OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, kg_evaluator.dim());
   }
 
-  kg_evaluator.gaussian_process()->ComputeMeanOfAdditionalPoints(union_of_points.data(), num_union, nullptr, 0,
+  kg_evaluator.gaussian_process()->ComputeMeanOfAdditionalPoints(union_of_points.data(), num_union, gradients.data(), num_gradients_to_sample,
                                                                  to_sample_mean_.data());
 
   kg_evaluator.gaussian_process()->ComputeVarianceOfPoints(&(points_to_sample_state), gradients.data(),

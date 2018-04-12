@@ -408,8 +408,8 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 500;
-  const int max_num_restarts = 3;
+  const int max_gradient_descent_steps = 1000;
+  const int max_num_restarts = 10;
   const int num_steps_averaged = 15;
 
   GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
@@ -537,13 +537,15 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
 
 int PingKGGeneralTest() {
   double epsilon_KG[2] = {1.0e-3, 1.0e-4};
-  int total_errors = PingKGTest<PingKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  int total_errors = PingKGTest<PingKnowledgeGradient>(1, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+
+  total_errors += PingKGTest<PingKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  total_errors += PingKGTest<PingKnowledgeGradient>(8, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  //total_errors += PingKGTest<PingKnowledgeGradient>(8, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
