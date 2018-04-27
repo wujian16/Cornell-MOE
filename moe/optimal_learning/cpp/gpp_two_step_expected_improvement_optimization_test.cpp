@@ -67,7 +67,8 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
   PingTwoExpectedImprovement(TensorProductDomain domain, GradientDescentParameters& optimizer_parameters,
                         double const * restrict lengths, double const * restrict points_being_sampled,
                         double const * restrict points_sampled, double const * restrict points_sampled_value,
-                        int const * restrict gradients, double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
+                        int const * restrict gradients, double alpha, double best_so_far, const double factor,
+                        int dim, int num_to_sample, int num_being_sampled,
                         int num_sampled, int num_mc_iter, int num_pts, int num_gradients) OL_NONNULL_POINTERS
       : dim_(dim),
         domain_(domain),
@@ -91,7 +92,7 @@ class PingTwoExpectedImprovement final : public PingableMatrixInputVectorOutputI
         sqexp_covariance_(dim_, alpha, lengths),
         gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
                           gradients_.data(), num_gradients_, dim_, num_sampled_),
-        twoei_evaluator_(gaussian_process_, 0, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far) {
+        twoei_evaluator_(gaussian_process_, 0, discrete_pts_.data(), num_pts, num_mc_iter, domain_, optimizer_parameters, best_so_far, factor) {
   }
 
   std::vector<double> random_discrete(int dim, int num_pts){
@@ -271,7 +272,7 @@ OL_WARN_UNUSED_RESULT int PingTwoEITest(int num_to_sample, int num_being_sampled
     }
 
     TwoEIEvaluator twoei_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
-                             KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
+                             KG_environment.points_sampled_value(), gradients, alpha, best_so_far, 1.0, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);
 

@@ -85,8 +85,18 @@ class GaussianProcessLogLikelihoodMCMC:
 
     """
 
-    def __init__(self, historical_data, derivatives, prior, chain_length, burnin_steps, n_hypers,
-                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood, noisy = True, rng = None):
+    def __init__(self,
+                 historical_data,
+                 derivatives,
+                 prior,
+                 chain_length,
+                 burnin_steps,
+                 n_hypers,
+                 burned = False,
+                 starting_pos = None,
+                 log_likelihood_type=C_GP.LogLikelihoodTypes.log_marginal_likelihood,
+                 noisy = True,
+                 rng = None):
         """Construct a LogLikelihood object that knows how to call C++ for evaluation of member functions.
 
         :param covariance_function: covariance object encoding assumptions about the GP's behavior on our data
@@ -107,7 +117,9 @@ class GaussianProcessLogLikelihoodMCMC:
 
         self.prior = prior
         self.chain_length = chain_length
-        self.burned = False
+        self.burned = burned
+        self.p0 = starting_pos
+
         self.burnin_steps = burnin_steps
         self._models = []
         self.noisy = noisy
@@ -237,20 +249,20 @@ class GaussianProcessLogLikelihoodMCMC:
                                                           self._historical_data, self.derivatives)
 
     def optimize(self, do_optimize=True, **kwargs):
+        if not self.burned:
+            if self.prior is None:
+                self.p0 = numpy.random.rand(1 + self.dim + self._num_derivatives + 1)
+            else:
+                self.p0 = self.prior.sample_from_prior(1)
 
-        if self.prior is None:
-            self.p0 = numpy.random.rand(1 + self.dim + self._num_derivatives + 1)
-        else:
-            self.p0 = self.prior.sample_from_prior(1)
-
-        self.hypers = [optimize.minimize(self.nll, self.p0.ravel()).x]
+        self.hypers = [optimize.minimize(self.nll, numpy.array(self.p0).ravel()).x]
+        self.p0 = self.hypers
 
         self.is_trained = True
         self._models = []
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            print sample
             if numpy.any((-20 > sample) + (sample > 20)):
                 continue
             sample = numpy.exp(sample)

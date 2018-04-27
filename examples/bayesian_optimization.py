@@ -91,7 +91,7 @@ def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_sear
     return points_to_sample_list[numpy.argmax(kg_list)], numpy.amax(kg_list)
 
 def gen_sample_from_two_step_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_search_domain, num_fidelity,
-                             discrete_pts_list, sgd_params, num_to_sample, num_mc=10, lhc_itr=1e3):
+                                  discrete_pts_list, sgd_params, num_to_sample, factor, num_mc=10, lhc_itr=1e3):
     """
     :param cpp_gp_mcmc: trained cpp version of GaussianProcess MCMC model
     :param cpp_gp_list:
@@ -106,7 +106,7 @@ def gen_sample_from_two_step_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp
     """
     cpp_twoei_evaluator = cppTwoStepExpectedImprovement(gaussian_process_mcmc = cpp_gp_mcmc, gaussian_process_list=cpp_gp_list,
                                                 num_fidelity = num_fidelity, inner_optimizer = inner_optimizer, discrete_pts_list=discrete_pts_list,
-                                                num_to_sample = num_to_sample, num_mc_iterations=int(num_mc))
+                                                num_to_sample = num_to_sample, factor = factor, num_mc_iterations=int(num_mc))
     optimizer = cppGradientDescentOptimizer(cpp_search_domain, cpp_twoei_evaluator, sgd_params, int(lhc_itr))
     points_to_sample_list = []
     kg_list = []

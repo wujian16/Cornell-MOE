@@ -186,7 +186,8 @@ class TwoStepExpectedImprovementEvaluator final {
                                                int num_mc_iterations,
                                                const DomainType& domain,
                                                const GradientDescentParameters& optimizer_parameters,
-                                               double best_so_far);
+                                               double best_so_far,
+                                               const double factor);
 
   TwoStepExpectedImprovementEvaluator(TwoStepExpectedImprovementEvaluator&& other);
 
@@ -204,6 +205,10 @@ class TwoStepExpectedImprovementEvaluator final {
 
   double best_so_far() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return best_so_far_;
+  }
+
+  double factor() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return factor_;
   }
 
   GradientDescentParameters gradient_descent_params() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -290,6 +295,8 @@ class TwoStepExpectedImprovementEvaluator final {
 
   //! best (minimum) objective function value (in points_sampled_value)
   double best_so_far_;
+  //! factor to balance the immediate improvement vs. futural improvement
+  double factor_;
   //! the gradient decsent parameter
   const GradientDescentParameters optimizer_parameters_;
   const DomainType domain_;

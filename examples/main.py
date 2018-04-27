@@ -25,7 +25,7 @@ import synthetic_functions
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id]
-# example: python main.py Branin KG 4 1
+# example: python main.py Branin two-step 1 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -35,7 +35,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 60
+num_func_eval = 30
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
@@ -87,17 +87,17 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=500,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                max_num_restarts=3,
                                                num_steps_averaged=15,
                                                gamma=0.7,
-                                               pre_mult=0.005,
+                                               pre_mult=0.01,
                                                max_relative_change=0.02,
                                                tolerance=1.0e-5)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  max_num_steps=50,
-                                                 max_num_restarts=4,
+                                                 max_num_restarts=6,
                                                  num_steps_averaged=3,
                                                  gamma=0.7,
                                                  pre_mult=0.1,
@@ -106,7 +106,7 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
                                                  max_num_steps=50,
-                                                 max_num_restarts=2,
+                                                 max_num_restarts=1,
                                                  num_steps_averaged=4,
                                                  gamma=0.7,
                                                  pre_mult=1.0,
@@ -184,7 +184,8 @@ for n in xrange(num_iteration):
             # two-step method
             next_points, voi = bayesian_optimization.gen_sample_from_two_step_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                                    ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                                   cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+                                                                                   cpp_sgd_params_kg, num_to_sample, min(num_iteration-n-1, 4),
+                                                                                   num_mc=2 ** 5)
     elif method == 'EI':
         # EI method
         next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
@@ -214,15 +215,15 @@ for n in xrange(num_iteration):
 
     # retrain the model
     time1 = time.time()
-
-    cpp_gp_copy = cppGaussianProcessLogLikelihoodMCMC(historical_data = cpp_gp_loglikelihood.get_historical_data_copy(),
-                                                      derivatives = derivatives,
-                                                      prior = prior,
-                                                      chain_length = 1000,
-                                                      burnin_steps = 2000,
-                                                      n_hypers = 2 ** 4,
-                                                      noisy = False)
-    cpp_gp_copy.train()
+    # if method == 'two-step':
+    #     cpp_gp_copy = cppGaussianProcessLogLikelihoodMCMC(historical_data = cpp_gp_loglikelihood.get_historical_data_copy(),
+    #                                                       derivatives = derivatives,
+    #                                                       prior = prior,
+    #                                                       chain_length = 1000,
+    #                                                       burnin_steps = 4000,
+    #                                                       n_hypers = 2 ** 4,
+    #                                                       noisy = False)
+    #     cpp_gp_copy.train()
 
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
     cpp_gp_loglikelihood.train()
@@ -231,7 +232,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     # report the point
-    if method == 'KG':# or method == 'two-step':
+    if method == 'KG':
         eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e4))
         eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
                               (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
@@ -250,14 +251,31 @@ for n in xrange(num_iteration):
         ps.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
         if -ps.compute_objective_function() > np.min(test):
             report_point = initial_point
-    elif method == 'two-step':
-        next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_copy._gaussian_process_mcmc, cpp_search_domain,
-                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
-        sampled_points = [SamplePoint(pt, objective_func.evaluate(pt)[observations], objective_func._sample_var) for pt in next_points]
-        cpp_gp_copy.add_sampled_points(sampled_points)
-        cpp_gp_copy.train()
-        cpp_gp = cpp_gp_copy.models[0]
-        report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]
+    # elif method == 'two-step':
+    #     next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_copy._gaussian_process_mcmc, cpp_search_domain,
+    #                                                                       cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
+    #     sampled_points = [SamplePoint(pt, objective_func.evaluate(pt)[observations], objective_func._sample_var) for pt in next_points]
+    #     cpp_gp_copy.add_sampled_points(sampled_points)
+    #     cpp_gp_copy.train()
+    #
+    #     eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e4))
+    #     eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_copy.get_historical_data_copy()).points_sampled[:, :(cpp_gp_copy.dim-objective_func._num_fidelity)]),
+    #                           (eval_pts.shape[0] + cpp_gp_copy._num_sampled, cpp_gp_copy.dim-objective_func._num_fidelity))
+    #
+    #     ps = PosteriorMeanMCMC(cpp_gp_copy.models, num_fidelity)
+    #     test = np.zeros(eval_pts.shape[0])
+    #     for i, pt in enumerate(eval_pts):
+    #         ps.set_current_point(pt.reshape((1, cpp_gp_copy.dim-objective_func._num_fidelity)))
+    #         test[i] = -ps.compute_objective_function()
+    #     initial_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_copy.dim-objective_func._num_fidelity))
+    #
+    #     py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = inner_search_domain)
+    #     ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
+    #     report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
+    #
+    #     ps.set_current_point(report_point.reshape((1, cpp_gp_copy.dim-objective_func._num_fidelity)))
+    #     if -ps.compute_objective_function() > np.min(test):
+    #         report_point = initial_point
     else:
         cpp_gp = cpp_gp_loglikelihood.models[0]
         report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]

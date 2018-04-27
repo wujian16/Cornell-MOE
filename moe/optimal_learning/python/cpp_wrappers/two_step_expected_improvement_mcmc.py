@@ -83,16 +83,16 @@ def multistart_two_step_expected_improvement_mcmc_optimization(
     if status is None:
         status = {}
 
-    best_points_to_sample = C_GP.multistart_knowledge_gradient_mcmc_optimization(
+    best_points_to_sample = C_GP.multistart_two_step_expected_improvement_mcmc_optimization(
             twoei_optimizer.optimizer_parameters,
             inner_optimizer.optimizer_parameters,
             twoei_optimizer.objective_function._gaussian_process_mcmc._gaussian_process_mcmc,
-            twoei_optimizer.objective_function._num_fidelity,
             cpp_utils.cppify(twoei_optimizer.domain.domain_bounds),
             cpp_utils.cppify(numpy.array(discrete_pts)),
             cpp_utils.cppify(twoei_optimizer.objective_function._points_being_sampled),
             num_pts, num_to_sample, twoei_optimizer.objective_function.num_being_sampled,
             cpp_utils.cppify(numpy.array(twoei_optimizer.objective_function._best_so_far_list)),
+            twoei_optimizer.objective_function._factor,
             twoei_optimizer.objective_function._num_mc_iterations,
             max_num_threads,
             randomness,
@@ -126,6 +126,7 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
             inner_optimizer,
             discrete_pts_list,
             num_to_sample,
+            factor,
             points_to_sample=None,
             points_being_sampled=None,
             num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
@@ -166,6 +167,8 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
             # self._best_so_far = numpy.amin(gaussian_process._historical_data.points_sampled_value)
         else:
             self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.finfo(numpy.float64).max]
+
+        self._factor = factor
 
         if points_being_sampled is None:
             self._points_being_sampled = numpy.array([])
@@ -273,7 +276,6 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
         discrete_being_sampled = numpy.concatenate((numpy.ravel(self._discrete_pts_list), numpy.ravel(self._points_being_sampled)))
         twoei_values_mcmc =  C_GP.evaluate_VF_mcmc_at_point_list(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
-                self._num_fidelity,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(discrete_being_sampled),
@@ -283,6 +285,7 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
                 num_to_sample,
                 self.num_being_sampled,
                 cpp_utils.cppify(self._best_so_far_list),
+                self._factor,
                 self._num_mc_iterations,
                 max_num_threads,
                 randomness,
@@ -330,7 +333,6 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
 
         two_step_expected_improvement_mcmc = C_GP.compute_two_step_expected_improvement_mcmc(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
-                self._num_fidelity,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(self._discrete_pts_list),
@@ -341,6 +343,7 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
                 self.num_being_sampled,
                 self._num_mc_iterations,
                 cpp_utils.cppify(self._best_so_far_list),
+                self._factor,
                 self._randomness,
         )
         return two_step_expected_improvement_mcmc
@@ -376,7 +379,6 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
         """
         grad_two_step_expected_improvement_mcmc = C_GP.compute_grad_two_step_expected_improvement_mcmc(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
-                self._num_fidelity,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
                 cpp_utils.cppify(self._discrete_pts_list),
@@ -387,6 +389,7 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
                 self.num_being_sampled,
                 self._num_mc_iterations,
                 cpp_utils.cppify(self._best_so_far_list),
+                self._factor,
                 self._randomness,
         )
         return grad_two_step_expected_improvement_mcmc

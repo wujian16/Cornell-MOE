@@ -171,7 +171,7 @@ class TwoStepExpectedImprovementMCMCEvaluator final {
                                           int num_pts, int num_mc_iterations,
                                           const DomainType& domain,
                                           const GradientDescentParameters& optimizer_parameters,
-                                          double const * best_so_far,
+                                          double const * best_so_far, const double factor,
                                           std::vector<typename TwoStepExpectedImprovementState<DomainType>::EvaluatorType> * evaluator_vector);
 
   int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -273,6 +273,8 @@ class TwoStepExpectedImprovementMCMCEvaluator final {
   //! best (minimum) objective function value (in points_sampled_value)
 
   std::vector<double> best_so_far_;
+  //! factor to balance the immediate improvement vs. futural improvement
+  double factor_;
 
   const GradientDescentParameters optimizer_parameters_;
 
@@ -534,7 +536,7 @@ void RestartedGradientDescentVFMCMCOptimization(const TwoStepExpectedImprovement
 
   std::vector<typename TwoStepExpectedImprovementEvaluator<DomainType>::StateType> vf_state_vector;
 
-  OL_VERBOSE_PRINTF("Knowledge Gradient Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
+  OL_VERBOSE_PRINTF("Two-step expected improvement Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
   bool configure_for_gradients = true;
   typename TwoStepExpectedImprovementMCMCEvaluator::StateType vf_state(vf_evaluator, initial_guess,
@@ -622,6 +624,7 @@ OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradient
     int num_being_sampled,
     int num_pts,
     double const * best_so_far,
+    const double factor,
     int max_int_steps,
     NormalRNG * normal_rng,
     bool * restrict found_flag,
@@ -633,7 +636,7 @@ OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradient
   bool configure_for_gradients = true;
   std::vector<typename TwoStepExpectedImprovementState<DomainType>::EvaluatorType> vf_evaluator_lst;
   TwoStepExpectedImprovementMCMCEvaluator<DomainType> vf_evaluator(gaussian_process_mcmc, num_fidelity, discrete_pts, num_pts, max_int_steps,
-                                                          inner_domain, optimizer_parameters_inner, best_so_far, &vf_evaluator_lst);
+                                                          inner_domain, optimizer_parameters_inner, best_so_far, factor, &vf_evaluator_lst);
 
   int num_derivatives = (*vf_evaluator.two_step_expected_improvement_evaluator_list())[0].gaussian_process()->num_derivatives();
   std::vector<int> derivatives((*vf_evaluator.two_step_expected_improvement_evaluator_list())[0].gaussian_process()->derivatives());
@@ -648,7 +651,7 @@ OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradient
   std::vector<double> VF_starting(num_multistarts);
   EvaluateVFMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule,
                             start_point_set, points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
-                            num_being_sampled, num_pts, best_so_far, max_int_steps, found_flag, normal_rng,
+                            num_being_sampled, num_pts, best_so_far, factor, max_int_steps, found_flag, normal_rng,
                             VF_starting.data(), best_next_point);
 
   std::priority_queue<std::pair<double, int>> q;
@@ -731,7 +734,7 @@ void EvaluateVFMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const
                                double const * restrict points_being_sampled,
                                double const * discrete_pts,
                                int num_multistarts, int num_to_sample,
-                               int num_being_sampled, int num_pts, double const * best_so_far,
+                               int num_being_sampled, int num_pts, double const * best_so_far, const double factor,
                                int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
                                double * restrict function_values,
                                double * restrict best_next_point) {
@@ -745,7 +748,7 @@ void EvaluateVFMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const
     std::vector<typename TwoStepExpectedImprovementState<DomainType>::EvaluatorType> vf_evaluator_lst;
 
     TwoStepExpectedImprovementMCMCEvaluator<DomainType> vf_evaluator(gaussian_process_mcmc, num_fidelity, discrete_pts, num_pts, max_int_steps,
-                                                            inner_domain, optimizer_parameters_inner, best_so_far, &vf_evaluator_lst);
+                                                            inner_domain, optimizer_parameters_inner, best_so_far, factor, &vf_evaluator_lst);
 
     int num_derivatives = (*vf_evaluator.two_step_expected_improvement_evaluator_list())[0].gaussian_process()->num_derivatives();
     std::vector<int> derivatives((*vf_evaluator.two_step_expected_improvement_evaluator_list())[0].gaussian_process()->derivatives());
@@ -813,7 +816,7 @@ void ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
                                                         double const * restrict points_being_sampled,
                                                         double const * discrete_pts,
                                                         int num_to_sample, int num_being_sampled, int num_pts,
-                                                        double const * best_so_far,
+                                                        double const * best_so_far, const double factor,
                                                         int max_int_steps, bool * restrict found_flag,
                                                         UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng,
                                                         double * restrict best_next_point) {
@@ -825,7 +828,7 @@ void ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
                                                                  inner_domain, thread_schedule, starting_points.data(),
                                                                  points_being_sampled, discrete_pts, num_multistarts,
                                                                  num_to_sample, num_being_sampled, num_pts,
-                                                                 best_so_far, max_int_steps,
+                                                                 best_so_far, factor, max_int_steps,
                                                                  normal_rng, found_flag, best_next_point);
 #ifdef OL_WARNING_PRINT
   if (false == *found_flag) {
@@ -881,7 +884,7 @@ void ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
                                                                double const * discrete_pts,
                                                                int num_multistarts, int num_to_sample,
                                                                int num_being_sampled, int num_pts, double const * best_so_far,
-                                                               int max_int_steps,
+                                                               const double factor, int max_int_steps,
                                                                bool * restrict found_flag,
                                                                UniformRandomGenerator * uniform_generator,
                                                                NormalRNG * normal_rng,
@@ -893,7 +896,7 @@ void ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
 
   EvaluateVFMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule, initial_guesses.data(),
                             points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
-                            num_being_sampled, num_pts, best_so_far, max_int_steps,
+                            num_being_sampled, num_pts, best_so_far, factor, max_int_steps,
                             found_flag, normal_rng, nullptr, best_next_point);
 }
 
@@ -952,7 +955,7 @@ void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
                                         double const * restrict points_being_sampled,
                                         double const * discrete_pts,
                                         int num_to_sample, int num_being_sampled,
-                                        int num_pts, double const * best_so_far,
+                                        int num_pts, double const * best_so_far, const double factor,
                                         int max_int_steps, bool lhc_search_only,
                                         int num_lhc_samples, bool * restrict found_flag,
                                         UniformRandomGenerator * uniform_generator,
@@ -964,7 +967,7 @@ extern template void ComputeVFMCMCOptimalPointsToSample(
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double const * best_so_far, int max_int_steps, bool lhc_search_only,
+    int num_pts, double const * best_so_far, const double factor, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 extern template void ComputeVFMCMCOptimalPointsToSample(
@@ -973,7 +976,7 @@ extern template void ComputeVFMCMCOptimalPointsToSample(
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
-    int num_pts, double const * best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
+    int num_pts, double const * best_so_far, const double factor, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
     UniformRandomGenerator * uniform_generator, NormalRNG * normal_rng, double * restrict best_points_to_sample);
 }  // end namespace optimal_learning
 
