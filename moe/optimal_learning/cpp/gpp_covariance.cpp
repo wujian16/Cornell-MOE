@@ -233,6 +233,40 @@ void SquareExponential::GradCovariance(double const * restrict point_one,
   }
 }
 
+void SquareExponential::HessianCovariance(double const * restrict point_one,
+                                          int const * restrict derivatives_one,
+                                          int num_derivatives_one,
+                                          double const * restrict point_two,
+                                          int const * restrict derivatives_two,
+                                          int num_derivatives_two,
+                                          double * restrict hessian_cov) const noexcept {
+  // correct by the kernel value
+  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+  const double kernel = alpha_*std::exp(-0.5*norm_val);
+
+  std::vector<double> derivatives_point_one(dim_);
+  for (int m = 0; m < dim_; ++m){
+    derivatives_point_one[m] = (point_two[m] - point_one[m])/lengths_sq_[m];
+  }
+
+  std::vector<double> derivatives_point_two(dim_);
+  for (int n = 0; n < dim_; ++n){
+    derivatives_point_two[n] = (point_one[n] - point_two[n])/lengths_sq_[n];
+  }
+
+  // the Hessian matrix
+  int index_one = 0;
+  int index_two = 0;
+  for (int i = 0; i < dim_; ++i) {
+    for (int j = 0; j < dim_; ++j) {
+      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_two[j]*kernel;
+      if(i == j){
+        hessian_cov[i+j*dim_] += kernel/lengths_sq_[j];
+      }
+    }
+  }
+}
+
 /*
   Gradient of Square Exponential (wrt hyperparameters (``alpha, L``)):
   ``\pderiv{cov(x_1, x_2)}{\theta_0} = cov(x_1, x_2) / \theta_0``
@@ -453,6 +487,46 @@ void MaternNu2p5::GradCovariance(double const * restrict point_one,
         } else{
           grad_cov[i+ (m+1)*dim_ + (n+1)*dim_*(num_derivatives_one+1)] = 0.0;
         }
+      }
+    }
+  }
+}
+
+void MaternNu2p5::HessianCovariance(double const * restrict point_one,
+                                          int const * restrict derivatives_one,
+                                          int num_derivatives_one,
+                                          double const * restrict point_two,
+                                          int const * restrict derivatives_two,
+                                          int num_derivatives_two,
+                                          double * restrict hessian_cov) const noexcept {
+  // correct by the kernel value
+  const double norm_val = NormSquaredWithInverseWeights(point_one, point_two, lengths_sq_.data(), dim_);
+  const double kernel = alpha_*std::exp(-0.5*norm_val);
+
+  const double matern_arg = kSqrt5 * std::sqrt(norm_val);
+  const double exp_part = std::exp(-matern_arg);
+
+  const double first_derivative_part = 5.0/3.0*alpha_*exp_part*(matern_arg + 1.0);
+  const double alpha_exp_part = 25.0/3.0*alpha_*exp_part;
+
+  std::vector<double> derivatives_point_one(dim_);
+  for (int m = 0; m < dim_; ++m){
+    derivatives_point_one[m] = (point_two[m] - point_one[m])/lengths_sq_[m];
+  }
+
+  std::vector<double> derivatives_point_two(dim_);
+  for (int n = 0; n < dim_; ++n){
+    derivatives_point_two[n] = (point_one[n] - point_two[n])/lengths_sq_[n];
+  }
+
+  // the Hessian matrix
+  int index_one = 0;
+  int index_two = 0;
+  for (int i = 0; i < dim_; ++i) {
+    for (int j = 0; j < dim_; ++j) {
+      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_two[j]*alpha_exp_part;
+      if(i == j){
+        hessian_cov[i+j*dim_] += first_derivative_part/lengths_sq_[index_two];
       }
     }
   }

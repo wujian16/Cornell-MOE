@@ -123,6 +123,31 @@ class CovarianceInterface {
                               double * restrict grad_cov) const noexcept OL_NONNULL_POINTERS = 0;
 
   /*!\rst
+    The Hessian matrix of the covariance evaluated at x_1, x_2 with respect to the FIRST argument.  The Hessian is defined as::
+      [ \ppderiv{cov}{\theta_0^2}              \mixpderiv{cov}{\theta_0}{\theta_1}    ... \mixpderiv{cov}{\theta_0}{\theta_{n-1}} ]
+      [ \mixpderiv{cov}{\theta_1}{\theta_0}    \ppderiv{cov}{\theta_1^2 }             ... \mixpderiv{cov}{\theta_1}{\theta_{n-1}} ]
+      [      ...                                                                                     ...                          ]
+      [ \mixpderiv{cov}{\theta_{n-1}{\theta_0} \mixpderiv{cov}{\theta_{n-1}{\theta_1} ... \ppderiv{cov}{\theta_{n-1}^2}           ]
+    where "cov" abbreviates covariance(x_1, x_2) and "n" refers to the number of hyperparameters.
+    Unless noted otherwise in subclasses, the Hessian is symmetric (due to the equality of mixed derivatives when a function
+    f is twice continuously differentiable).
+    Similarly to the gradients, the Hessian is independent of the order of x_1, x_2: H_{cov}(x_1, x_2) = H_{cov}(x_2, x_1)
+    For further details: http://en.wikipedia.org/wiki/Hessian_matrix
+    Let n_hyper = this.GetNumberOfHyperparameters()
+    \param
+      :point_one[dim]: first spatial coordinate
+      :point_two[dim]: second spatial coordinate
+    \output
+      :hessian_hyperparameter_cov[dim][dim]: ``(i,j)``-th entry is ``\mixpderiv{cov(x_1, x_2)}{\theta_i}{\theta_j}``
+  \endrst*/
+  virtual void HessianCovariance(double const * restrict point_one,
+                                 int const * restrict derivatives_one,
+                                 int num_derivatives_one,
+                                 double const * restrict point_two,
+                                 int const * restrict derivatives_two,
+                                 int num_derivatives_two,
+                                 double * restrict hessian_cov) const noexcept OL_NONNULL_POINTERS = 0;
+  /*!\rst
     Returns the number of hyperparameters.  This base class only allows for a maximum of dim + 1 hyperparameters but
     subclasses may implement additional ones.
 
@@ -244,6 +269,13 @@ class SquareExponential final : public CovarianceInterface {
                               int num_derivatives_two,
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
+  virtual void HessianCovariance(double const * restrict point_one,
+                                 int const * restrict derivatives_one,
+                                 int num_derivatives_one,
+                                 double const * restrict point_two,
+                                 int const * restrict derivatives_two,
+                                 int num_derivatives_two,
+                                 double * restrict hessian_cov) const noexcept OL_NONNULL_POINTERS;
   // return the number of hyperparameters, dim+1
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return 1 + dim_;
@@ -362,6 +394,13 @@ class MaternNu2p5 final : public CovarianceInterface {
                               int length_two,
                               double * restrict grad_cov) const noexcept override OL_NONNULL_POINTERS;
 
+  virtual void HessianCovariance(double const * restrict point_one,
+                                 int const * restrict derivatives_one,
+                                 int num_derivatives_one,
+                                 double const * restrict point_two,
+                                 int const * restrict derivatives_two,
+                                 int num_derivatives_two,
+                                 double * restrict hessian_cov) const noexcept OL_NONNULL_POINTERS;
   // return the number of hyperparameters, dim+1
   virtual int GetNumberOfHyperparameters() const noexcept override OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
     return dim_ + 1;
