@@ -117,7 +117,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
  public:
   constexpr static char const * const kName = "KG with MC integration";
 
-  PingKnowledgeGradient(TensorProductDomain domain, GradientDescentParameters& optimizer_parameters,
+  PingKnowledgeGradient(TensorProductDomain domain, NewtonParameters& optimizer_parameters,
                         double const * restrict lengths, double const * restrict points_being_sampled,
                         double const * restrict points_sampled, double const * restrict points_sampled_value,
                         int const * restrict gradients, double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
@@ -125,8 +125,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
       : dim_(dim),
         domain_(domain),
         gdp_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
-             optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
-             optimizer_parameters.gamma, optimizer_parameters.pre_mult,
+             optimizer_parameters.gamma, optimizer_parameters.time_factor,
              optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
         num_to_sample_(num_to_sample),
         num_being_sampled_(num_being_sampled),
@@ -214,7 +213,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   //! domain
   TensorProductDomain domain_;
   //! gradient decent para
-  GradientDescentParameters gdp_;
+  NewtonParameters gdp_;
   //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
   int num_to_sample_;
   //! number of points being sampled concurrently (i.e., the "p" in q,p-EI)
@@ -391,8 +390,8 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   int num_sampled = 7;
   int num_pts = 5;
 
-  int * gradients = new int[3]{0, 1, 2};
-  int num_gradients = 3;
+  int * gradients = nullptr;
+  int num_gradients = 0;
 
   std::vector<double> lengths(dim);
   double alpha = 2.80723;
@@ -403,18 +402,16 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   MockExpectedImprovementEnvironment KG_environment;
 
   // gradient descent parameters
-  const double gamma = 0.7;
-  const double pre_mult = 1.0;
+  const double gamma = 1.01;
+  const double time_factor = 1.0e-3;
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
   const int max_gradient_descent_steps = 1000;
-  const int max_num_restarts = 10;
-  const int num_steps_averaged = 15;
 
-  GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
-                                      num_steps_averaged, gamma, pre_mult,
-                                      max_relative_change, tolerance);
+  NewtonParameters newton_params(1, max_gradient_descent_steps,
+                                 gamma, time_factor,
+                                 max_relative_change, tolerance);
   ClosedInterval * domain_bounds = new ClosedInterval[dim];
   for (int i=0; i<dim; ++i){
     domain_bounds[i] = ClosedInterval(-5.0, 5.0);
@@ -434,7 +431,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+    KGEvaluator KG_evaluator(domain, newton_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);

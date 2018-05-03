@@ -227,7 +227,7 @@ class KnowledgeGradientMCMCEvaluator final {
                                           double const * discrete_pts_lst,
                                           int num_pts, int num_mc_iterations,
                                           const DomainType& domain,
-                                          const GradientDescentParameters& optimizer_parameters,
+                                          const NewtonParameters& optimizer_parameters,
                                           double const * best_so_far,
                                           std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> * evaluator_vector);
 
@@ -331,7 +331,7 @@ class KnowledgeGradientMCMCEvaluator final {
 
   std::vector<double> best_so_far_;
 
-  const GradientDescentParameters optimizer_parameters_;
+  const NewtonParameters optimizer_parameters_;
 
   const DomainType domain_;
   //! pointer to gaussian process used in KG computations
@@ -667,7 +667,7 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
     GaussianProcessMCMC& gaussian_process_mcmc,
     const int num_fidelity,
     const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
+    const NewtonParameters& optimizer_parameters_inner,
     const DomainType& domain,
     const DomainType& inner_domain,
     const ThreadSchedule& thread_schedule,
@@ -782,7 +782,7 @@ OL_NONNULL_POINTERS void ComputeKGMCMCOptimalPointsToSampleViaMultistartGradient
 \endrst*/
 template <typename DomainType>
 void EvaluateKGMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
-                               const GradientDescentParameters& optimizer_parameters_inner,
+                               const NewtonParameters& optimizer_parameters_inner,
                                const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                double const * restrict initial_guesses,
                                double const * restrict points_being_sampled,
@@ -865,7 +865,7 @@ void EvaluateKGMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const
 template <typename DomainType>
 void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                                         const GradientDescentParameters& optimizer_parameters,
-                                                        const GradientDescentParameters& optimizer_parameters_inner,
+                                                        const NewtonParameters& optimizer_parameters_inner,
                                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                                         double const * restrict points_being_sampled,
                                                         double const * discrete_pts,
@@ -948,7 +948,7 @@ void ComputeKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
 \endrst*/
 template <typename DomainType>
 void ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
-                                                               const GradientDescentParameters& optimizer_parameters_inner,
+                                                               const NewtonParameters& optimizer_parameters_inner,
                                                                const DomainType& domain, const DomainType& inner_domain,
                                                                const ThreadSchedule& thread_schedule,
                                                                double const * restrict points_being_sampled,
@@ -1022,7 +1022,7 @@ void ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
 template <typename DomainType>
 void ComputeKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                         const GradientDescentParameters& optimizer_parameters,
-                                        const GradientDescentParameters& optimizer_parameters_inner,
+                                        const NewtonParameters& optimizer_parameters_inner,
                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                         double const * restrict points_being_sampled,
                                         double const * discrete_pts,
@@ -1035,7 +1035,7 @@ void ComputeKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
+    const NewtonParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
@@ -1044,7 +1044,7 @@ extern template void ComputeKGMCMCOptimalPointsToSample(
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 extern template void ComputeKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const GradientDescentParameters& optimizer_parameters_inner,
+    const NewtonParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,

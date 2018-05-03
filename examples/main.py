@@ -5,8 +5,12 @@ import time
 from moe.optimal_learning.python.cpp_wrappers.domain import TensorProductDomain as cppTensorProductDomain
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import PosteriorMeanMCMC
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import GaussianProcessLogLikelihoodMCMC as cppGaussianProcessLogLikelihoodMCMC
+from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonParameters as cppNewtonParameters
+from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonOptimizer as cppNewtonOptimizer
+
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentParameters as cppGradientDescentParameters
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
+
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient import posterior_mean_optimization, PosteriorMean
 
 from moe.optimal_learning.python.data_containers import HistoricalData, SamplePoint
@@ -84,7 +88,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            burnin_steps = 2000,
                                                            n_hypers = 2 ** 4,
                                                            noisy = False)
-cpp_gp_loglikelihood.train()
+cpp_gp_loglikelihood.optimize()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                max_num_restarts=3,
@@ -102,6 +106,13 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  pre_mult=0.1,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-5)
+
+cpp_newton_params_ps = cppNewtonParameters(num_multistarts=1,
+                                           max_num_steps=20,
+                                           gamma=1.01,
+                                           time_factor=1.0e-3,
+                                           max_relative_change=1.0,
+                                           tolerance=1.0e-5)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
                                                  max_num_steps=50,
@@ -159,7 +170,7 @@ for n in xrange(num_iteration):
 
             initial_point = eval_pts[np.argmin(test)]
 
-            ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
+            ps_sgd_optimizer = cppNewtonOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_newton_params_ps)
             report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
 
             ps_evaluator.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
@@ -171,11 +182,11 @@ for n in xrange(num_iteration):
             discrete_pts_list.append(discrete_pts_optima)
 
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
-        ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
+        ps_sgd_optimizer = cppNewtonOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_newton_params_ps)
         # KG method
         next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                           ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 8)
     elif method == 'EI':
         # EI method
         next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
@@ -206,7 +217,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
-    cpp_gp_loglikelihood.train()
+    cpp_gp_loglikelihood.optimize()
 
     print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()

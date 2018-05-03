@@ -97,7 +97,7 @@ double ComputeKnowledgeGradientWrapper(const GaussianProcess& gaussian_process,
   //TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
   TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim-num_fidelity);
 
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, num_fidelity, input_container_discrete.points_to_sample.data(),
                                                                num_pts, max_int_steps, inner_domain, gradient_descent_parameters, best_so_far);
@@ -137,7 +137,7 @@ boost::python::list ComputeGradKnowledgeGradientWrapper(const GaussianProcess& g
   //TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
   TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
 
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   KnowledgeGradientEvaluator<TensorProductDomain> kg_evaluator(gaussian_process, num_fidelity, input_container_discrete.points_to_sample.data(),
                                                                num_pts, max_int_steps, inner_domain, gradient_descent_parameters, best_so_far);
@@ -197,7 +197,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
     case OptimizerTypes::kNull: {
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_static);
       // optimizer_parameters must contain an int num_random_samples field, extract it
-      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
+      const NewtonParameters& gradient_descent_parameters_inner = boost::python::extract<NewtonParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process, num_fidelity, gradient_descent_parameters_inner, domain, inner_domain,
@@ -217,7 +217,7 @@ void DispatchKnowledgeGradientOptimization(const boost::python::object& optimize
       // optimizer_parameters must contain a optimizer_parameters field
       // of type GradientDescentParameters. extract it
       const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
-      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
+      const NewtonParameters& gradient_descent_parameters_inner = boost::python::extract<NewtonParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
@@ -322,7 +322,7 @@ boost::python::list ComputeOptimalPosteriorMeanWrapper(const GaussianProcess& ga
     double best_function_value;
 
     bool found_flag = false;
-    const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+    const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
     DomainTypes domain_type = boost::python::extract<DomainTypes>(optimizer_parameters.attr("domain_type"));
     switch (domain_type) {
@@ -383,7 +383,7 @@ boost::python::list EvaluateKGAtPointListWrapper(const GaussianProcess& gaussian
   TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
   TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
 
-  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   EvaluateKGAtPointList(gaussian_process, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
                         input_container.points_to_sample.data() + input_container.dim*num_pts, input_container.points_to_sample.data(),
