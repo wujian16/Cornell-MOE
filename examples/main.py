@@ -9,8 +9,6 @@ from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonParamete
 from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonOptimizer as cppNewtonOptimizer
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentParameters as cppGradientDescentParameters
-from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
-
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient import posterior_mean_optimization, PosteriorMean
 
 from moe.optimal_learning.python.data_containers import HistoricalData, SamplePoint
@@ -46,8 +44,6 @@ obj_func_dict = {'Branin': synthetic_functions.Branin(),
                  'Hartmann3': synthetic_functions.Hartmann3(),
                  'Levy4': synthetic_functions.Levy4(),
                  'Hartmann6': synthetic_functions.Hartmann6()}
-                 #'CIFAR10': real_functions.CIFAR10(),
-                 #'KISSGP': real_functions.KISSGP()}
 
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
@@ -86,9 +82,9 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            prior = prior,
                                                            chain_length = 1000,
                                                            burnin_steps = 2000,
-                                                           n_hypers = 2 ** 4,
+                                                           n_hypers = 4,
                                                            noisy = False)
-cpp_gp_loglikelihood.optimize()
+cpp_gp_loglikelihood.train()
 
 py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                max_num_restarts=3,
@@ -96,32 +92,23 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                gamma=0.7,
                                                pre_mult=1.0,
                                                max_relative_change=0.02,
-                                               tolerance=1.0e-5)
-
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=50,
-                                                 max_num_restarts=4,
-                                                 num_steps_averaged=3,
-                                                 gamma=0.7,
-                                                 pre_mult=0.1,
-                                                 max_relative_change=0.1,
-                                                 tolerance=1.0e-5)
+                                               tolerance=1.0e-10)
 
 cpp_newton_params_ps = cppNewtonParameters(num_multistarts=1,
-                                           max_num_steps=20,
-                                           gamma=1.01,
-                                           time_factor=1.0e-3,
+                                           max_num_steps=100,
+                                           gamma=1.6,
+                                           time_factor=1.0,
                                            max_relative_change=1.0,
-                                           tolerance=1.0e-5)
+                                           tolerance=1.0e-10)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
                                                  max_num_steps=50,
-                                                 max_num_restarts=2,
+                                                 max_num_restarts=1,
                                                  num_steps_averaged=4,
                                                  gamma=0.7,
                                                  pre_mult=1.0,
                                                  max_relative_change=0.5,
-                                                 tolerance=1.0e-5)
+                                                 tolerance=1.0e-10)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
@@ -151,9 +138,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG':
         discrete_pts_list = []
-        #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
-        discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
-                                                                cpp_sgd_params_kg, 10, num_mc=2 ** 10)
+        discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
@@ -186,7 +171,7 @@ for n in xrange(num_iteration):
         # KG method
         next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                           ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 8)
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
     elif method == 'EI':
         # EI method
         next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
@@ -217,7 +202,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
 
     cpp_gp_loglikelihood.add_sampled_points(sampled_points)
-    cpp_gp_loglikelihood.optimize()
+    cpp_gp_loglikelihood.train()
 
     print "retraining the model takes "+str((time.time()-time1))+" seconds"
     time1 = time.time()

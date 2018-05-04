@@ -249,19 +249,14 @@ void SquareExponential::HessianCovariance(double const * restrict point_one,
     derivatives_point_one[m] = (point_two[m] - point_one[m])/lengths_sq_[m];
   }
 
-  std::vector<double> derivatives_point_two(dim_);
-  for (int n = 0; n < dim_; ++n){
-    derivatives_point_two[n] = (point_one[n] - point_two[n])/lengths_sq_[n];
-  }
-
   // the Hessian matrix
   int index_one = 0;
   int index_two = 0;
   for (int i = 0; i < dim_; ++i) {
     for (int j = 0; j < dim_; ++j) {
-      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_two[j]*kernel;
+      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_one[j]*kernel;
       if(i == j){
-        hessian_cov[i+j*dim_] += kernel/lengths_sq_[j];
+        hessian_cov[i+j*dim_] -= kernel/lengths_sq_[j];
       }
     }
   }
@@ -514,19 +509,12 @@ void MaternNu2p5::HessianCovariance(double const * restrict point_one,
     derivatives_point_one[m] = (point_two[m] - point_one[m])/lengths_sq_[m];
   }
 
-  std::vector<double> derivatives_point_two(dim_);
-  for (int n = 0; n < dim_; ++n){
-    derivatives_point_two[n] = (point_one[n] - point_two[n])/lengths_sq_[n];
-  }
-
   // the Hessian matrix
-  int index_one = 0;
-  int index_two = 0;
   for (int i = 0; i < dim_; ++i) {
     for (int j = 0; j < dim_; ++j) {
-      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_two[j]*alpha_exp_part;
+      hessian_cov[i+j*dim_] = derivatives_point_one[i]*derivatives_point_one[j]*alpha_exp_part;
       if(i == j){
-        hessian_cov[i+j*dim_] += first_derivative_part/lengths_sq_[index_two];
+        hessian_cov[i+j*dim_] -= first_derivative_part/lengths_sq_[j];
       }
     }
   }

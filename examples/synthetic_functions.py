@@ -48,7 +48,7 @@ class Rosenbrock(object):
         value = 0.0
         for i in range(self._dim-1):
             value += pow(1. - x[i], 2.0) + 100. * pow(x[i+1] - pow(x[i], 2.0), 2.0)
-        results = [value]
+        results = [value/100.]
         for i in range(self._dim-1):
             results += [(2.*(x[i]-1) - 400.*x[i]*(x[i+1]-pow(x[i], 2.0)))]
         results += [(200. * (x[self._dim-1]-pow(x[self._dim-2], 2.0)))]
@@ -135,7 +135,7 @@ class Hartmann6(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.32237
-        self._observations = numpy.arange(self._dim)
+        self._observations = []#numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):

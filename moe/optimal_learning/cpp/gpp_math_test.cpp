@@ -70,7 +70,7 @@ namespace {  // contains classes/routines for ping testing GP/EI quantities and 
 \endrst*/
 class PingGPPKStar final : public PingableMatrixInputVectorOutputInterface {
  public:
-  constexpr static char const * const kName = "GP Mean";
+  constexpr static char const * const kName = "GP KStar";
 
   PingGPPKStar(double const * restrict lengths, double const * restrict points_sampled, double const * restrict points_sampled_value,
                int const * restrict gradients, double alpha, int dim, int num_to_sample, int num_sampled, int num_gradients) OL_NONNULL_POINTERS

@@ -449,7 +449,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
       OL_PARTIAL_FAILURE_PRINTF("kernel matrix from %s are NOT symmetric! %d fails\n", class_name, errors_this_iteration);
     }
 
-    //errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
+    errors_this_iteration += PingDerivative(covariance_evaluator, EI_environment.points_to_sample(), epsilon, tolerance_fine, tolerance_coarse, input_output_ratio);
 
     if (errors_this_iteration != 0) {
       OL_PARTIAL_FAILURE_PRINTF("on iteration %d\n", i);
