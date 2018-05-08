@@ -26,7 +26,7 @@ import synthetic_functions
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id]
-# example: python main.py Branin KG 4 1
+# example: python main.py Branin KG 1 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -40,6 +40,7 @@ num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
+                 'Camel': synthetic_functions.Camel(),
                  'Rosenbrock': synthetic_functions.Rosenbrock(),
                  'Hartmann3': synthetic_functions.Hartmann3(),
                  'Levy4': synthetic_functions.Levy4(),
@@ -82,7 +83,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            prior = prior,
                                                            chain_length = 1000,
                                                            burnin_steps = 2000,
-                                                           n_hypers = 4,
+                                                           n_hypers = 2 ** 3,
                                                            noisy = False)
 cpp_gp_loglikelihood.train()
 
@@ -95,14 +96,14 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_newton_params_ps = cppNewtonParameters(num_multistarts=1,
-                                           max_num_steps=100,
-                                           gamma=1.6,
-                                           time_factor=1.0,
+                                           max_num_steps=20,
+                                           gamma=1.1,
+                                           time_factor=1.0e40,
                                            max_relative_change=1.0,
                                            tolerance=1.0e-10)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
-                                                 max_num_steps=50,
+                                                 max_num_steps=100,
                                                  max_num_restarts=1,
                                                  num_steps_averaged=4,
                                                  gamma=0.7,

@@ -1,4 +1,5 @@
 import numpy
+import math
 from numpy import abs, cos, exp, mean, pi, prod, sin, sqrt, sum
 
 class Branin(object):
@@ -26,6 +27,29 @@ class Branin(object):
         return numpy.array([(a * pow(x[1] - b * pow(x[0], 2.0) + c * x[0] - r, 2.0) + s * (1 - t) * numpy.cos(x[0]) + s),
                 (2*a*(x[1] - b * pow(x[0], 2.0) + c * x[0] - r) * (-2* b * x[0] + c) + s * (1 - t) * (-numpy.sin(x[0]))),
                 (2*a*(x[1] - b * pow(x[0], 2.0) + c * x[0] - r))])
+
+    def evaluate(self, x):
+        return self.evaluate_true(x)
+
+class Camel(object):
+    def __init__(self):
+        self._dim = 2
+        self._search_domain = numpy.array([[-5., 5.], [-5., 5.]])
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = -1.0316
+        self._observations = []#numpy.arange(self._dim)
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        """ This function is usually evaluated on the square x_1 \in [0, 15], x_2 \in [-5, 15]. Global minimum
+            :param x[2]: 2-dim numpy array
+        """
+        x2 = math.pow(x[0],2)
+        x4 = math.pow(x[0],4)
+        y2 = math.pow(x[1],2)
+
+        return numpy.array([(4.0 - 2.1 * x2 + (x4 / 3.0)) * x2 + x[0]*x[1] + (-4.0 + 4.0 * y2) * y2])
 
     def evaluate(self, x):
         return self.evaluate_true(x)
