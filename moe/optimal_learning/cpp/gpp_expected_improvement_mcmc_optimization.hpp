@@ -749,6 +749,51 @@ void RestartedGradientDescentEIMCMCOptimization(const ExpectedImprovementMCMCEva
 }
 
 /*!\rst
+  Function to evaluate Knowledge Gradient (q,p-KG) over a specified list of ``num_multistarts`` points.
+  Optionally outputs the KG at each of these points.
+  Outputs the point of the set obtaining the maximum KG value.
+
+  Generally gradient descent is preferred but when they fail to converge this may be the only "robust" option.
+  This function is also useful for plotting or debugging purposes (just to get a bunch of KG values).
+
+  This function is just a wrapper that builds the required state objects and a NullOptimizer object and calls
+  MultistartOptimizer<...>::MultistartOptimize(...); see gpp_optimization.hpp.
+
+  \param
+    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+      that describes the underlying GP
+    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
+      max_num_threads (num cpu cores), schedule type (omp_sched_static), chunk_size (0).
+    :initial_guesses[dim][num_to_sample][num_multistarts]: list of points at which to compute KG
+    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
+    :discrete_pts[dim][num_pts]: points to approximate KG
+    :num_multistarts: number of points to check
+    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
+    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-KG)
+    :num_pts: number of points in discrete_pts
+    :best_so_far: value of the best mean value so far in discrete_pts
+    :max_int_steps: maximum number of MC iterations
+    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
+      the (pesudo)random source for MC integration
+    :noise: variance of measurement noise
+  \output
+    :found_flag[1]: true if best_next_point corresponds to a nonzero KG
+    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
+    :function_values[num_multistarts]: KG evaluated at each point of ``initial_guesses``, in the same order as
+      ``initial_guesses``; never dereferenced if nullptr
+    :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
+\endrst*/
+void EvaluateEIMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc,
+                               const ThreadSchedule& thread_schedule,
+                               double const * restrict initial_guesses,
+                               double const * restrict points_being_sampled,
+                               int num_multistarts, int num_to_sample,
+                               int num_being_sampled, double const * best_so_far,
+                               int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
+                               double * restrict function_values,
+                               double * restrict best_next_point);
+
+/*!\rst
   Perform multistart gradient descent (MGD) to solve the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or
   header docs).  Starts a GD run from each point in ``start_point_set``.  The point corresponding to the
   optimal KG\* is stored in ``best_next_point``.
@@ -838,10 +883,14 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                                       normal_rng, ei_state_vector.data(), &state_vector);
 
     std::vector<double> EI_starting(num_multistarts);
-    for (int i=0; i<num_multistarts; ++i){
-      state_vector[0].SetCurrentPoint(ei_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
-      EI_starting[i] = ei_evaluator.ComputeExpectedImprovement(&state_vector[0]);
-    }
+//    for (int i=0; i<num_multistarts; ++i){
+//      state_vector[0].SetCurrentPoint(ei_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
+//      EI_starting[i] = ei_evaluator.ComputeExpectedImprovement(&state_vector[0]);
+//    }
+
+    EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, start_point_set, points_being_sampled,
+                              num_multistarts, num_to_sample, num_being_sampled, best_so_far, max_int_steps, found_flag, normal_rng,
+                              EI_starting.data(), best_next_point);
 
     std::priority_queue<std::pair<double, int>> q;
     int k = 20; // number of indices we need
@@ -893,10 +942,13 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                                       normal_rng, ei_state_vector.data(), &state_vector);
 
     std::vector<double> EI_starting(num_multistarts);
-    for (int i=0; i<num_multistarts; ++i){
-      state_vector[0].SetCurrentPoint(ei_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
-      EI_starting[i] = ei_evaluator.ComputeExpectedImprovement(&state_vector[0]);
-    }
+//    for (int i=0; i<num_multistarts; ++i){
+//      state_vector[0].SetCurrentPoint(ei_evaluator, start_point_set + i*num_to_sample*gaussian_process_mcmc.dim());
+//      EI_starting[i] = ei_evaluator.ComputeExpectedImprovement(&state_vector[0]);
+//    }
+    EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, start_point_set, points_being_sampled,
+                              num_multistarts, num_to_sample, num_being_sampled, best_so_far, max_int_steps, found_flag, normal_rng,
+                              EI_starting.data(), best_next_point);
 
     std::priority_queue<std::pair<double, int>> q;
     int k = 20; // number of indices we need
@@ -935,51 +987,6 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
     std::copy(io_container.best_point.begin(), io_container.best_point.end(), best_next_point);
   }
 }
-
-/*!\rst
-  Function to evaluate Knowledge Gradient (q,p-KG) over a specified list of ``num_multistarts`` points.
-  Optionally outputs the KG at each of these points.
-  Outputs the point of the set obtaining the maximum KG value.
-
-  Generally gradient descent is preferred but when they fail to converge this may be the only "robust" option.
-  This function is also useful for plotting or debugging purposes (just to get a bunch of KG values).
-
-  This function is just a wrapper that builds the required state objects and a NullOptimizer object and calls
-  MultistartOptimizer<...>::MultistartOptimize(...); see gpp_optimization.hpp.
-
-  \param
-    :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
-      that describes the underlying GP
-    :thread_schedule: struct instructing OpenMP on how to schedule threads; i.e., (suggestions in parens)
-      max_num_threads (num cpu cores), schedule type (omp_sched_static), chunk_size (0).
-    :initial_guesses[dim][num_to_sample][num_multistarts]: list of points at which to compute KG
-    :points_being_sampled[dim][num_being_sampled]: points that are being sampled in concurrent experiments
-    :discrete_pts[dim][num_pts]: points to approximate KG
-    :num_multistarts: number of points to check
-    :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
-    :num_being_sampled: number of points being sampled concurrently (i.e., the "p" in q,p-KG)
-    :num_pts: number of points in discrete_pts
-    :best_so_far: value of the best mean value so far in discrete_pts
-    :max_int_steps: maximum number of MC iterations
-    :normal_rng[thread_schedule.max_num_threads]: a vector of NormalRNG objects that provide
-      the (pesudo)random source for MC integration
-    :noise: variance of measurement noise
-  \output
-    :found_flag[1]: true if best_next_point corresponds to a nonzero KG
-    :normal_rng[thread_schedule.max_num_threads]: NormalRNG objects will have their state changed due to random draws
-    :function_values[num_multistarts]: KG evaluated at each point of ``initial_guesses``, in the same order as
-      ``initial_guesses``; never dereferenced if nullptr
-    :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
-\endrst*/
-void EvaluateEIMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc,
-                               const ThreadSchedule& thread_schedule,
-                               double const * restrict initial_guesses,
-                               double const * restrict points_being_sampled,
-                               int num_multistarts, int num_to_sample,
-                               int num_being_sampled, double const * best_so_far,
-                               int max_int_steps, bool * restrict found_flag, NormalRNG * normal_rng,
-                               double * restrict function_values,
-                               double * restrict best_next_point);
 
 /*!\rst
   Perform multistart gradient descent (MGD) to solve the q,p-KG problem (see ComputeKGOptimalPointsToSample and/or

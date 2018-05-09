@@ -19,7 +19,6 @@
 #include "gpp_covariance.hpp"
 
 #include <cmath>
-
 #include <limits>
 #include <vector>
 

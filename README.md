@@ -28,11 +28,11 @@ Externally you can use Cornell-MOE through the the Python interface. Please refe
 ## Step-by-Step Install
 We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
 
-#### step 1, install requires: python 2.6.7+, gcc 4.7.3+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
+#### step 1, install requires: python 2.6.7+, gcc 4.7.2+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
 ```bash
 $ sudo apt-get update
-$ sudo apt-get install python python-dev gcc cmake libboost-all-dev python-pip doxygen libblas-dev liblapack-dev gfortran git python-numpy python-scipy
+$ sudo apt-get install python python-dev gcc cmake libboost-all-dev python-pip libblas-dev liblapack-dev gfortran git python-numpy python-scipy
 ```
 
 #### step 2, we recommend install Cornell-MOE in the virtual environment
