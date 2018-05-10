@@ -135,7 +135,7 @@ OL_WARN_UNUSED_RESULT int FillRandomGaussianProcess() {
   const int kNumToDraw = 3;
   const int kNumPoints = kNumSampled + kNumToDraw;
 
-  int *derivatives = new int[2]{0,1};
+  int derivatives [2] = {0, 1};
   int num_derivatives = 2;
 
   UniformRandomGenerator uniform_generator(314);
@@ -165,7 +165,6 @@ OL_WARN_UNUSED_RESULT int FillRandomGaussianProcess() {
   GaussianProcess gaussian_process(covariance, points_sampled.data(), points_sampled_value.data(), noise_variance.data(),
                                    derivatives, num_derivatives, kDim, 0);
 
-  delete [] derivatives;
   // add in kNumSampled points
   FillRandomGaussianProcess(points_sampled.data(), kDim, kNumSampled, points_sampled_value.data(), &gaussian_process);
 

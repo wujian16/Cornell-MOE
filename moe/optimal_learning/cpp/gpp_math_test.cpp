@@ -1453,7 +1453,7 @@ OL_WARN_UNUSED_RESULT int PingGPComponentTest(double epsilon[2], double toleranc
   int num_to_sample = 5;
   int num_sampled = 7;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   std::vector<double> lengths(dim);
@@ -1485,7 +1485,6 @@ OL_WARN_UNUSED_RESULT int PingGPComponentTest(double epsilon[2], double toleranc
     }
     total_errors += errors_this_iteration;
   }
-  delete [] gradients;
 
   if (total_errors != 0) {
     OL_PARTIAL_FAILURE_PRINTF("%s gradient pings failed with %d errors\n", GPComponentEvaluator::kName, total_errors);
@@ -1639,7 +1638,7 @@ OL_WARN_UNUSED_RESULT int PingEITest(int num_to_sample, int num_being_sampled, d
 
   int num_sampled = 7;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   std::vector<double> lengths(dim);
@@ -1678,8 +1677,6 @@ OL_WARN_UNUSED_RESULT int PingEITest(int num_to_sample, int num_being_sampled, d
   } else {
     OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-EI) gradient pings passed\n", EIEvaluator::kName, num_to_sample, num_being_sampled);
   }
-
-  delete [] gradients;
 
   return total_errors;
 }
@@ -2057,7 +2054,7 @@ int MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode ei_mode) {
   }
   std::vector<double> points_being_sampled(kDim*num_being_sampled);
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   // gradient descent parameters
@@ -2253,8 +2250,6 @@ int MultithreadedEIOptimizationTest(ExpectedImprovementEvaluationMode ei_mode) {
     OL_PARTIAL_SUCCESS_PRINTF("Single/Multithreaded EI Optimization Consistency Check succeeded\n");
   }
 
-  delete [] gradients;
-
   return total_errors;
 }
 
@@ -2297,7 +2292,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTestCore(ExpectedImprov
   int num_being_sampled = 0;
   int max_int_steps = 6000;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   // random number generators
@@ -2462,8 +2457,6 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationTestCore(ExpectedImprov
   }
   total_errors += current_errors;
 
-  delete [] gradients;
-
   return total_errors;
 }
 
@@ -2503,7 +2496,7 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationSimplexTestCore(Expecte
   int num_being_sampled = 0;
   int max_int_steps = 6000;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   // random number generators
@@ -2674,8 +2667,6 @@ OL_WARN_UNUSED_RESULT int ExpectedImprovementOptimizationSimplexTestCore(Expecte
   }
   total_errors += current_errors;
 
-  delete [] gradients;
-
   return total_errors;
 }
 
@@ -2721,7 +2712,7 @@ int ExpectedImprovementOptimizationMultipleSamplesTest() {
   const int num_to_sample = 3;
   const int num_being_sampled = 0;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   std::vector<double> points_being_sampled(dim*num_being_sampled);
@@ -2835,8 +2826,6 @@ int ExpectedImprovementOptimizationMultipleSamplesTest() {
                                                                  normal_rng_vec.data());
     ei_grid_search = ei_evaluator.ComputeExpectedImprovement(&ei_state_grid_search);
   }
-
-  delete [] gradients;
 
   printf("optimized EI: %.18E, grid_search_EI: %.18E\n", ei_optimized, ei_grid_search);
   printf("grad_EI: "); PrintMatrixTrans(grad_ei.data(), num_to_sample, dim);

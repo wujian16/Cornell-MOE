@@ -221,7 +221,7 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
 
   int num_sampled = 7;
 
-  int * gradients = new int[3]{0, 1, 2};
+  int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
 
   std::vector<double> lengths(dim);
@@ -258,7 +258,7 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
   } else {
     OL_PARTIAL_SUCCESS_PRINTF("%s (%d,%d-PS) gradient pings passed\n", PSEvaluator::kName, num_to_sample, 0);
   }
-  delete [] gradients;
+
   return total_errors;
 };
 

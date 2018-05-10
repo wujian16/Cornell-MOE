@@ -465,7 +465,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDeriva
   int errors_this_iteration = 0;
   int total_errors = 0;
 
-  int* derivatives = new int[3]{0, 1, 2};
+  int derivatives [3] = {0, 1, 2};
   int num_derivatives = 3;
 
   num_hyperparameters += 1+num_derivatives;
@@ -503,7 +503,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDeriva
     }
     total_errors += errors_this_iteration;
   }
-  delete [] derivatives;
+
   return total_errors;
 }
 
@@ -533,7 +533,7 @@ OL_WARN_UNUSED_RESULT int PingLogLikelihoodTest(char const * class_name, int num
   int num_to_sample = 1;
   int num_sampled = 7;
 
-  int * derivatives = new int[3]{0, 1, 2};
+  int derivatives [3] = {0, 1, 2};
   int num_derivatives = 3;
 
   num_hyperparameters += 1+num_derivatives;
@@ -572,7 +572,6 @@ OL_WARN_UNUSED_RESULT int PingLogLikelihoodTest(char const * class_name, int num
   } else {
     OL_PARTIAL_SUCCESS_PRINTF("%s loglikehood hyperparameter gradient pings passed\n", class_name);
   }
-  delete [] derivatives;
 
   return total_errors;
 }
@@ -690,7 +689,7 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
   const int dim = 2;
   const int num_sampled = 40;
 
-  int * derivatives = new int[2]{0,1};
+  int derivatives [2] = {0, 1};
   int num_derivatives = 2;
   std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
 
@@ -756,7 +755,6 @@ OL_WARN_UNUSED_RESULT int HyperparameterLikelihoodOptimizationTestCore(LogLikeli
                                              mock_gp_data.gaussian_process_ptr->points_sampled_value().data(),
                                              derivatives, num_derivatives, dim, num_sampled);
 
-  delete [] derivatives;
   typename LogLikelihoodEvaluator::StateType log_likelihood_state(log_likelihood_eval, covariance_wrong, noise_variance_wrong);
 
   initial_likelihood = log_likelihood_eval.ComputeLogLikelihood(log_likelihood_state);
@@ -882,7 +880,7 @@ OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodGradientOptimization
   const int dim = 2;
 
 
-  int * derivatives = new int[2]{0,1};
+  int derivatives [2] = {0, 1};
   int num_derivatives = 2;
   std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
 
@@ -1063,8 +1061,6 @@ OL_WARN_UNUSED_RESULT int MultistartHyperparameterLikelihoodGradientOptimization
       }
     }
   }
-
-  delete [] derivatives;
 
   return total_errors;
 }
@@ -1480,7 +1476,7 @@ int EvaluateLogLikelihoodAtPointListTest() {
   // grid search parameters
   int num_grid_search_points = 100000;
 
-  int * derivatives = new int[2]{0,1};
+  int derivatives [2] = {0, 1};
   int num_derivatives = 2;
   std::vector<int> input_derivatives(derivatives, derivatives+num_derivatives);
 
@@ -1503,7 +1499,6 @@ int EvaluateLogLikelihoodAtPointListTest() {
   LogLikelihoodEvaluator log_marginal_eval(mock_gp_data.gaussian_process_ptr->points_sampled().data(),
                                            mock_gp_data.gaussian_process_ptr->points_sampled_value().data(),
                                            derivatives, num_derivatives, dim, num_sampled);
-  delete [] derivatives;
 
   int num_hyperparameters = mock_gp_data.covariance_ptr->GetNumberOfHyperparameters() +1 +num_derivatives;
   std::vector<ClosedInterval> hyperparameter_log_domain_bounds(num_hyperparameters, {-2.0, 1.0});

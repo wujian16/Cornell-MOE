@@ -267,7 +267,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDeriva
   int errors_this_iteration = 0;
   int total_errors = 0;
 
-  int* derivatives = new int[3]{0, 1, 2};
+  int derivatives [3] = {0, 1, 2};
   int num_derivatives = 3;
 
   std::vector<double> hyperparameters(num_hyperparameters);
@@ -303,7 +303,6 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterDeriva
     }
     total_errors += errors_this_iteration;
   }
-  delete [] derivatives;
 
   return total_errors;
 }
@@ -315,7 +314,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterGradie
   int total_errors = 0;
   std::vector<double> hyperparameters(num_hyperparameters);
 
-  int* derivatives = new int[3]{0, 1, 2};
+  int derivatives [3] = {0, 1, 2};
   int num_derivatives = 3;
 
   UniformRandomGenerator uniform_generator(31415);
@@ -358,7 +357,6 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceHyperparameterGradie
   } else {
     OL_PARTIAL_SUCCESS_PRINTF("%s covariance hyperparameter gradient pings passed\n", class_name);
   }
-  delete [] derivatives;
 
   return total_errors;
 }
@@ -381,7 +379,7 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
   int errors_this_iteration;
   int total_errors = 0;
 
-  int* derivatives = new int[3]{0, 1, 2};
+  int derivatives [3] = {0, 1, 2};
   int num_derivatives = 3;
 
   std::vector<double> lengths(dim);
@@ -455,7 +453,6 @@ OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT int PingCovarianceSpatialDerivativesTe
     }
     total_errors += errors_this_iteration;
   }
-  delete [] derivatives;
 
   if (total_errors != 0) {
     OL_PARTIAL_FAILURE_PRINTF("%s covariance pings failed with %d errors\n", class_name, total_errors);

@@ -19,7 +19,7 @@ from moe.optimal_learning.python.python_version.optimization import GradientDesc
 from moe.optimal_learning.python.python_version.optimization import GradientDescentOptimizer as pyGradientDescentOptimizer
 from moe.optimal_learning.python.python_version.optimization import multistart_optimize as multistart_optimize
 
-import bgo_methods
+import bayesian_optimization
 import synthetic_functions
 
 # arguments for calling this script:
@@ -34,7 +34,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 60
+num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
@@ -77,17 +77,17 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            chain_length = 1000, burnin_steps = 2000, n_hypers = 10, noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=200, max_num_restarts=2,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000, max_num_restarts=3,
                                                num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
-                                               max_relative_change=0.1, tolerance=1.0e-5)
+                                               max_relative_change=0.1, tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.03,
-                                                 max_relative_change=0.06, tolerance=1.0e-5)
+                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.01,
+                                                 max_relative_change=0.06, tolerance=1.0e-10)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200, max_num_steps=50, max_num_restarts=1,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=0.3,
-                                                 max_relative_change=0.3, tolerance=1.0e-5)
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=10000, max_num_steps=50, max_num_restarts=4,
+                                                 num_steps_averaged=4, gamma=0.7, pre_mult=1.0,
+                                                 max_relative_change=0.3, tolerance=1.0e-10)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
@@ -147,13 +147,13 @@ for n in xrange(num_iteration):
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
         # KG method
-        next_points, voi = bgo_methods.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
+        next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                 ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 4)
+                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
 
     elif method == 'EI':
         # EI method
-        next_points, voi = bgo_methods.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
+        next_points, voi = bayesian_optimization.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
                                                            cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
     else:
         print method + str(" not supported")
