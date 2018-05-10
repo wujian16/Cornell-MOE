@@ -24,7 +24,7 @@ import synthetic_functions
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id]
-# example: python main.py Branin KG 4 1000 1
+# example: python main.py Branin KG 4 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -37,8 +37,11 @@ job_id = int(argv[3])
 num_func_eval = 100
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
-obj_func_dict = {'Branin': synthetic_functions.Branin(), 'Rosenbrock': synthetic_functions.Rosenbrock(),
-                 'Hartmann3': synthetic_functions.Hartmann3(), 'Hartmann6': synthetic_functions.Hartmann6()}
+obj_func_dict = {'Branin': synthetic_functions.Branin(),
+                 'Rosenbrock': synthetic_functions.Rosenbrock(),
+                 'Hartmann3': synthetic_functions.Hartmann3(),
+                 'Levy4': synthetic_functions.Levy4(),
+                 'Hartmann6': synthetic_functions.Hartmann6()}
                  #'CIFAR10': real_functions.CIFAR10(),
                  #'KISSGP': real_functions.KISSGP()}
 
@@ -72,27 +75,48 @@ init_data.append_sample_points([SamplePoint(pt, [init_pts_value[num, i] for i in
 
 # initialize the model
 prior = DefaultPrior(1+dim+len(observations), len(observations))
+
 # noisy = False means the underlying function being optimized is noise-free
-cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data, derivatives = derivatives, prior = prior,
-                                                           chain_length = 1000, burnin_steps = 2000, n_hypers = 10, noisy = False)
+cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = init_data,
+                                                           derivatives = derivatives,
+                                                           prior = prior,
+                                                           chain_length = 1000,
+                                                           burnin_steps = 2000,
+                                                           n_hypers = 2 ** 4,
+                                                           noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000, max_num_restarts=3,
-                                               num_steps_averaged=15, gamma=0.7, pre_mult=0.01,
-                                               max_relative_change=0.1, tolerance=1.0e-10)
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
+                                               max_num_restarts=3,
+                                               num_steps_averaged=15,
+                                               gamma=0.7,
+                                               pre_mult=1.0,
+                                               max_relative_change=0.02,
+                                               tolerance=1.0e-10)
 
-cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1, max_num_steps=20, max_num_restarts=2,
-                                                 num_steps_averaged=3, gamma=0.7, pre_mult=0.01,
-                                                 max_relative_change=0.06, tolerance=1.0e-10)
+cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
+                                                 max_num_steps=50,
+                                                 max_num_restarts=4,
+                                                 num_steps_averaged=3,
+                                                 gamma=0.7,
+                                                 pre_mult=0.1,
+                                                 max_relative_change=0.1,
+                                                 tolerance=1.0e-10)
 
-cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=10000, max_num_steps=50, max_num_restarts=4,
-                                                 num_steps_averaged=4, gamma=0.7, pre_mult=1.0,
-                                                 max_relative_change=0.3, tolerance=1.0e-10)
+cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
+                                                 max_num_steps=50,
+                                                 max_num_restarts=4,
+                                                 num_steps_averaged=4,
+                                                 gamma=0.7,
+                                                 pre_mult=1.0,
+                                                 max_relative_change=0.5,
+                                                 tolerance=1.0e-10)
 
 # minimum of the mean surface
 eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
 eval_pts = np.reshape(np.append(eval_pts, (cpp_gp_loglikelihood.get_historical_data_copy()).points_sampled[:, :(cpp_gp_loglikelihood.dim-objective_func._num_fidelity)]),
-                      (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
+                      (eval_pts.shape[0] + cpp_gp_loglikelihood._num_sampled,
+                       cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
 
 test = np.zeros(eval_pts.shape[0])
 ps = PosteriorMeanMCMC(cpp_gp_loglikelihood.models, num_fidelity)
@@ -116,7 +140,9 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG':
         discrete_pts_list = []
-        discrete = inner_search_domain.generate_uniform_random_points_in_domain(200)
+        #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
+        discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+                                                                cpp_sgd_params_kg, 10, num_mc=2 ** 10)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
@@ -212,7 +238,6 @@ for n in xrange(num_iteration):
 
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
-
 
     print "the recommended point: ",
     print report_point

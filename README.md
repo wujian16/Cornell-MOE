@@ -74,7 +74,7 @@ with proper options.
 ```
 # python main.py [obj_func_name] [num_to_sample] [job_id]
 # q = num_to_sample
-$ python main.py Hartmann3 4 1
+$ python main.py Hartmann3 KG(EI) 4 1
 ```
 
 ### Mode: derivative-enabled knowledge gradient (d-KG)
@@ -92,7 +92,7 @@ class KISSGP(object):
 ```
 which means that we access the first 3 partial derivatives. One can run this benchmark similarly by
 ```
-$ python main.py KISSGP 4 1
+$ python main.py KISSGP KG(EI) 4 1
 ```
 If one modifies to ```self._observations = []```, and then rerun the command above, it will execute the q-KG algorithm without exploiting gradient
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
