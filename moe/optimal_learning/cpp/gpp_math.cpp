@@ -2313,7 +2313,7 @@ void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& 
 
   std::priority_queue<std::pair<double, int>> q;
   double val;
-  int k = 1; // number of indices we need
+  int k = std::min(5, num_starts); // number of indices we need
   for (int i = 0; i < num_starts; ++i) {
     ei_state.SetCurrentPoint(ei_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
     val = ei_evaluator.ComputeExpectedImprovement(&ei_state);
@@ -2338,10 +2338,17 @@ void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& 
   }
 
   GradientDescentOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> gd_opt;
-  ei_state.SetCurrentPoint(ei_evaluator, top_k_starting.data());
-  gd_opt.Optimize(ei_evaluator, optimizer_parameters, domain, &ei_state);
-  ei_state.GetCurrentPoint(best_next_point);
-  *best_function_value = ei_evaluator.ComputeExpectedImprovement(&ei_state);
+  double function_value_temp = -1.0;
+  *best_function_value = -1.0;
+  for (int i = 0; i < k; ++i){
+    ei_state.SetCurrentPoint(ei_evaluator, top_k_starting.data() + i*(gaussian_process.dim()-num_fidelity));
+    gd_opt.Optimize(ei_evaluator, optimizer_parameters, domain, &ei_state);
+    function_value_temp = ei_evaluator.ComputeExpectedImprovement(&ei_state);
+    if (function_value_temp > *best_function_value){
+      *best_function_value = function_value_temp;
+      ei_state.GetCurrentPoint(best_next_point);
+    }
+  }
 }
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6

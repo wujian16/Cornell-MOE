@@ -434,7 +434,7 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
 
   std::priority_queue<std::pair<double, int>> q;
   double val;
-  int k = 1; // number of indices we need
+  int k = std::min(5, num_starts); // number of indices we need
   for (int i = 0; i < num_starts; ++i) {
     ps_state.SetCurrentPoint(ps_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
     val = ps_evaluator.ComputePosteriorMean(&ps_state);
@@ -459,10 +459,17 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
   }
 
   GradientDescentOptimizer<PosteriorMeanEvaluator, DomainType> gd_opt;
-  ps_state.SetCurrentPoint(ps_evaluator, top_k_starting.data());
-  gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
-  ps_state.GetCurrentPoint(best_next_point);
-  *best_function_value = ps_evaluator.ComputePosteriorMean(&ps_state);
+  double function_value_temp = -INFINITY;
+  *best_function_value = -INFINITY;
+  for (int i = 0; i < k; ++i){
+    ps_state.SetCurrentPoint(ps_evaluator, top_k_starting.data() + i*(gaussian_process.dim()-num_fidelity));
+    gd_opt.Optimize(ps_evaluator, optimizer_parameters, domain, &ps_state);
+    function_value_temp = ps_evaluator.ComputePosteriorMean(&ps_state);
+    if (function_value_temp > *best_function_value){
+      *best_function_value = function_value_temp;
+      ps_state.GetCurrentPoint(best_next_point);
+    }
+  }
 }
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6

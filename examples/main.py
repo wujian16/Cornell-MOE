@@ -97,10 +97,10 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  max_num_steps=50,
-                                                 max_num_restarts=6,
+                                                 max_num_restarts=1,
                                                  num_steps_averaged=3,
                                                  gamma=0.7,
-                                                 pre_mult=0.1,
+                                                 pre_mult=0.01,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-5)
 
@@ -145,7 +145,7 @@ for n in xrange(num_iteration):
         #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
         discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
                                                                      cpp_sgd_params_kg, 10, num_mc=2 ** 10)
-        for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
+        for cpp_gp in cpp_gp_loglikelihood.models:
             discrete_pts_optima = np.array(discrete)
 
             eval_pts = inner_search_domain.generate_uniform_random_points_in_domain(int(1e3))
@@ -179,7 +179,7 @@ for n in xrange(num_iteration):
             # KG method
             next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                               ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                              cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 5)
+                                                                              cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
         else:
             # two-step method
             next_points, voi = bayesian_optimization.gen_sample_from_two_step_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
