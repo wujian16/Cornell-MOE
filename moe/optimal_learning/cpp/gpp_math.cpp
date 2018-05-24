@@ -2337,7 +2337,7 @@ void ComputeOptimalOnePotentialSampleExpectedImprovement(const GaussianProcess& 
     q.pop();
   }
 
-  GradientDescentOptimizer<OnePotentialSampleExpectedImprovementEvaluator, DomainType> gd_opt;
+  GradientDescentOptimizerLineSearch<OnePotentialSampleExpectedImprovementEvaluator, DomainType> gd_opt;
   double function_value_temp = -1.0;
   *best_function_value = -1.0;
   for (int i = 0; i < k; ++i){

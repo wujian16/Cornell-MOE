@@ -105,13 +105,13 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeValueFunction(Sta
       }
     }
 
-    aggregate += improvement_this_step;
+    //aggregate += improvement_this_step;
     if(factor_ != 0.0){
       GaussianProcess gaussian_process_after(*gaussian_process_);
       gaussian_process_after.AddPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union, false);
 
       ComputeOptimalOnePotentialSampleExpectedImprovement(gaussian_process_after, num_fidelity_, optimizer_parameters_,
-                                                          best_so_far_-improvement_this_step, domain_,
+                                                          best_so_far_, domain_,
                                                           vf_state->discretized_set.data(), num_union + num_pts_,
                                                           &found_flag, vf_state->best_point.data() + i*dim_, &best_function_value);
 
@@ -158,9 +158,6 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeGradValueFunction
   double aggregate = 0.0;
   vf_state->normal_rng->ResetToMostRecentSeed();
   for (int i = 0; i < num_mc_iterations_; ++i) {
-//    for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-//      vf_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(vf_state->normal_rng))();
-//    }
 
     if (i % 2 == 1){
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
@@ -180,52 +177,52 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeGradValueFunction
                                 1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
                                 make_up_function_value.data());
 
-    double improvement_this_step = 0.0;
-    int winner = num_union + 1;  // an out of-bounds initial value
-    for (int j = 0; j < num_union; ++j) {
-      double EI_step_one = best_so_far_ - make_up_function_value[j*(1+num_gradients_to_sample)];
-      if (EI_step_one > improvement_this_step) {
-        improvement_this_step = EI_step_one;
-        winner = j;
-      }
-    }
+//    double improvement_this_step = 0.0;
+//    int winner = num_union + 1;  // an out of-bounds initial value
+//    for (int j = 0; j < num_union; ++j) {
+//      double EI_step_one = best_so_far_ - make_up_function_value[j*(1+num_gradients_to_sample)];
+//      if (EI_step_one > improvement_this_step) {
+//        improvement_this_step = EI_step_one;
+//        winner = j;
+//      }
+//    }
 
-    if (improvement_this_step > 0.0) {
-      // improvement > 0.0 implies winner will be valid; i.e., in 0: vf_state->num_to_sample
-      // recall that grad_mu only stores \frac{d mu_i}{d Xs_i}, since \frac{d mu_j}{d Xs_i} = 0 for i != j.
-      // hence the only relevant term from grad_mu is the one describing the gradient wrt winner-th point,
-      // and this term only arises if the winner (for most improvement) index is less than num_to_sample
-      if (winner < vf_state->num_to_sample) {
-        for (int k = 0; k < dim_; ++k) {
-          vf_state->step_one_gradient[i*dim_*vf_state->num_to_sample + winner*dim_ + k] = vf_state->grad_mu[winner*dim_ + k];
-        }
-      }
+//    if (improvement_this_step > 0.0) {
+//      // improvement > 0.0 implies winner will be valid; i.e., in 0: vf_state->num_to_sample
+//      // recall that grad_mu only stores \frac{d mu_i}{d Xs_i}, since \frac{d mu_j}{d Xs_i} = 0 for i != j.
+//      // hence the only relevant term from grad_mu is the one describing the gradient wrt winner-th point,
+//      // and this term only arises if the winner (for most improvement) index is less than num_to_sample
+//      if (winner < vf_state->num_to_sample) {
+//        for (int k = 0; k < dim_; ++k) {
+//          vf_state->step_one_gradient[i*dim_*vf_state->num_to_sample + winner*dim_ + k] = vf_state->grad_mu[winner*dim_ + k];
+//        }
+//      }
+//
+//      double const * restrict grad_chol_decomp_winner_block = vf_state->grad_chol_decomp.data() +
+//                                                              winner*dim_*(num_union)*Square((1+num_gradients_to_sample));
+//      for (int k = 0; k < vf_state->num_to_sample; ++k) {
+//        GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N',
+//                                    vf_state->normals.data() + i*num_union*(1+num_gradients_to_sample), 1.0, 1.0,
+//                                    dim_, num_union*(1+num_gradients_to_sample), dim_,
+//                                    vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + k*dim_);
+//        grad_chol_decomp_winner_block += dim_*Square(num_union*(1+num_gradients_to_sample));
+//      }
+//
+//      for (int k = 0; k < vf_state->num_to_sample; ++k) {
+//        for (int d = 0; d < dim_; ++d) {
+//          vf_state->aggregate[d + k*dim_] -= vf_state->step_one_gradient[i*dim_*vf_state->num_to_sample + k*dim_ + d];
+//        }
+//      }
+//    } // end if: improvement_this_step > 0.0
 
-      double const * restrict grad_chol_decomp_winner_block = vf_state->grad_chol_decomp.data() +
-                                                              winner*dim_*(num_union)*Square((1+num_gradients_to_sample));
-      for (int k = 0; k < vf_state->num_to_sample; ++k) {
-        GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N',
-                                    vf_state->normals.data() + i*num_union*(1+num_gradients_to_sample), 1.0, 1.0,
-                                    dim_, num_union*(1+num_gradients_to_sample), dim_,
-                                    vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + k*dim_);
-        grad_chol_decomp_winner_block += dim_*Square(num_union*(1+num_gradients_to_sample));
-      }
-
-      for (int k = 0; k < vf_state->num_to_sample; ++k) {
-        for (int d = 0; d < dim_; ++d) {
-          vf_state->aggregate[d + k*dim_] -= vf_state->step_one_gradient[i*dim_*vf_state->num_to_sample + k*dim_ + d];
-        }
-      }
-    } // end if: improvement_this_step > 0.0
-
-    aggregate += improvement_this_step;
+    //aggregate += improvement_this_step;
 
     if (factor_ != 0.0) {
       GaussianProcess gaussian_process_after(*gaussian_process_);
       gaussian_process_after.AddPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union, false);
 
       ComputeOptimalOnePotentialSampleExpectedImprovement(gaussian_process_after, num_fidelity_, optimizer_parameters_,
-                                                          best_so_far_-improvement_this_step, domain_,
+                                                          best_so_far_, domain_,
                                                           vf_state->discretized_set.data(), num_union + num_pts_,
                                                           &found_flag, vf_state->best_point.data() + i*dim_, &best_function_value);
       aggregate += best_function_value;
@@ -233,7 +230,7 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeGradValueFunction
       // update the mean difference
       gaussian_process_after.ComputeMeanOfAdditionalPoints(vf_state->best_point.data() + i*dim_, 1, nullptr,
                                                            0, vf_state->best_mean_difference.data()+i);
-      vf_state->best_mean_difference[i] = best_so_far_ - improvement_this_step - vf_state->best_mean_difference[i];
+      vf_state->best_mean_difference[i] = best_so_far_ - vf_state->best_mean_difference[i];
 
       // update the standard deviation
       PointsToSampleState best_point(gaussian_process_after, vf_state->best_point.data() + i*dim_, 1, nullptr, 0, 0);
@@ -269,10 +266,10 @@ double TwoStepExpectedImprovementEvaluator<DomainType>::ComputeGradValueFunction
       for (int i = 0; i < num_mc_iterations_; ++i){
         // mean gradient
         std::vector<double> mean_grad(dim_);
-        std::copy(vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + k*dim_,
-                  vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + (k+1)*dim_,
-                  mean_grad.data());
-        GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N', vf_state->normals.data() + i*num_union*(1+num_gradients_to_sample), -1.0, 1.0,
+//        std::copy(vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + k*dim_,
+//                  vf_state->step_one_gradient.data() + i*dim_*vf_state->num_to_sample + (k+1)*dim_,
+//                  mean_grad.data());
+        GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N', vf_state->normals.data() + i*num_union*(1+num_gradients_to_sample), -1.0, 0.0,
                                     dim_, num_union*(1+num_gradients_to_sample), dim_, mean_grad.data());
 
         // std gradient
