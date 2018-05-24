@@ -5,6 +5,9 @@ from moe.optimal_learning.python.cpp_wrappers.expected_improvement import multis
 from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import multistart_expected_improvement_mcmc_optimization
 from moe.optimal_learning.python.cpp_wrappers.expected_improvement_mcmc import ExpectedImprovementMCMC as cppExpectedImprovementMCMC
 
+from moe.optimal_learning.python.cpp_wrappers.robust_knowledge_gradient_mcmc import RobustKnowledgeGradientMCMC as cppRobustKnowledgeGradient
+from moe.optimal_learning.python.cpp_wrappers.robust_knowledge_gradient_mcmc import multistart_robust_knowledge_gradient_mcmc_optimization
+
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import KnowledgeGradientMCMC as cppKnowledgeGradientMCMC
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import multistart_knowledge_gradient_mcmc_optimization
 
@@ -85,4 +88,34 @@ def gen_sample_from_qkg_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_sear
 
     cpp_kg_evaluator.set_current_point(points_to_sample_list[0])
     kg_list.append(cpp_kg_evaluator.compute_objective_function())
+    return points_to_sample_list[numpy.argmax(kg_list)], numpy.amax(kg_list)
+
+def gen_sample_from_rKG_mcmc(cpp_gp_mcmc, cpp_gp_list, inner_optimizer, cpp_search_domain, num_fidelity,
+                                  discrete_pts_list, sgd_params, num_to_sample, factor, num_mc=10, lhc_itr=1e3):
+    """
+    :param cpp_gp_mcmc: trained cpp version of GaussianProcess MCMC model
+    :param cpp_gp_list:
+    :param inner_optimizer:
+    :param cpp_search_domain: cpp version of TensorProductDomain
+    :param num_fidelity: number of fidelity control parameters
+    :param discrete_pts_list:
+    :param sgd_params: GradientDescentParameters
+    :param num_mc: number of Monte Carlo iterations
+    :param lhc_itr: number of points used in latin hypercube search
+    :return: (points to sample next, expected improvement at this set of points)
+    """
+    cpp_twoei_evaluator = cppRobustKnowledgeGradient(gaussian_process_mcmc = cpp_gp_mcmc, gaussian_process_list=cpp_gp_list,
+                                                        num_fidelity = num_fidelity, inner_optimizer = inner_optimizer, discrete_pts_list=discrete_pts_list,
+                                                        num_to_sample = num_to_sample, factor = factor, num_mc_iterations=int(num_mc))
+    optimizer = cppGradientDescentOptimizer(cpp_search_domain, cpp_twoei_evaluator, sgd_params, int(lhc_itr))
+    points_to_sample_list = []
+    kg_list = []
+
+    points_to_sample_list.append(multistart_robust_knowledge_gradient_mcmc_optimization(optimizer, inner_optimizer, None, discrete_pts_list,
+                                                                                            num_to_sample=num_to_sample,
+                                                                                            num_pts=discrete_pts_list[0].shape[0],
+                                                                                            max_num_threads=20))
+
+    cpp_twoei_evaluator.set_current_point(points_to_sample_list[0])
+    kg_list.append(cpp_twoei_evaluator.compute_objective_function())
     return points_to_sample_list[numpy.argmax(kg_list)], numpy.amax(kg_list)

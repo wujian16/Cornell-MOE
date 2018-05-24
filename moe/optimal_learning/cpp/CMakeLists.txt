@@ -96,6 +96,8 @@ set(OPTIMAL_LEARNING_CORE_SOURCES
   gpp_random.cpp
   #gpp_expected_improvement_gpu.cpp
   gpp_knowledge_gradient_optimization.cpp
+  gpp_robust_knowledge_gradient_optimization.cpp
+  gpp_robust_knowledge_gradient_mcmc_optimization.cpp
   gpp_knowledge_gradient_mcmc_optimization.cpp
   )
 
@@ -108,6 +110,7 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_linear_algebra_test.cpp
   gpp_math_test.cpp
   gpp_knowledge_gradient_optimization_test.cpp
+  gpp_robust_knowledge_gradient_optimization_test.cpp
   gpp_model_selection_test.cpp
   gpp_optimization_test.cpp
   gpp_random_test.cpp
@@ -124,6 +127,7 @@ set(OPTIMAL_LEARNING_PYTHON_SOURCES
   gpp_python_expected_improvement_mcmc.cpp
   gpp_python_knowledge_gradient.cpp
   gpp_python_knowledge_gradient_mcmc.cpp
+  gpp_python_robust_knowledge_gradient_mcmc.cpp
   gpp_python_gaussian_process.cpp
   gpp_python_model_selection.cpp
   gpp_python_test.cpp

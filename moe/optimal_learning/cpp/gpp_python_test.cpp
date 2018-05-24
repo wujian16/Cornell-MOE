@@ -25,6 +25,7 @@
 #include "gpp_optimization_test.hpp"
 #include "gpp_random_test.hpp"
 #include "gpp_knowledge_gradient_optimization_test.hpp"
+#include "gpp_robust_knowledge_gradient_optimization_test.hpp"
 #include "gpp_test_utils_test.hpp"
 
 namespace optimal_learning {
@@ -67,11 +68,19 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = RunKGTests();
+  //error = RunKGTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("KG tests failed\n");
   } else {
     OL_SUCCESS_PRINTF("KG tests\n");
+  }
+  total_errors += error;
+
+  error = RunRKGTests();
+  if (error != 0) {
+    OL_FAILURE_PRINTF("Robust KG tests failed\n");
+  } else {
+    OL_SUCCESS_PRINTF("Robust KG tests\n");
   }
   total_errors += error;
 /*
