@@ -455,7 +455,11 @@ struct RobustKnowledgeGradientState final {
   //! grad_chol_inverse_cov
   std::vector<double> grad_chol_inverse_cov;
   //! the mean difference at step two
+  std::vector<double> best_mean_difference;
+  //! the standard deviation at step two
   std::vector<double> best_standard_deviation;
+  //! the gradient of the step one best point wrt the step-one sampled point
+  std::vector<double> step_one_gradient;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(RobustKnowledgeGradientState);
 };

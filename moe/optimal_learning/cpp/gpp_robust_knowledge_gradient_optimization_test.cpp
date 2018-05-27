@@ -329,7 +329,7 @@ OL_WARN_UNUSED_RESULT int PingRKGTest(int num_to_sample, int num_being_sampled, 
   const int dim = 3;
 
   int num_sampled = 7;
-  int num_pts = 50;
+  int num_pts = 100;
 
   int * gradients = new int[3]{0, 1, 2};
   int num_gradients = 3;
@@ -343,12 +343,12 @@ OL_WARN_UNUSED_RESULT int PingRKGTest(int num_to_sample, int num_being_sampled, 
   MockExpectedImprovementEnvironment KG_environment;
 
   // gradient descent parameters
-  const double gamma = 0.7;
+  const double gamma = 0.0;
   const double pre_mult = 1.0;
   const double max_relative_change = 0.7;
-  const double tolerance = 1.0e-5;
+  const double tolerance = 1.0e-20;
 
-  const int max_gradient_descent_steps = 1000;
+  const int max_gradient_descent_steps = 100;
   const int max_num_restarts = 50;
   const int num_steps_averaged = 15;
 
@@ -474,16 +474,16 @@ OL_WARN_UNUSED_RESULT int PingRPSTest(int num_to_sample, double epsilon[2], doub
 \endrst*/
 
 int PingRKGGeneralTest() {
-  double epsilon_KG[2] = {1.0e-4, 1.0e-5};
+  double epsilon_KG[2] = {1.0e-6, 1.0e-7};
   int total_errors = PingRPSTest<PingRobustPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingRKGTest<PingRobustKnowledgeGradient>(1, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  //total_errors += PingRKGTest<PingRobustKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  total_errors += PingRKGTest<PingRobustKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  //total_errors += PingRKGTest<PingRobustKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  total_errors += PingRKGTest<PingRobustKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  //total_errors += PingRKGTest<PingRobustKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  total_errors += PingRKGTest<PingRobustKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   return total_errors;
 }
@@ -495,15 +495,15 @@ int RunRKGTests() {
   {
     current_errors = PingRKGGeneralTest();
     if (current_errors != 0) {
-      OL_PARTIAL_FAILURE_PRINTF("pinging two-step EI failed with %d errors\n", current_errors);
+      OL_PARTIAL_FAILURE_PRINTF("pinging robust KG failed with %d errors\n", current_errors);
     }
     total_errors += current_errors;
   }
 
   if (total_errors != 0) {
-    OL_PARTIAL_FAILURE_PRINTF("two-step EI functions failed with %d errors\n\n", total_errors);
+    OL_PARTIAL_FAILURE_PRINTF("robust KG functions failed with %d errors\n\n", total_errors);
   } else {
-    OL_PARTIAL_SUCCESS_PRINTF("two-step EI functions passed\n");
+    OL_PARTIAL_SUCCESS_PRINTF("robust KG functions passed\n");
   }
 
   return total_errors;
