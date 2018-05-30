@@ -73,8 +73,9 @@ def multistart_expected_improvement_mcmc_optimization(
     if randomness is None:
         randomness = C_GP.RandomnessSourceContainer(max_num_threads)
         # Set seeds based on less repeatable factors (e.g,. time)
-        randomness.SetRandomizedUniformGeneratorSeed(0)
+        randomness.SetExplicitUniformGeneratorSeed(0)
         randomness.SetRandomizedNormalRNGSeed(0)
+        randomness.SetNormalRNGSeedPythonList([314]*max_num_threads, [True]*max_num_threads)
 
     # status must be an initialized dict for the call to C++.
     if status is None:
@@ -160,6 +161,7 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
             # Set seed based on less repeatable factors (e.g,. time)
             self._randomness.SetRandomizedUniformGeneratorSeed(0)
             self._randomness.SetRandomizedNormalRNGSeed(0)
+            self._randomness.SetNormalRNGSeedPythonList([314], [True])
         else:
             self._randomness = randomness
 

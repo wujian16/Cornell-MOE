@@ -85,7 +85,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            prior = prior,
                                                            chain_length = 1000,
                                                            burnin_steps = 2000,
-                                                           n_hypers = 2 ** 3,
+                                                           n_hypers = 2 ** 4,
                                                            noisy = False)
 cpp_gp_loglikelihood.train()
 
@@ -98,10 +98,10 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=0,
-                                                 max_num_restarts=1,
+                                                 max_num_steps=10,
+                                                 max_num_restarts=2,
                                                  num_steps_averaged=3,
-                                                 gamma=0.0,
+                                                 gamma=0.7,
                                                  pre_mult=1.0,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-10)
@@ -143,7 +143,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG' or method == "rKG":
         discrete_pts_list = []
-        discrete = inner_search_domain.generate_uniform_random_points_in_domain(1000)
+        discrete = inner_search_domain.generate_uniform_random_points_in_domain(20)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
@@ -179,15 +179,15 @@ for n in xrange(num_iteration):
                                                                     ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
                                                                     cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
         else:
-            # KG method
+            # robust KG method
             next_points, voi = bayesian_optimization.gen_sample_from_rKG_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                               ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
                                                                               cpp_sgd_params_kg, num_to_sample, 1.0, num_mc=2 ** 6)
 
     elif method == 'EI':
         # EI method
-        next_points, voi = bayesian_optimization.gen_sample_from_qei(cpp_gp_loglikelihood.models[0], cpp_search_domain,
-                                                           cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
+        next_points, voi = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+                                                                          cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
     else:
         print method + str(" not supported")
         sys.exit(0)

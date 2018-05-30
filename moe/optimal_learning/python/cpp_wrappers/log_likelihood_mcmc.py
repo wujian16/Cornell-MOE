@@ -54,6 +54,10 @@ Again, we can maximize this quanitity over hyperparameters to help us choose the
 import copy
 
 import numpy
+numpy.random.seed(12345)
+import random
+random.seed(12345)
+
 import emcee
 from scipy import optimize
 
@@ -113,7 +117,7 @@ class GaussianProcessLogLikelihoodMCMC:
         self.noisy = noisy
 
         if rng is None:
-            self.rng = numpy.random.RandomState(numpy.random.randint(0, 10000))
+            self.rng = numpy.random.RandomState(42)
         else:
             self.rng = rng
         self.n_hypers = n_hypers
@@ -185,24 +189,23 @@ class GaussianProcessLogLikelihoodMCMC:
         if do_optimize:
           # We have one walker for each hyperparameter configuration
           sampler = emcee.EnsembleSampler(self.n_chains, 1 + self.dim + self._num_derivatives + 1,
-                                            self.compute_log_likelihood)
+                                          self.compute_log_likelihood)
 
           # Do a burn-in in the first iteration
           if not self.burned:
             # Initialize the walkers by sampling from the prior
-            if self.prior is None:
-                self.p0 = numpy.random.rand(self.n_chains, 1 + self.dim + self._num_derivatives + 1)
-            else:
-                self.p0 = self.prior.sample_from_prior(self.n_chains)
+            #if self.prior is None:
+            self.p0 = numpy.random.rand(self.n_chains, 1 + self.dim + self._num_derivatives + 1)
+            #else:
+            #    self.p0 = self.prior.sample_from_prior(self.n_chains)
             # Run MCMC sampling
             self.p0, _, _ = sampler.run_mcmc(self.p0, self.burnin_steps,
-                                             rstate0=self.rng)
+                                             rstate0=numpy.random.RandomState(42))
 
             self.burned = True
-
           # Start sampling
           pos, _, _ = sampler.run_mcmc(self.p0, self.chain_length,
-                                       rstate0=self.rng)
+                                       rstate0=numpy.random.RandomState(42))
 
           # Save the current position, it will be the start point in
           # the next iteration
@@ -238,10 +241,10 @@ class GaussianProcessLogLikelihoodMCMC:
 
     def optimize(self, do_optimize=True, **kwargs):
 
-        if self.prior is None:
-            self.p0 = numpy.random.rand(1 + self.dim + self._num_derivatives + 1)
-        else:
-            self.p0 = self.prior.sample_from_prior(1)
+        #if self.prior is None:
+        self.p0 = numpy.random.rand(1 + self.dim + self._num_derivatives + 1)
+        #else:
+        #    self.p0 = self.prior.sample_from_prior(1)
 
         self.hypers = [optimize.minimize(self.nll, self.p0.ravel()).x]
 

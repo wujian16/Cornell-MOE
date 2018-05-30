@@ -181,6 +181,7 @@ void ComputeLatinHypercubePointsInDomain(ClosedInterval const * restrict domain,
     for (int j = 0; j < static_cast<int>(index_array.size()); ++j) {
       index_array[j] = j;
     }
+
     std::shuffle(index_array.begin(), index_array.end(), uniform_generator->engine);
 
     boost::uniform_real<double> uniform_double_distribution(0.0, subcube_edge_length);

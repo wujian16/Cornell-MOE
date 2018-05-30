@@ -80,6 +80,7 @@ def multistart_expected_improvement_optimization(
         # Set seeds based on less repeatable factors (e.g,. time)
         randomness.SetRandomizedUniformGeneratorSeed(0)
         randomness.SetRandomizedNormalRNGSeed(0)
+        randomness.SetNormalRNGSeedPythonList([314]*max_num_threads, [True]*max_num_threads)
 
     # status must be an initialized dict for the call to C++.
     if status is None:

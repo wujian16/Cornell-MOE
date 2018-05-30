@@ -1978,10 +1978,12 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
 
   double aggregate = 0.0;
   ei_state->normal_rng->ResetToMostRecentSeed();
+  const double leverage_factor = 6.0;
   for (int i = 0; i < num_mc_iterations_; ++i) {
     double improvement_this_step = 0.0;
     for (int j = 0; j < num_union; ++j) {
-      ei_state->EI_this_step_from_var[j] = (*(ei_state->normal_rng))();  // EI_this_step now holds "normals"
+      ei_state->EI_this_step_from_var[j] = leverage_factor*(*(ei_state->normal_rng))();  // EI_this_step now holds "normals"
+      ei_state->normals[j] = ei_state->EI_this_step_from_var[j];
     }
 
     TriangularMatrixVectorMultiply(ei_state->cholesky_to_sample_var.data(), 'N', num_union,
@@ -1993,8 +1995,13 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
       }
     }
 
+    double adjustment = 1.0;
+    for (int j = 0; j < num_union; ++j) {
+      adjustment *= leverage_factor*exp((1-Square(leverage_factor))*Square(ei_state->normals[j])/(2.0*Square(leverage_factor)));
+    }
+
     if (improvement_this_step > 0.0) {
-      aggregate += improvement_this_step;
+      aggregate += improvement_this_step * adjustment;
     }
   }
 
@@ -2042,10 +2049,11 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
 
   std::fill(ei_state->aggregate.begin(), ei_state->aggregate.end(), 0.0);
   double aggregate_EI = 0.0;
+  const double leverage_factor = 6.0;
   ei_state->normal_rng->ResetToMostRecentSeed();
   for (int i = 0; i < num_mc_iterations_; ++i) {
     for (int j = 0; j < num_union; ++j) {
-      ei_state->EI_this_step_from_var[j] = (*(ei_state->normal_rng))();  // EI_this_step now holds "normals"
+      ei_state->EI_this_step_from_var[j] = leverage_factor*(*(ei_state->normal_rng))();  // EI_this_step now holds "normals"
       ei_state->normals[j] = ei_state->EI_this_step_from_var[j];  // orig value of normals needed if improvement_this_step > 0.0
     }
 
@@ -2064,7 +2072,14 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
       }
     }
 
+    double adjustment = 1.0;
+    for (int j = 0; j < num_union; ++j) {
+      adjustment *= leverage_factor*exp((1-Square(leverage_factor))*Square(ei_state->normals[j])/(2.0*Square(leverage_factor)));
+    }
+
     if (improvement_this_step > 0.0) {
+      std::vector<double> grad_temp(ei_state->num_to_sample * dim_);
+      std::fill(grad_temp.begin(), grad_temp.end(), 0.0);
       // improvement > 0.0 implies winner will be valid; i.e., in 0:ei_state->num_to_sample
       aggregate_EI += improvement_this_step;
 
@@ -2073,7 +2088,7 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
       // and this term only arises if the winner (for most improvement) index is less than num_to_sample
       if (winner < ei_state->num_to_sample) {
         for (int k = 0; k < dim_; ++k) {
-          ei_state->aggregate[winner*dim_ + k] -= ei_state->grad_mu[winner*dim_ + k];
+          grad_temp[winner*dim_ + k] -= ei_state->grad_mu[winner*dim_ + k];
         }
       }
 
@@ -2083,8 +2098,12 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
       double const * restrict grad_chol_decomp_winner_block = ei_state->grad_chol_decomp.data() + winner*dim_*(num_union);
       for (int k = 0; k < ei_state->num_to_sample; ++k) {
         GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N', ei_state->normals.data(), -1.0, 1.0,
-                                    dim_, num_union, dim_, ei_state->aggregate.data() + k*dim_);
+                                    dim_, num_union, dim_, grad_temp.data() + k*dim_);
         grad_chol_decomp_winner_block += dim_*Square(num_union);
+      }
+
+      for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
+        ei_state->aggregate[k] += adjustment * grad_temp[k];
       }
     }  // end if: improvement_this_step > 0.0
   }  // end for i: num_mc_iterations_
