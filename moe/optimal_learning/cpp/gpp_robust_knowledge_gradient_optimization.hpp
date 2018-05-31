@@ -442,8 +442,6 @@ struct RobustKnowledgeGradientState final {
   std::vector<double> grad_chol_decomp;
   //! the mean of the GP evaluated at discrete_pts and the union_of_points
   std::vector<double> to_sample_mean_;
-  //! the gradient of the GP mean evaluated at union_of_points, wrt union_of_points[0:num_to_sample]
-  std::vector<double> grad_mu;
   //! tracks the aggregate grad KG from all mc iterations
   std::vector<double> aggregate;
   //! normal rng draws
@@ -454,12 +452,8 @@ struct RobustKnowledgeGradientState final {
   std::vector<double> chol_inverse_cov;
   //! grad_chol_inverse_cov
   std::vector<double> grad_chol_inverse_cov;
-  //! the mean difference at step two
-  std::vector<double> best_mean_difference;
   //! the standard deviation at step two
   std::vector<double> best_standard_deviation;
-  //! the gradient of the step one best point wrt the step-one sampled point
-  std::vector<double> step_one_gradient;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(RobustKnowledgeGradientState);
 };
