@@ -78,6 +78,11 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeValueFunction(StateT
 
   double aggregate = 0.0;
   vf_state->normal_rng->ResetToMostRecentSeed();
+
+  GaussianProcess gaussian_process_after(*gaussian_process_);
+  std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
+  gaussian_process_after.AddSampledPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union);
+
   for (int i = 0; i < num_mc_iterations_; ++i) {
     if (i % 2 == 1){
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
@@ -97,11 +102,10 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeValueFunction(StateT
                                 1.0, 1.0, num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample), num_union*(1+num_gradients_to_sample),
                                 make_up_function_value.data());
 
-    GaussianProcess gaussian_process_after(*gaussian_process_);
-    gaussian_process_after.AddPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union, false);
+    gaussian_process_after.NewSampledValue(make_up_function_value.data(), num_union, gaussian_process_->num_sampled(), false);
 
     ComputeOptimalPosteriorCVAR(gaussian_process_after, num_fidelity_, optimizer_parameters_, domain_,
-                                vf_state->discretized_set.data(), num_pts_,
+                                vf_state->discretized_set.data(), num_pts_ + num_union,
                                 &found_flag, vf_state->best_point.data() + i*dim_, &best_function_value);
 
     aggregate += best_so_far_ + best_function_value;
@@ -136,6 +140,11 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeGradValueFunction(St
 
   double aggregate = 0.0;
   vf_state->normal_rng->ResetToMostRecentSeed();
+
+  GaussianProcess gaussian_process_after(*gaussian_process_);
+  std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
+  gaussian_process_after.AddSampledPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union);
+
   for (int i = 0; i < num_mc_iterations_; ++i) {
     if (i % 2 == 1){
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
@@ -156,19 +165,17 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeGradValueFunction(St
                                 make_up_function_value.data());
 
     if (factor_ != 0.0) {
-      GaussianProcess gaussian_process_after(*gaussian_process_);
-      gaussian_process_after.AddPointsToGP(vf_state->union_of_points.data(), make_up_function_value.data(), num_union, false);
+      gaussian_process_after.NewSampledValue(make_up_function_value.data(), num_union, gaussian_process_->num_sampled(), false);
 
       ComputeOptimalPosteriorCVAR(gaussian_process_after, num_fidelity_, optimizer_parameters_, domain_,
-                                  vf_state->discretized_set.data(), num_pts_,
+                                  vf_state->discretized_set.data(), num_pts_ + num_union,
                                   &found_flag, vf_state->best_point.data() + i*dim_, &best_function_value);
 
       aggregate += best_function_value;
 
       // update the standard deviation
       PointsToSampleState best_point(gaussian_process_after, vf_state->best_point.data() + i*dim_, 1, nullptr, 0, 0);
-      gaussian_process_after.ComputeVarianceOfPoints(&(best_point),
-                                                     nullptr, 0,
+      gaussian_process_after.ComputeVarianceOfPoints(&(best_point), nullptr, 0,
                                                      vf_state->best_standard_deviation.data()+i);
       vf_state->best_standard_deviation[i] = std::fmax(kMinimumVarianceGradEI, vf_state->best_standard_deviation[i]);
       vf_state->best_standard_deviation[i] = sqrt(vf_state->best_standard_deviation[i]);
@@ -211,7 +218,7 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeGradValueFunction(St
         }
 
         for (int d = 0; d < dim_; ++d) {
-          vf_state->aggregate[d + k*dim_] += -(-mean_grad[d]+factor_*std_grad[d]);
+          vf_state->aggregate[d + k*dim_] += -(-mean_grad[d] + 2.0*std_grad[d]);
         }
         grad_chol_decomp_winner_block += dim_*num_union*(1+num_gradients_to_sample);
       }
@@ -269,7 +276,7 @@ RobustKnowledgeGradientState<DomainType>::RobustKnowledgeGradientState(const Eva
     chol_inverse_cov(num_iterations*num_union*(1+num_gradients_to_sample)),
     grad_chol_inverse_cov(dim*num_iterations*num_union*(1+num_gradients_to_sample)*num_derivatives),
     best_standard_deviation(num_iterations){
-      PreCompute(kg_evaluator, points_to_sample);
+  PreCompute(kg_evaluator, points_to_sample);
 }
 
 template <typename DomainType>
