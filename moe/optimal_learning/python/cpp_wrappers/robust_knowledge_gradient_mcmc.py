@@ -148,7 +148,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
             self._discrete_pts_list.append(numpy.copy(discrete_pts))
 
         if gaussian_process_mcmc._historical_data.points_sampled_value.size > 0:
-            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.amin(gaussian_process_mcmc._historical_data.points_sampled_value[:,0])]
+            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.amin(gaussian_process_mcmc._historical_data.points_sampled_value[:,0])+1.e-3]
             # self._best_so_far = numpy.amin(gaussian_process._historical_data.points_sampled_value)
         else:
             self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.finfo(numpy.float64).max]

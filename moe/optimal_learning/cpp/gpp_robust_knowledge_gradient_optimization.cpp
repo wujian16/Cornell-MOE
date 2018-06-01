@@ -110,6 +110,9 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeValueFunction(StateT
 
     aggregate += best_so_far_ + best_function_value;
   }
+  if (aggregate < 0.0){
+    printf("error %f\n", aggregate);
+  }
   return aggregate/static_cast<double>(num_mc_iterations_);
 }
 
@@ -458,6 +461,7 @@ void ComputeOptimalPosteriorCVAR(const GaussianProcess& gaussian_process, const 
   for (int i = 0; i < num_starts; ++i) {
     ps_state.SetCurrentPoint(ps_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
     val = ps_evaluator.ComputePosteriorCVAR(&ps_state);
+
     if (i < k){
       q.push(std::pair<double, int>(-val, i));
     }
@@ -479,7 +483,6 @@ void ComputeOptimalPosteriorCVAR(const GaussianProcess& gaussian_process, const 
   }
 
   GradientDescentOptimizerLineSearch<PosteriorCVAREvaluator, DomainType> gd_opt;
-  //GradientDescentOptimizer<PosteriorCVAREvaluator, DomainType> gd_opt;
   double function_value_temp = -INFINITY;
   *best_function_value = -INFINITY;
   for (int i = 0; i < k; ++i){

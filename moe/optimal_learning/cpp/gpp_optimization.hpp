@@ -727,7 +727,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
   std::copy(next_point.begin(), next_point.end(), initial_point.begin());
 #endif
 
-  const double decrease_rate = 0.2;
+  const double decrease_rate = 0.3;
   const double tolerance = 0.5;
   const double step_tolerance = gd_parameters.tolerance / static_cast<double>(gd_parameters.max_num_steps);
   for (int i = 0; i < gd_parameters.max_num_steps; ++i) {
@@ -744,9 +744,14 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     double norm = DotProduct(grad_objective.data(), grad_objective.data(), problem_size);
     const int max_search = 20;
     int search_index = 0;
+    // while loop
     while (search_index < max_search){
+      // set up desired step size
       for (int j = 0; j < problem_size; ++j) {
-        step_search[j] = next_point[j] + alpha_n*grad_objective[j];
+        step[j] = alpha_n*grad_objective[j];
+      }
+      for (int j = 0; j < problem_size; ++j) {
+        step_search[j] = next_point[j] + step[j];
       }
       objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
       obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
@@ -756,7 +761,6 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
       alpha_n *= decrease_rate;
       search_index += 1;
     }
-    printf("search %d, %f\n", search_index, obj - obj_func_initial);
 
     // set up desired step size
     for (int j = 0; j < problem_size; ++j) {
@@ -764,9 +768,19 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     }
     // limit step size to ensure we stay inside the domain
     domain.LimitUpdate(gd_parameters.max_relative_change, next_point.data(), step.data());
+    for (int j = 0; j < problem_size; ++j){
+      step_search[j] = next_point[j] + step[j];
+    }
+    // update state
+    objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
+    obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
+
+    if (obj <= obj_func_initial or search_index == 20){
+      objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
+      break;
+    }
     // take the step
     for (int j = 0; j < problem_size; ++j) {
-      //printf("dim %d, step %f\n", j, step[j]);
       next_point[j] += step[j];
     }
 

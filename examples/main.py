@@ -37,7 +37,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 100
+num_func_eval = 20
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
@@ -98,7 +98,7 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=10,
+                                                 max_num_steps=30,
                                                  max_num_restarts=1,
                                                  num_steps_averaged=3,
                                                  gamma=0.0,
@@ -169,6 +169,9 @@ for n in xrange(num_iteration):
 
             discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                              (discrete_pts_optima.shape[0] + 1, cpp_gp.dim-objective_func._num_fidelity))
+            report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]
+            discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
+                                             (discrete_pts_optima.shape[0] + 1, cpp_gp.dim-objective_func._num_fidelity))
             discrete_pts_list.append(discrete_pts_optima)
 
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
@@ -177,7 +180,7 @@ for n in xrange(num_iteration):
             # KG method
             next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                     ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                    cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
+                                                                    cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 1)
         else:
             # robust KG method
             next_points, voi = bayesian_optimization.gen_sample_from_rKG_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
