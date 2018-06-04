@@ -742,7 +742,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     }
 #endif
     double norm = DotProduct(grad_objective.data(), grad_objective.data(), problem_size);
-    const int max_search = 20;
+    const int max_search = 30;
     int search_index = 0;
     // while loop
     while (search_index < max_search){
@@ -775,7 +775,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
     obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
 
-    if (obj <= obj_func_initial or search_index == 20){
+    if (obj <= obj_func_initial or search_index == max_search){
       objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
       break;
     }
