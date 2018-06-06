@@ -176,7 +176,7 @@ for n in xrange(num_iteration):
         # KG method
         next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                 ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 4)
+                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 10)
 
     elif method == 'EI':
         # EI method
