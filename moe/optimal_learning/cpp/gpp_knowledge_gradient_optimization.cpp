@@ -333,7 +333,9 @@ PosteriorMeanEvaluator::PosteriorMeanEvaluator(
 \endrst*/
 double PosteriorMeanEvaluator::ComputePosteriorMean(StateType * ps_state) const {
   double to_sample_mean;
-  gaussian_process_->ComputeMeanOfPoints(ps_state->points_to_sample_state, &to_sample_mean);
+  gaussian_process_->ComputeMeanOfAdditionalPoints(ps_state->point_to_sample.data(),
+                                                   1, nullptr, 0,
+                                                   &to_sample_mean);
   return -to_sample_mean;
 }
 
@@ -348,7 +350,9 @@ void PosteriorMeanEvaluator::ComputeGradPosteriorMean(
     StateType * ps_state,
     double * restrict grad_PS) const {
   double * restrict grad_mu = ps_state->grad_mu.data();
-  gaussian_process_->ComputeGradMeanOfPoints(ps_state->points_to_sample_state, grad_mu);
+  gaussian_process_->ComputeGradMeanOfAdditionalPoints(ps_state->point_to_sample.data(),
+                                                       1, nullptr, 0,
+                                                       grad_mu);
   for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
     grad_PS[i] = -grad_mu[i];
   }
@@ -359,9 +363,6 @@ void PosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator,
   // update current point in union_of_points
   std::copy(point_to_sample_in, point_to_sample_in + dim - num_fidelity, point_to_sample.data());
   std::fill(point_to_sample.data() + dim - num_fidelity, point_to_sample.data() + dim, 1.0);
-  // evaluate derived quantities
-  points_to_sample_state.SetupState(*ps_evaluator.gaussian_process(), point_to_sample.data(),
-                                    num_to_sample, 0, num_derivatives, false, false);
 }
 
 PosteriorMeanState::PosteriorMeanState(
@@ -373,20 +374,18 @@ PosteriorMeanState::PosteriorMeanState(
     num_fidelity(num_fidelity_in),
     num_derivatives(configure_for_gradients ? num_to_sample : 0),
     point_to_sample(BuildUnionOfPoints(point_to_sample_in)),
-    points_to_sample_state(*ps_evaluator.gaussian_process(), point_to_sample.data(),
-                           num_to_sample, nullptr, 0, num_derivatives, false, false),
     grad_mu(dim*num_derivatives) {
 }
 PosteriorMeanState::PosteriorMeanState(PosteriorMeanState&& OL_UNUSED(other)) = default;
 
-void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
-                                    double const * restrict point_to_sample_in) {
-  if (unlikely(dim != ps_evaluator.dim())) {
-    OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, ps_evaluator.dim());
-  }
-
-  SetCurrentPoint(ps_evaluator, point_to_sample_in);
-}
+//void PosteriorMeanState::SetupState(const EvaluatorType& ps_evaluator,
+//                                    double const * restrict point_to_sample_in) {
+//  if (unlikely(dim != ps_evaluator.dim())) {
+//    OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, ps_evaluator.dim());
+//  }
+//
+//  SetCurrentPoint(ps_evaluator, point_to_sample_in);
+//}
 
 /*!\rst
   Perform multistart gradient descent (MGD) to solve the q,p-EI problem (see ComputeOptimalPointsToSample and/or
@@ -425,7 +424,7 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
     return;
   }
-  bool configure_for_gradients = true;
+  bool configure_for_gradients = false;
   OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
   // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
@@ -434,7 +433,7 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
 
   std::priority_queue<std::pair<double, int>> q;
   double val;
-  int k = std::min(5, num_starts); // number of indices we need
+  int k = std::min(1, num_starts); // number of indices we need
   for (int i = 0; i < num_starts; ++i) {
     ps_state.SetCurrentPoint(ps_evaluator, initial_guess + i*(gaussian_process.dim()-num_fidelity));
     val = ps_evaluator.ComputePosteriorMean(&ps_state);

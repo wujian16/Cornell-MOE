@@ -96,7 +96,7 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=10,
+                                                 max_num_steps=0,
                                                  max_num_restarts=1,
                                                  num_steps_averaged=3,
                                                  gamma=0.0,

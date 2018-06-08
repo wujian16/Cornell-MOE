@@ -136,7 +136,7 @@ class Hartmann6(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.32237
-        self._observations = numpy.arange(self._dim)
+        self._observations = []#numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):

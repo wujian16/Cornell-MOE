@@ -488,6 +488,10 @@ class GaussianProcess final {
   void ComputeGradMeanOfPoints(const StateType& points_to_sample_state,
                                double * restrict grad_mu) const noexcept OL_NONNULL_POINTERS;
 
+  void ComputeGradMeanOfAdditionalPoints(double const * discrete_pts,
+                                         int num_pts, int const * gradients_discrete_pts,
+                                         int num_gradients_discrete_pts,
+                                         double * restrict grad_mu) const noexcept OL_NONNULL_POINTERS;
   /*!\rst
     Computes the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
 
