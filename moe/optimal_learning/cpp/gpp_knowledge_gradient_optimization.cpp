@@ -424,7 +424,7 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
     return;
   }
-  bool configure_for_gradients = false;
+  bool configure_for_gradients = true;
   OL_VERBOSE_PRINTF("Posterior Mean Optimization via %s:\n", OL_CURRENT_FUNCTION_NAME);
 
   // special analytic case when we are not using (or not accounting for) multiple, simultaneous experiments
