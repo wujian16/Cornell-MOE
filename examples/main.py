@@ -43,8 +43,6 @@ obj_func_dict = {'Branin': synthetic_functions.Branin(),
                  'Levy4': synthetic_functions.Levy4(),
                  'Hartmann6': synthetic_functions.Hartmann6(),
                  'Ackley': synthetic_functions.Ackley()}
-                 #'CIFAR10': real_functions.CIFAR10(),
-                 #'KISSGP': real_functions.KISSGP()}
 
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
