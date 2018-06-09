@@ -727,7 +727,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
   std::copy(next_point.begin(), next_point.end(), initial_point.begin());
 #endif
 
-  const double decrease_rate = 0.8;
+  const double decrease_rate = 0.5;
   const double tolerance = 0.5;
   const double step_tolerance = gd_parameters.tolerance / static_cast<double>(gd_parameters.max_num_steps);
   for (int i = 0; i < gd_parameters.max_num_steps; ++i) {
@@ -742,7 +742,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     }
 #endif
     double norm = DotProduct(grad_objective.data(), grad_objective.data(), problem_size);
-    const int max_search = 20;
+    const int max_search = 30;
     int search_index = 0;
     // while loop
     while (search_index < max_search){
