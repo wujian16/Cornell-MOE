@@ -489,6 +489,27 @@ class GaussianProcess final {
                                double * restrict grad_mu) const noexcept OL_NONNULL_POINTERS;
 
   /*!\rst
+    Computes the hessian of the mean of this GP at each of ``Xs`` (``points_to_sample``) wrt ``Xs``.
+
+    .. Note:: ``points_to_sample`` should not contain duplicate points.
+
+    Note that ``grad_mu`` is nominally sized: ``grad_mu[dim][num_to_sample][num_to_sample]``.
+    However, for ``0 <= i,j < num_to_sample``, ``i != j``, ``grad_mu[d][i][j] = 0``.
+    (See references or implementation for further details.)
+    Thus, ``grad_mu`` is stored in a reduced form which only tracks the nonzero entries.
+
+    .. Note:: comments are copied in Python: interfaces/gaussian_process_interface.py
+
+    \param
+      :points_to_sample_state: a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)
+    \output
+      :grad_mu[dim][dim][state.num_derivatives]: gradient of the mean of the GP.  ``grad_mu[d][i]`` is
+        actually the gradient of ``\mu_i`` with respect to ``x_{d,i}``, the d-th dimension of
+        the i-th entry of ``points_to_sample``.
+  \endrst*/
+  void ComputeHessianMeanOfPoints(const StateType& points_to_sample_state,
+                                  double * restrict hessian_mu) const noexcept OL_NONNULL_POINTERS;
+  /*!\rst
     Computes the variance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``).
 
     The variance matrix is symmetric (in fact, SPD) and is stored in the LOWER TRIANGLE.
@@ -970,6 +991,7 @@ struct PointsToSampleState final {
   std::vector<double> K_star;
   //! the gradient of mixed covariance matrix, ``Ks``, wrt ``Xs``, dimension: dim*num_sampled*num_derivatives
   std::vector<double> grad_K_star;
+  std::vector<double> hessian_K_star;
   //! the gradient of K_inv_times_K_star wrt ``Xs``, dimension: dim*num_sampled*derivatives
   std::vector<double> grad_K_inv_times_K_star;
   //! the variance matrix (output from the GP)

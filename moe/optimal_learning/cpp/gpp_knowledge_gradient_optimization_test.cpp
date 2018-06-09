@@ -117,7 +117,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
  public:
   constexpr static char const * const kName = "KG with MC integration";
 
-  PingKnowledgeGradient(TensorProductDomain domain, GradientDescentParameters& optimizer_parameters,
+  PingKnowledgeGradient(TensorProductDomain domain, NewtonParameters& optimizer_parameters,
                         double const * restrict lengths, double const * restrict points_being_sampled,
                         double const * restrict points_sampled, double const * restrict points_sampled_value,
                         int const * restrict gradients, double alpha, double best_so_far, int dim, int num_to_sample, int num_being_sampled,
@@ -125,8 +125,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
       : dim_(dim),
         domain_(domain),
         gdp_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
-             optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
-             optimizer_parameters.gamma, optimizer_parameters.pre_mult,
+             optimizer_parameters.gamma, optimizer_parameters.time_factor,
              optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
         num_to_sample_(num_to_sample),
         num_being_sampled_(num_being_sampled),
@@ -214,7 +213,7 @@ class PingKnowledgeGradient final : public PingableMatrixInputVectorOutputInterf
   //! domain
   TensorProductDomain domain_;
   //! gradient decent para
-  GradientDescentParameters gdp_;
+  NewtonParameters gdp_;
   //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
   int num_to_sample_;
   //! number of points being sampled concurrently (i.e., the "p" in q,p-EI)
@@ -366,6 +365,109 @@ class PingPosteriorMean final : public PingableMatrixInputVectorOutputInterface 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingPosteriorMean);
 };
 
+class PingGradPosteriorMean final : public PingableMatrixInputVectorOutputInterface {
+ public:
+  constexpr static char const * const kName = "Grad Posterior Mean";
+
+  PingGradPosteriorMean(double const * restrict lengths, double const * restrict points_sampled, double const * restrict points_sampled_value,
+                    int const * restrict gradients, double alpha, int dim, int num_to_sample, int num_sampled, int num_gradients) OL_NONNULL_POINTERS
+      : dim_(dim),
+        num_to_sample_(num_to_sample),
+        num_sampled_(num_sampled),
+        num_gradients_(num_gradients),
+        gradients_already_computed_(false),
+        gradients_(gradients, gradients + num_gradients),
+        noise_variance_(1+num_gradients, 0.1),
+        points_sampled_(points_sampled, points_sampled + dim_*num_sampled_),
+        points_sampled_value_(points_sampled_value, points_sampled_value + num_sampled_*(1+num_gradients_)),
+        hessian_PS_(Square(dim_)*num_to_sample_),
+        sqexp_covariance_(dim_, alpha, lengths),
+        gaussian_process_(sqexp_covariance_, points_sampled_.data(), points_sampled_value_.data(), noise_variance_.data(),
+                          gradients_.data(), num_gradients_, dim_, num_sampled_),
+        ps_evaluator_(gaussian_process_){
+  }
+
+  virtual void GetInputSizes(int * num_rows, int * num_cols) const noexcept override OL_NONNULL_POINTERS {
+    *num_rows = dim_;
+    *num_cols = num_to_sample_;
+  }
+
+  virtual int GetGradientsSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return dim_*GetOutputSize()*num_to_sample_;
+  }
+
+  virtual int GetOutputSize() const noexcept override OL_WARN_UNUSED_RESULT {
+    return dim_;
+  }
+
+  virtual void EvaluateAndStoreAnalyticGradient(double const * restrict points_to_sample, double * restrict gradients) noexcept override OL_NONNULL_POINTERS_LIST(2) {
+    if (gradients_already_computed_ == true) {
+      OL_WARNING_PRINTF("WARNING: grad_KG data already set.  Overwriting...\n");
+    }
+    gradients_already_computed_ = true;
+
+    NormalRNG normal_rng(3141);
+    bool configure_for_gradients = true;
+
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, 0, points_to_sample, configure_for_gradients);
+
+    ps_evaluator_.ComputeHessianPosteriorMean(&ps_state, hessian_PS_.data());
+
+
+    if (gradients != nullptr) {
+      std::copy(hessian_PS_.begin(), hessian_PS_.end(), gradients);
+    }
+  }
+
+  virtual double GetAnalyticGradient(int row_index, int OL_UNUSED(column_index), int output_index) const override OL_WARN_UNUSED_RESULT {
+    if (gradients_already_computed_ == false) {
+      OL_THROW_EXCEPTION(OptimalLearningException, "PingPosteriorMean::GetAnalyticGradient() called BEFORE EvaluateAndStoreAnalyticGradient. NO DATA!");
+    }
+
+    return hessian_PS_[output_index*dim_ + row_index];
+  }
+
+  virtual void EvaluateFunction(double const * restrict points_to_sample, double * restrict function_values) const noexcept override OL_NONNULL_POINTERS {
+    bool configure_for_gradients = true;
+
+    PosteriorMeanEvaluator::StateType ps_state(ps_evaluator_, 0, points_to_sample, configure_for_gradients);
+    ps_evaluator_.ComputeGradPosteriorMean(&ps_state, function_values);
+  }
+
+ private:
+  //! spatial dimension (e.g., entries per point of ``points_sampled``)
+  int dim_;
+  //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+  int num_to_sample_;
+  //! number of points in ``points_sampled``
+  int num_sampled_;
+  //! number of derivatives' observations.
+  int num_gradients_;
+
+  //! whether gradients been computed and stored--whether this class is ready for use
+  bool gradients_already_computed_;
+  // indices of the derivatives' observations.
+  std::vector<int> gradients_;
+
+  //! ``\sigma_n^2``, the noise variance
+  std::vector<double> noise_variance_;
+  //! coordinates of already-sampled points, ``X``
+  std::vector<double> points_sampled_;
+  //! function values at points_sampled, ``y``
+  std::vector<double> points_sampled_value_;
+  //! the gradient of KG at union_of_points, wrt union_of_points[0:num_to_sample]
+  std::vector<double> hessian_PS_;
+
+  //! covariance class (for computing covariance and its gradients)
+  SquareExponential sqexp_covariance_;
+  //! gaussian process used for computations
+  GaussianProcess gaussian_process_;
+  //! expected improvement evaluator object that specifies the parameters & GP for KG evaluation
+  PosteriorMeanEvaluator ps_evaluator_;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PingGradPosteriorMean);
+};
+
 /*!\rst
   Pings the gradients (spatial) of the KG 50 times with randomly generated test cases
   Works with MC formulae
@@ -403,18 +505,16 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   MockExpectedImprovementEnvironment KG_environment;
 
   // gradient descent parameters
-  const double gamma = 0.7;
-  const double pre_mult = 1.0;
+  const double gamma = 1.01;
+  const double time_factor = 1.0e-3;
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
   const int max_gradient_descent_steps = 1000;
-  const int max_num_restarts = 10;
-  const int num_steps_averaged = 15;
 
-  GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
-                                      num_steps_averaged, gamma, pre_mult,
-                                      max_relative_change, tolerance);
+  NewtonParameters newton_params(1, max_gradient_descent_steps,
+                                 gamma, time_factor,
+                                 max_relative_change, tolerance);
   ClosedInterval * domain_bounds = new ClosedInterval[dim];
   for (int i=0; i<dim; ++i){
     domain_bounds[i] = ClosedInterval(-5.0, 5.0);
@@ -434,7 +534,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+    KGEvaluator KG_evaluator(domain, newton_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);
@@ -482,8 +582,13 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
 
   int num_sampled = 7;
 
+<<<<<<< HEAD
   int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
+=======
+  int * gradients = nullptr;
+  int num_gradients = 0;
+>>>>>>> jianwu_22_cpp_clean_KG_computations
 
   std::vector<double> lengths(dim);
   double alpha = 2.80723;
@@ -535,15 +640,17 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
 
 int PingKGGeneralTest() {
   double epsilon_KG[2] = {1.0e-3, 1.0e-4};
-  int total_errors = PingKGTest<PingKnowledgeGradient>(1, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
-
-  total_errors += PingKGTest<PingKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
-
-  total_errors += PingKGTest<PingKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
-
-  total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+//  int total_errors = PingKGTest<PingKnowledgeGradient>(1, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+//
+//  total_errors += PingKGTest<PingKnowledgeGradient>(2, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+//
+//  total_errors += PingKGTest<PingKnowledgeGradient>(1, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+//
+//  total_errors += PingKGTest<PingKnowledgeGradient>(3, 2, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   //total_errors += PingKGTest<PingKnowledgeGradient>(8, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+
+  int total_errors = PingPSTest<PingGradPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   total_errors += PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 

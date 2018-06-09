@@ -8,8 +8,10 @@ import time
 from moe.optimal_learning.python.cpp_wrappers.domain import TensorProductDomain as cppTensorProductDomain
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import PosteriorMeanMCMC
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import GaussianProcessLogLikelihoodMCMC as cppGaussianProcessLogLikelihoodMCMC
+from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonParameters as cppNewtonParameters
+from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonOptimizer as cppNewtonOptimizer
+
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentParameters as cppGradientDescentParameters
-from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient import posterior_mean_optimization, PosteriorMean
 
 from moe.optimal_learning.python.data_containers import HistoricalData, SamplePoint
@@ -27,7 +29,7 @@ import synthetic_functions
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id]
-# example: python main.py Branin KG 4 1
+# example: python main.py Branin KG 1 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
 argv = sys.argv[1:]
@@ -41,12 +43,11 @@ num_func_eval = 20
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
+                 'Camel': synthetic_functions.Camel(),
                  'Rosenbrock': synthetic_functions.Rosenbrock(),
                  'Hartmann3': synthetic_functions.Hartmann3(),
                  'Levy4': synthetic_functions.Levy4(),
                  'Hartmann6': synthetic_functions.Hartmann6()}
-                 #'CIFAR10': real_functions.CIFAR10(),
-                 #'KISSGP': real_functions.KISSGP()}
 
 objective_func = obj_func_dict[obj_func_name]
 dim = int(objective_func._dim)
@@ -85,7 +86,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            prior = prior,
                                                            chain_length = 1000,
                                                            burnin_steps = 2000,
-                                                           n_hypers = 2 ** 4,
+                                                           n_hypers = 2 ** 3,
                                                            noisy = False)
 cpp_gp_loglikelihood.train()
 
@@ -107,8 +108,8 @@ cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
                                                  tolerance=1.0e-10)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
-                                                 max_num_steps=50,
-                                                 max_num_restarts=2,
+                                                 max_num_steps=100,
+                                                 max_num_restarts=1,
                                                  num_steps_averaged=4,
                                                  gamma=0.7,
                                                  pre_mult=1.0,
@@ -160,7 +161,7 @@ for n in xrange(num_iteration):
 
             initial_point = eval_pts[np.argmin(test)]
 
-            ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
+            ps_sgd_optimizer = cppNewtonOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_newton_params_ps)
             report_point = posterior_mean_optimization(ps_sgd_optimizer, initial_guess = initial_point, max_num_threads = 4)
 
             ps_evaluator.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
@@ -175,12 +176,13 @@ for n in xrange(num_iteration):
             discrete_pts_list.append(discrete_pts_optima)
 
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
+
         ps_sgd_optimizer = cppGradientDescentOptimizer(cpp_inner_search_domain, ps_evaluator, cpp_sgd_params_ps)
         if method == "KG":
             # KG method
             next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                     ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                    cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 1)
+                                                                    cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 7)
         else:
             # robust KG method
             next_points, voi = bayesian_optimization.gen_sample_from_rKG_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,

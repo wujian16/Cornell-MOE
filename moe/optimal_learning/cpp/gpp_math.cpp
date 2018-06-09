@@ -615,7 +615,9 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
   // if we needs to taking derivative w.r.t. points_to_sample
   if (points_to_sample_state->num_derivatives > 0) {
     double * restrict gKs_temp = points_to_sample_state->grad_K_star.data();
+    double * restrict hKs_temp = points_to_sample_state->hessian_K_star.data();
     double * restrict grad_cov_temp = new double[dim_*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)]();
+    double * restrict hessian_cov_temp = new double[Square(dim_)*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)]();
     // also precompute C_{d,k,i} = \pderiv{Ks_{k,i}}{Xs_{d,i}}, stored in grad_K_star
     for (int i = 0; i < points_to_sample_state->num_derivatives; ++i) { // dim * num_sample_ * num_derivatives
       for (int j = 0; j < num_sampled_; ++j) {
@@ -623,19 +625,30 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
                                         points_to_sample_state->num_gradients_to_sample,
                                         points_sampled_.data() + j*dim_, derivatives_.data(), num_derivatives_,
                                         grad_cov_temp);
+        covariance_ptr_->HessianCovariance(points_to_sample_state->points_to_sample.data() + i*dim_, points_to_sample_state->gradients.data(),
+                                           points_to_sample_state->num_gradients_to_sample,
+                                           points_sampled_.data() + j*dim_, derivatives_.data(), num_derivatives_,
+                                           hessian_cov_temp);
         for (int m = 0; m < points_to_sample_state->num_gradients_to_sample+1; ++m){
-            for (int n = 0; n < num_derivatives_+1; ++n){
-              int row = n + j*(num_derivatives_+1);
-              int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
-              for (int d = 0; d <dim_; ++d){
-                gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
-                       grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
+          for (int n = 0; n < num_derivatives_+1; ++n){
+            int row = n + j*(num_derivatives_+1);
+            int col = m + i*(points_to_sample_state->num_gradients_to_sample+1);
+            for (int d = 0; d <dim_; ++d){
+              gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
+                     grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
+              for (int h = 0; h < dim_; ++h){
+                hKs_temp[row + col*num_sampled_*(num_derivatives_+1)+
+                (d+h*dim_)*num_sampled_*(num_derivatives_+1)*(points_to_sample_state->num_gradients_to_sample+1)
+                *points_to_sample_state->num_derivatives] = hessian_cov_temp[m+n*(points_to_sample_state->num_gradients_to_sample+1)
+                +(d+h*dim_)*(points_to_sample_state->num_gradients_to_sample+1)*(num_derivatives_+1)];
               }
             }
+          }
         }
       }
     }
     delete [] grad_cov_temp;
+    delete [] hessian_cov_temp;
 
     if (points_to_sample_state->precomputed_grad_K_inv_times_K_star){
       const int row = num_sampled_*(num_derivatives_+1);
@@ -694,14 +707,14 @@ void GaussianProcess::ComputeMeanOfAdditionalPoints(double const * discrete_pts,
                            gradients_discrete_pts, num_gradients_discrete_pts,
                            kt.data());
   for (int i=0; i<num_pts; ++i){
-      for (int j = 0; j<num_gradients_discrete_pts+1; ++j){
-          if (j==0){
-              mean_of_points[i*(num_gradients_discrete_pts+1)+j] = mean_;
-          }
-          else{
-              mean_of_points[i*(num_gradients_discrete_pts+1)+j] = 0;
-          }
+    for (int j = 0; j<num_gradients_discrete_pts+1; ++j){
+      if (j==0){
+          mean_of_points[i*(num_gradients_discrete_pts+1)+j] = mean_;
       }
+      else{
+          mean_of_points[i*(num_gradients_discrete_pts+1)+j] = 0;
+      }
+    }
   }
 
   GeneralMatrixVectorMultiply(kt.data(), 'T', K_inv_y_.data(), 1.0, 1.0, num_sampled_*(num_derivatives_+1),
@@ -723,6 +736,21 @@ void GaussianProcess::ComputeGradMeanOfPoints(const StateType& points_to_sample_
   SpecialTensorVectorMultiply(points_to_sample_state.grad_K_star.data(), K_inv_y_.data(),
                               points_to_sample_state.num_derivatives*(points_to_sample_state.num_gradients_to_sample+1),
                               num_sampled_*(num_derivatives_+1), dim_, grad_mu);
+}
+
+void GaussianProcess::ComputeHessianMeanOfPoints(const StateType& points_to_sample_state,
+                                                 double * restrict hessian_mu) const noexcept{
+  const double * restrict hKs_temp = points_to_sample_state.hessian_K_star.data();
+  for (int d = 0; d < dim_; ++d){
+    for (int h = 0; h < dim_; ++h){
+      for (int to_sample = 0; to_sample < (points_to_sample_state.num_gradients_to_sample+1)
+                                            *points_to_sample_state.num_derivatives; ++to_sample){
+        *hessian_mu = DotProduct(hKs_temp, K_inv_y_.data(), num_sampled_*(num_derivatives_+1));
+        hessian_mu += 1;
+        hKs_temp += num_sampled_*(num_derivatives_+1);
+      }
+    }
+  }
 }
 
 /*!\rst
@@ -1873,6 +1901,7 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
     points_to_sample.resize(dim*num_to_sample);
     K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     grad_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
+    hessian_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*Square(dim));
     grad_K_inv_times_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
     V.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     K_inv_times_K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
@@ -1883,6 +1912,7 @@ void PointsToSampleState::SetupState(const GaussianProcess& gaussian_process, do
     num_sampled = gaussian_process.num_sampled();
     K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     grad_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
+    hessian_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*Square(dim));
     grad_K_inv_times_K_star.resize(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim);
     V.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
     K_inv_times_K_star.resize((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1)));
@@ -1911,6 +1941,7 @@ PointsToSampleState::PointsToSampleState(const GaussianProcess& gaussian_process
       points_to_sample(dim*num_to_sample),
       K_star((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))),
       grad_K_star(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim),
+      hessian_K_star(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*Square(dim)),
       grad_K_inv_times_K_star(num_derivatives*(num_sampled*(num_gradients_sampled+1)*(num_gradients_to_sample+1))*dim),
       V((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))),
       K_inv_times_K_star((num_to_sample*(num_gradients_to_sample+1))*(num_sampled*(num_gradients_sampled+1))) {

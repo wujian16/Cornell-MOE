@@ -883,6 +883,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                                       normal_rng, ei_state_vector.data(), &state_vector);
 
     std::vector<double> EI_starting(num_multistarts);
+
     EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, start_point_set, points_being_sampled,
                               num_multistarts, num_to_sample, num_being_sampled, best_so_far, max_int_steps, found_flag, normal_rng,
                               EI_starting.data(), best_next_point);
@@ -937,6 +938,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                                       normal_rng, ei_state_vector.data(), &state_vector);
 
     std::vector<double> EI_starting(num_multistarts);
+
     EvaluateEIMCMCAtPointList(gaussian_process_mcmc, thread_schedule, start_point_set, points_being_sampled,
                               num_multistarts, num_to_sample, num_being_sampled, best_so_far, max_int_steps, found_flag, normal_rng,
                               EI_starting.data(), best_next_point);

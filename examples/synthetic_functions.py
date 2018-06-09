@@ -1,4 +1,5 @@
 import numpy
+import math
 from numpy import abs, cos, exp, mean, pi, prod, sin, sqrt, sum
 
 class Branin(object):
@@ -30,6 +31,29 @@ class Branin(object):
     def evaluate(self, x):
         return self.evaluate_true(x)
 
+class Camel(object):
+    def __init__(self):
+        self._dim = 2
+        self._search_domain = numpy.array([[-5., 5.], [-5., 5.]])
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = -1.0316
+        self._observations = []#numpy.arange(self._dim)
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        """ This function is usually evaluated on the square x_1 \in [0, 15], x_2 \in [-5, 15]. Global minimum
+            :param x[2]: 2-dim numpy array
+        """
+        x2 = math.pow(x[0],2)
+        x4 = math.pow(x[0],4)
+        y2 = math.pow(x[1],2)
+
+        return numpy.array([(4.0 - 2.1 * x2 + (x4 / 3.0)) * x2 + x[0]*x[1] + (-4.0 + 4.0 * y2) * y2])
+
+    def evaluate(self, x):
+        return self.evaluate_true(x)
+
 class Rosenbrock(object):
     def __init__(self):
         self._dim = 4
@@ -48,7 +72,7 @@ class Rosenbrock(object):
         value = 0.0
         for i in range(self._dim-1):
             value += pow(1. - x[i], 2.0) + 100. * pow(x[i+1] - pow(x[i], 2.0), 2.0)
-        results = [value]
+        results = [value/100.]
         for i in range(self._dim-1):
             results += [(2.*(x[i]-1) - 400.*x[i]*(x[i+1]-pow(x[i], 2.0)))]
         results += [(200. * (x[self._dim-1]-pow(x[self._dim-2], 2.0)))]
@@ -135,7 +159,7 @@ class Hartmann6(object):
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = -3.32237
-        self._observations = numpy.arange(self._dim)
+        self._observations = []#numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
