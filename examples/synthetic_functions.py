@@ -1,6 +1,7 @@
 import numpy
 import math
 from numpy import abs, cos, exp, mean, pi, prod, sin, sqrt, sum
+import math
 
 class Branin(object):
     def __init__(self):
@@ -185,3 +186,36 @@ class Hartmann6(object):
 
     def evaluate(self, x):
         return self.evaluate_true(x)
+
+class Ackley(object):
+    def __init__(self):
+        self._dim = 5
+        self._search_domain = numpy.repeat([[-1., 1.]], self._dim, axis=0)
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = 0.0
+        self._observations = []
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        x = 20*x
+        firstSum = 0.0
+        secondSum = 0.0
+        for c in x:
+            firstSum += c**2.0
+            secondSum += math.cos(2.0*math.pi*c)
+        n = float(len(x))
+        results=[(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e)/6.]
+        for i in range(int(n)):
+            results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
+                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
+
+        return numpy.array(results)
+
+    def evaluate(self, x):
+        t = self.evaluate_true(x)
+        results = []
+        for r in t:
+            n = numpy.random.normal(0, numpy.sqrt(self._sample_var))
+            results += [r+n]
+        return numpy.array(results)

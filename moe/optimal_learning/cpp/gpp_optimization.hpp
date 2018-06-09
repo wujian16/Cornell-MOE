@@ -727,7 +727,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
   std::copy(next_point.begin(), next_point.end(), initial_point.begin());
 #endif
 
-  const double decrease_rate = 0.3;
+  const double decrease_rate = 0.5;
   const double tolerance = 0.5;
   const double step_tolerance = gd_parameters.tolerance / static_cast<double>(gd_parameters.max_num_steps);
   for (int i = 0; i < gd_parameters.max_num_steps; ++i) {
@@ -775,7 +775,8 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
     obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
 
-    if (obj <= obj_func_initial or search_index == 20){
+
+    if (obj <= obj_func_initial or search_index == max_search){
       objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
       break;
     }

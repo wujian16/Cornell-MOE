@@ -510,7 +510,9 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 1000;
+  const int max_gradient_descent_steps = 100;
+  const int max_num_restarts = 10;
+  const int num_steps_averaged = 15;
 
   NewtonParameters newton_params(1, max_gradient_descent_steps,
                                  gamma, time_factor,
@@ -582,13 +584,8 @@ OL_WARN_UNUSED_RESULT int PingPSTest(int num_to_sample, double epsilon[2], doubl
 
   int num_sampled = 7;
 
-<<<<<<< HEAD
   int gradients [3] = {0, 1, 2};
   int num_gradients = 3;
-=======
-  int * gradients = nullptr;
-  int num_gradients = 0;
->>>>>>> jianwu_22_cpp_clean_KG_computations
 
   std::vector<double> lengths(dim);
   double alpha = 2.80723;

@@ -636,6 +636,7 @@ void GaussianProcess::FillPointsToSampleState(StateType * points_to_sample_state
             for (int d = 0; d <dim_; ++d){
               gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
                      grad_cov_temp[d+m*dim_+n*dim_*(points_to_sample_state->num_gradients_to_sample+1)];
+
               for (int h = 0; h < dim_; ++h){
                 hKs_temp[row + col*num_sampled_*(num_derivatives_+1)+
                 (d+h*dim_)*num_sampled_*(num_derivatives_+1)*(points_to_sample_state->num_gradients_to_sample+1)
@@ -751,6 +752,36 @@ void GaussianProcess::ComputeHessianMeanOfPoints(const StateType& points_to_samp
       }
     }
   }
+
+void GaussianProcess::ComputeGradMeanOfAdditionalPoints(double const * discrete_pts,
+                                                        int num_pts, int const * gradients_discrete_pts,
+                                                        int num_gradients_discrete_pts,
+                                                        double * restrict grad_mu) const noexcept {
+  std::vector<double> gKs_temp(dim_*num_sampled_*(num_derivatives_+1)*num_pts*(num_gradients_discrete_pts+1), 0.0);
+  double * restrict grad_cov_temp = new double[dim_*(num_gradients_discrete_pts+1)*(num_derivatives_+1)]();
+  // also precompute C_{d,k,i} = \pderiv{Ks_{k,i}}{Xs_{d,i}}, stored in grad_K_star
+  for (int i = 0; i < num_pts; ++i) { // dim * num_sample_ * num_derivatives
+    for (int j = 0; j < num_sampled_; ++j) {
+      covariance_ptr_->GradCovariance(discrete_pts + i*dim_, gradients_discrete_pts,
+                                      num_gradients_discrete_pts,
+                                      points_sampled_.data() + j*dim_, derivatives_.data(), num_derivatives_,
+                                      grad_cov_temp);
+      for (int m = 0; m < num_gradients_discrete_pts+1; ++m){
+        for (int n = 0; n < num_derivatives_+1; ++n){
+          int row = n + j*(num_derivatives_+1);
+          int col = m + i*(num_gradients_discrete_pts+1);
+          for (int d = 0; d <dim_; ++d){
+            gKs_temp[d + row*dim_ + col*dim_*num_sampled_*(num_derivatives_+1)] =
+                   grad_cov_temp[d+m*dim_+n*dim_*(num_gradients_discrete_pts+1)];
+          }
+        }
+      }
+    }
+  }
+  delete [] grad_cov_temp;
+  SpecialTensorVectorMultiply(gKs_temp.data(), K_inv_y_.data(),
+                              num_pts*(num_gradients_discrete_pts+1),
+                              num_sampled_*(num_derivatives_+1), dim_, grad_mu);
 }
 
 /*!\rst

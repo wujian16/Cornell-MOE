@@ -99,7 +99,7 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=30,
+                                                 max_num_steps=6,
                                                  max_num_restarts=1,
                                                  num_steps_averaged=3,
                                                  gamma=0.0,
@@ -144,7 +144,10 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG' or method == "rKG":
         discrete_pts_list = []
-        discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
+
+        discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
+                                                                cpp_sgd_params_kg, 10, num_mc=2 ** 10)
+
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
             discrete_pts_optima = np.array(discrete)
 
