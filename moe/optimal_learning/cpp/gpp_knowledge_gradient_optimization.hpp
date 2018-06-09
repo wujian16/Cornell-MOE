@@ -647,9 +647,6 @@ struct PosteriorMeanState final {
   //! point at which to evaluate EI and/or its gradient (e.g., to check its value in future experiments)
   std::vector<double> point_to_sample;
 
-  //! gaussian process state
-  GaussianProcess::StateType points_to_sample_state;
-
   // temporary storage: preallocated space used by OnePotentialSampleExpectedImprovementEvaluator's member functions
   //! the gradient of the GP mean evaluated at point_to_sample, wrt point_to_sample
   std::vector<double> grad_mu;

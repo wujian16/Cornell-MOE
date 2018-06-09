@@ -704,6 +704,129 @@ OL_NONNULL_POINTERS void GradientDescentOptimization(
 #endif
 }
 
+template <typename ObjectiveFunctionEvaluator, typename DomainType>
+OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
+    const ObjectiveFunctionEvaluator& objective_evaluator,
+    const GradientDescentParameters& gd_parameters,
+    const DomainType& domain,
+    typename ObjectiveFunctionEvaluator::StateType * objective_state) {
+  const int problem_size = objective_state->GetProblemSize();
+  std::vector<double> grad_objective(problem_size);
+  std::vector<double> step(problem_size);
+  std::vector<double> step_search(problem_size);
+  std::vector<double> next_point(problem_size);
+
+  // read out starting point coordinates
+  objective_state->GetCurrentPoint(next_point.data());
+
+  // save off some data for reporting if needed
+#ifdef OL_VERBOSE_PRINT
+  std::vector<double> initial_point(problem_size);
+  // initial value of the objective function
+  double obj_func_initial = objective_evaluator.ComputeObjectiveFunction(objective_state);
+  std::copy(next_point.begin(), next_point.end(), initial_point.begin());
+#endif
+
+  const double decrease_rate = 0.8;
+  const double tolerance = 0.5;
+  const double step_tolerance = gd_parameters.tolerance / static_cast<double>(gd_parameters.max_num_steps);
+  for (int i = 0; i < gd_parameters.max_num_steps; ++i) {
+    double obj_func_initial = objective_evaluator.ComputeObjectiveFunction(objective_state);
+    double obj = 0.0;
+    double alpha_n = gd_parameters.pre_mult*std::pow(static_cast<double>(i+1), -gd_parameters.gamma);
+    objective_evaluator.ComputeGradObjectiveFunction(objective_state, grad_objective.data());
+#ifdef OL_VERBOSE_PRINT
+    if (i == 0) {
+      OL_VERBOSE_PRINTF("objective fcn gradients, pre: ");
+      PrintMatrix(grad_objective.data(), 1, problem_size);
+    }
+#endif
+    double norm = DotProduct(grad_objective.data(), grad_objective.data(), problem_size);
+    const int max_search = 20;
+    int search_index = 0;
+    // while loop
+    while (search_index < max_search){
+      // set up desired step size
+      for (int j = 0; j < problem_size; ++j) {
+        step[j] = alpha_n*grad_objective[j];
+      }
+      for (int j = 0; j < problem_size; ++j) {
+        step_search[j] = next_point[j] + step[j];
+      }
+      objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
+      obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
+      if (obj-obj_func_initial > tolerance*alpha_n*norm){
+        break;
+      }
+      alpha_n *= decrease_rate;
+      search_index += 1;
+    }
+
+    // set up desired step size
+    for (int j = 0; j < problem_size; ++j) {
+      step[j] = alpha_n*grad_objective[j];
+    }
+    // limit step size to ensure we stay inside the domain
+    domain.LimitUpdate(gd_parameters.max_relative_change, next_point.data(), step.data());
+    for (int j = 0; j < problem_size; ++j){
+      step_search[j] = next_point[j] + step[j];
+    }
+    // update state
+    objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
+    obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
+
+    if (obj <= obj_func_initial or search_index == max_search){
+      objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
+      break;
+    }
+    // take the step
+    for (int j = 0; j < problem_size; ++j) {
+      next_point[j] += step[j];
+    }
+
+    // update state
+    objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
+
+    double norm_step = VectorNorm(step.data(), problem_size);
+    if (norm_step < step_tolerance) {
+      ++i;
+      break;
+    }
+  }  // end loop over i (gradient descent)
+
+  OL_VERBOSE_PRINTF("Coord index: Initial    :        Final values      :        Difference        :\n");
+  for (int j = 0; j < problem_size; ++j) {
+    OL_VERBOSE_PRINTF("%d: %.18E : %.18E : %.18E\n", j, initial_point[j], next_point[j], next_point[j] - initial_point[j]);
+  }
+
+#ifdef OL_OPTIMIZATION_VERBOSE_PRINT
+  // final value of the objective function
+  double obj_func_final = objective_evaluator.ComputeObjectiveFunction(objective_state);
+
+  OL_VERBOSE_PRINTF("Initial objective fcn value: %.18E, final objective fcn value: %.18E\n", obj_func_initial, obj_func_final);
+
+  // relative change from the initial to final values of the objective function
+  double obj_func_relative_change = std::fabs((obj_func_final - obj_func_initial)/obj_func_initial);
+  double obj_func_absolute_change = std::fabs(obj_func_final - obj_func_initial);
+  if (obj_func_final < obj_func_initial && obj_func_relative_change > gd_parameters.tolerance && obj_func_absolute_change > 1.0e-20) {
+    OL_VERBOSE_PRINTF("ERROR: objective fcn got worse!!! |Difference|: %.18E, |Relative|: %.18E\n", obj_func_absolute_change, obj_func_relative_change);
+  }
+#endif
+
+#ifdef OL_OPTIMIZATION_VERBOSE_PRINT
+  for (int j = 0; j < problem_size; ++j) {
+    if (std::fabs(next_point[j] - domain[2*j + 0]) < 1.0e-8 || std::fabs(next_point[j] - domain[2*j + 1]) < 1.0e-8) {
+      OL_VERBOSE_PRINTF("WARNING: coord %d is very close to boundaries! coord = %.18E, lower boundary = %.18E, upper boundary = %.18E\n", j, next_point[j], domain[2*j+0], domain[2*j+1]);
+    }
+  }
+#endif
+
+#ifdef OL_VERBOSE_PRINT
+  OL_VERBOSE_PRINTF("objective fcn gradients, post: ");
+  PrintMatrix(grad_objective.data(), 1, problem_size);
+#endif
+}
+
 /*!\rst
   Uses Newton's Method to optimize the value of an objective function, f (e.g., log marginal likelihood).  Newton's method is
   a root-finding technique, so for optimization, we are searching for points where gradient = 0.
@@ -1062,6 +1185,104 @@ class GradientDescentOptimizer final {
   }
 
   OL_DISALLOW_COPY_AND_ASSIGN(GradientDescentOptimizer);
+};
+
+/*!\rst
+  Gradient descent (GD) optimization.  This class optimizes using restarted GD (see comments on the Optimize()) function.
+\endrst*/
+template <typename ObjectiveFunctionEvaluator_, typename DomainType_>
+class GradientDescentOptimizerLineSearch final {
+ public:
+  using ObjectiveFunctionEvaluator = ObjectiveFunctionEvaluator_;
+  using DomainType = DomainType_;
+  using ParameterStruct = GradientDescentParameters;
+
+  GradientDescentOptimizerLineSearch() = default;
+
+  /*!\rst
+    Optimize a given objective function (represented by ObjectiveFunctionEvaluator; see file comments for what this must provide)
+    using restarted gradient descent (GD).
+
+    See section 2a) and 3b, i) in the header docs and the docs for GradientDescentOptimization() for more details.
+
+    Guaranteed to call GradientDescentOptimization() AT MOST max_num_restarts times.
+    GradientDescentOptimization() implements gradient descent; see function comments above for details.
+    This method calls gradient descent, then restarts (by calling GD again) from the GD's result point.  This is done until
+    max_num_restarts is reached or the result point stops changing (compared to tolerance).
+
+    Note that we are using an absolute tolerance, based on the size of the most recent step\*.  Here, 'step' is the
+    distance covered by the last restart, not the last GD iteration (as in GradientDescentOptimization()).
+    The suggested value is 1.0e-7, although this may need to be loosened for problems with 'difficult' optima (e.g., the shape
+    is not locally very peaked).  Setting too high of a tolerance can cause wrong answers--e.g., we stop at a point
+    that is not an optima but simply an region with small gradient.  Setting the tolerance too low may make convergence impossible;
+    GD could get stuck (bouncing between the same few points) or numerical effects could make it impossible to satisfy tolerance.
+
+    \* As opposed to say based on changes in the objective function.
+
+    Solution is guaranteed to lie within the region specified by "domain"; note that this may not be a
+    true optima (i.e., the gradient may be substantially nonzero).
+
+    problem_size refers to objective_state->GetProblemSize(), the number of dimensions in a "point" aka the number of
+    variables being optimized.  (This might be the spatial dimension for EI or the number of hyperparameters for log likelihood.)
+
+    \param
+      :objective_evaluator: reference to object that can compute the objective function and its gradient
+      :gd_parameters: GradientDescentParameters object that describes the parameters controlling gradient descent optimization
+        (e.g., number of iterations, tolerances, learning rate)
+      :domain: object specifying the domain to optimize over (see gpp_domain.hpp)
+      :objective_state[1]: a properly configured state object for the ObjectiveFunctionEvaluator template parameter
+                           objective_state.GetCurrentPoint() will be used to obtain the initial guess
+    \output
+      :objective_state[1]: a state object whose temporary data members may have been modified
+                           objective_state.GetCurrentPoint() will return the point yielding the best objective function value
+                           according to gradient descent
+    \return
+      number of errors, always 0
+  \endrst*/
+  int Optimize(const ObjectiveFunctionEvaluator& objective_evaluator, const ParameterStruct& gd_parameters,
+               const DomainType& domain, typename ObjectiveFunctionEvaluator::StateType * objective_state)
+      const OL_NONNULL_POINTERS {
+    if (unlikely(gd_parameters.max_num_restarts <= 0)) {
+      return 0;
+    }
+    const int problem_size = objective_state->GetProblemSize();
+    std::vector<double> current_point(problem_size);
+    std::vector<double> next_point(problem_size);
+
+    // loop structure expects that "next_point" contains the new current location at the start of each iteration
+    objective_state->GetCurrentPoint(next_point.data());
+
+    for (int i = 0; i < gd_parameters.max_num_restarts; ++i) {
+      // save off current location so we can compute the update norm
+      std::copy(next_point.begin(), next_point.end(), current_point.begin());
+      // get next gradient descent update
+      GradientDescentOptimizationLineSearch(objective_evaluator, gd_parameters, domain, objective_state);
+      objective_state->GetCurrentPoint(next_point.data());
+
+      // compute norm of the update
+      for (int j = 0; j < problem_size; ++j) {
+        current_point[j] -= next_point[j];
+      }
+      double norm_delta_coord = VectorNorm(current_point.data(), problem_size);
+      OL_VERBOSE_PRINTF("norm of coord change: %.18E\n", norm_delta_coord);
+      OL_VERBOSE_PRINTF("^Step %d^\n", i+1);
+
+      if (norm_delta_coord <= gd_parameters.tolerance) {
+        break;  // point are no longer changing notably, so stop
+      }
+    }
+
+#ifdef OL_OPTIMIZATION_VERBOSE_PRINT
+    if (norm_delta_coord > gd_parameters.tolerance) {
+      // we didn't converge to a sufficient degree
+      OL_VERBOSE_PRINTF("WARNING: gradient descent may not be fully converged yet!  In the call, the point changed by (RMS): %.18E\n", norm_delta_coord);
+    }
+#endif
+
+    return 0;
+  }
+
+  OL_DISALLOW_COPY_AND_ASSIGN(GradientDescentOptimizerLineSearch);
 };
 
 /*!\rst

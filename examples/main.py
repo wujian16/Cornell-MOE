@@ -41,7 +41,8 @@ obj_func_dict = {'Branin': synthetic_functions.Branin(),
                  'Rosenbrock': synthetic_functions.Rosenbrock(),
                  'Hartmann3': synthetic_functions.Hartmann3(),
                  'Levy4': synthetic_functions.Levy4(),
-                 'Hartmann6': synthetic_functions.Hartmann6()}
+                 'Hartmann6': synthetic_functions.Hartmann6(),
+                 'Ackley': synthetic_functions.Ackley()}
                  #'CIFAR10': real_functions.CIFAR10(),
                  #'KISSGP': real_functions.KISSGP()}
 
@@ -95,17 +96,17 @@ py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
                                                tolerance=1.0e-10)
 
 cpp_sgd_params_ps = cppGradientDescentParameters(num_multistarts=1,
-                                                 max_num_steps=50,
-                                                 max_num_restarts=4,
+                                                 max_num_steps=6,
+                                                 max_num_restarts=1,
                                                  num_steps_averaged=3,
-                                                 gamma=0.7,
-                                                 pre_mult=0.1,
+                                                 gamma=0.0,
+                                                 pre_mult=1.0,
                                                  max_relative_change=0.1,
                                                  tolerance=1.0e-10)
 
 cpp_sgd_params_kg = cppGradientDescentParameters(num_multistarts=200,
                                                  max_num_steps=50,
-                                                 max_num_restarts=4,
+                                                 max_num_restarts=2,
                                                  num_steps_averaged=4,
                                                  gamma=0.7,
                                                  pre_mult=1.0,
@@ -140,7 +141,7 @@ for n in xrange(num_iteration):
     time1 = time.time()
     if method == 'KG':
         discrete_pts_list = []
-        #discrete = inner_search_domain.generate_uniform_random_points_in_domain(10)
+
         discrete, _ = bayesian_optimization.gen_sample_from_qei_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_search_domain,
                                                                 cpp_sgd_params_kg, 10, num_mc=2 ** 10)
         for i, cpp_gp in enumerate(cpp_gp_loglikelihood.models):
@@ -175,7 +176,7 @@ for n in xrange(num_iteration):
         # KG method
         next_points, voi = bayesian_optimization.gen_sample_from_qkg_mcmc(cpp_gp_loglikelihood._gaussian_process_mcmc, cpp_gp_loglikelihood.models,
                                                                 ps_sgd_optimizer, cpp_search_domain, num_fidelity, discrete_pts_list,
-                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 6)
+                                                                cpp_sgd_params_kg, num_to_sample, num_mc=2 ** 7)
 
     elif method == 'EI':
         # EI method
