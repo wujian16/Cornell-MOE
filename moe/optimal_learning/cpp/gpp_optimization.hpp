@@ -742,7 +742,7 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     }
 #endif
     double norm = DotProduct(grad_objective.data(), grad_objective.data(), problem_size);
-    const int max_search = 20;
+    const int max_search = 30;
     int search_index = 0;
     // while loop
     while (search_index < max_search){
