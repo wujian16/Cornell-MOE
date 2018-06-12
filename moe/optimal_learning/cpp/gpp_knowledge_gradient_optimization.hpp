@@ -168,7 +168,7 @@ class KnowledgeGradientEvaluator final {
                                       int num_pts,
                                       int num_mc_iterations,
                                       const DomainType& domain,
-                                      const NewtonParameters& optimizer_parameters,
+                                      const GradientDescentParameters& optimizer_parameters,
                                       double best_so_far);
 
   KnowledgeGradientEvaluator(KnowledgeGradientEvaluator&& other);
@@ -189,10 +189,11 @@ class KnowledgeGradientEvaluator final {
     return best_so_far_;
   }
 
-  NewtonParameters newton_params() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
-    return NewtonParameters(optimizer_parameters_.num_multistarts, optimizer_parameters_.max_num_steps,
-                            optimizer_parameters_.gamma, optimizer_parameters_.time_factor,
-                            optimizer_parameters_.max_relative_change, optimizer_parameters_.tolerance);
+  GradientDescentParameters gradient_descent_params() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return GradientDescentParameters(optimizer_parameters_.num_multistarts, optimizer_parameters_.max_num_steps,
+                                     optimizer_parameters_.max_num_restarts, optimizer_parameters_.num_steps_averaged,
+                                     optimizer_parameters_.gamma, optimizer_parameters_.pre_mult,
+                                     optimizer_parameters_.max_relative_change, optimizer_parameters_.tolerance);
   }
 
   DomainType domain() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
@@ -273,7 +274,7 @@ class KnowledgeGradientEvaluator final {
   //! best (minimum) objective function value (in points_sampled_value)
   double best_so_far_;
   //! the gradient decsent parameter
-  const NewtonParameters optimizer_parameters_;
+  const GradientDescentParameters optimizer_parameters_;
   const DomainType domain_;
 
   //! pointer to gaussian process used in KG computations
@@ -529,9 +530,9 @@ class PosteriorMeanEvaluator final {
     ComputeGradPosteriorMean(ps_state, grad_PS);
   }
 
-  void ComputeHessianObjectiveFunction(StateType * ps_state, double * restrict hessian_PS) const OL_NONNULL_POINTERS {
-    ComputeHessianPosteriorMean(ps_state, hessian_PS);
-  }
+//  void ComputeHessianObjectiveFunction(StateType * ps_state, double * restrict hessian_PS) const OL_NONNULL_POINTERS {
+//    ComputeHessianPosteriorMean(ps_state, hessian_PS);
+//  }
 
   /*!\rst
     Computes the expected improvement ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``
@@ -556,7 +557,7 @@ class PosteriorMeanEvaluator final {
   \endrst*/
   void ComputeGradPosteriorMean(StateType * ps_state, double * restrict grad_PS) const;
 
-  void ComputeHessianPosteriorMean(StateType * ps_state, double * restrict hessian_PS) const;
+//  void ComputeHessianPosteriorMean(StateType * ps_state, double * restrict hessian_PS) const;
 
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(PosteriorMeanEvaluator);
 
@@ -692,16 +693,16 @@ struct PosteriorMeanState final {
 \endrst*/
 template <typename DomainType>
 void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                 const NewtonParameters& optimizer_parameters,
+                                 const GradientDescentParameters& optimizer_parameters,
                                  const DomainType& domain, double const * restrict initial_guess, const int num_starts,
                                  bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                          const NewtonParameters& optimizer_parameters,
+                                          const GradientDescentParameters& optimizer_parameters,
                                           const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
                                           bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 extern template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                          const NewtonParameters& optimizer_parameters,
+                                          const GradientDescentParameters& optimizer_parameters,
                                           const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
                                           bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 
@@ -867,7 +868,7 @@ template <typename DomainType>
 OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDescent(
     const GaussianProcess& gaussian_process, const int num_fidelity,
     const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const DomainType& domain, const DomainType& inner_domain,
     const ThreadSchedule& thread_schedule,
     double const * restrict start_point_set,
@@ -978,7 +979,7 @@ OL_NONNULL_POINTERS void ComputeKGOptimalPointsToSampleViaMultistartGradientDesc
 \endrst*/
 template <typename DomainType>
 void EvaluateKGAtPointList(const GaussianProcess& gaussian_process, const int num_fidelity,
-                           const NewtonParameters& optimizer_parameters_inner,
+                           const GradientDescentParameters& optimizer_parameters_inner,
                            const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                            double const * restrict initial_guesses,
                            double const * restrict points_being_sampled,
@@ -1057,7 +1058,7 @@ void EvaluateKGAtPointList(const GaussianProcess& gaussian_process, const int nu
 template <typename DomainType>
 void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gaussian_process, const int num_fidelity,
                                                     const GradientDescentParameters& optimizer_parameters,
-                                                    const NewtonParameters& optimizer_parameters_inner,
+                                                    const GradientDescentParameters& optimizer_parameters_inner,
                                                     const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                                     double const * restrict points_being_sampled, double const * discrete_pts,
                                                     int num_to_sample, int num_being_sampled, int num_pts,
@@ -1124,7 +1125,7 @@ void ComputeKGOptimalPointsToSampleWithRandomStarts(const GaussianProcess& gauss
 \endrst*/
 template <typename DomainType>
 void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                                           const NewtonParameters& optimizer_parameters_inner,
+                                                           const GradientDescentParameters& optimizer_parameters_inner,
                                                            const DomainType& domain, const DomainType& inner_domain,
                                                            const ThreadSchedule& thread_schedule,
                                                            double const * restrict points_being_sampled,
@@ -1198,7 +1199,7 @@ void ComputeKGOptimalPointsToSampleViaLatinHypercubeSearch(const GaussianProcess
 template <typename DomainType>
 void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process, const int num_fidelity,
                                     const GradientDescentParameters& optimizer_parameters,
-                                    const NewtonParameters& optimizer_parameters_inner,
+                                    const GradientDescentParameters& optimizer_parameters_inner,
                                     const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                     double const * restrict points_being_sampled,
                                     double const * discrete_pts,
@@ -1211,7 +1212,7 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process, con
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
@@ -1220,7 +1221,7 @@ extern template void ComputeKGOptimalPointsToSample(
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 extern template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled,double const * discrete_pts,
     int num_to_sample, int num_being_sampled,

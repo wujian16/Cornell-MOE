@@ -53,7 +53,7 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
                                                                            double const * discrete_pts_lst,
                                                                            int num_pts, int num_mc_iterations,
                                                                            const DomainType& domain,
-                                                                           const NewtonParameters& optimizer_parameters,
+                                                                           const GradientDescentParameters& optimizer_parameters,
                                                                            double const * best_so_far,
                                                                            std::vector<typename KnowledgeGradientState<DomainType>::EvaluatorType> * evaluator_vector)
 : dim_(gaussian_process_mcmc.dim()),
@@ -62,7 +62,8 @@ KnowledgeGradientMCMCEvaluator<DomainType>::KnowledgeGradientMCMCEvaluator(const
   num_mc_iterations_(num_mc_iterations),
   best_so_far_(best_so_far_list(best_so_far)),
   optimizer_parameters_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
-                        optimizer_parameters.gamma, optimizer_parameters.time_factor,
+                        optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
+                        optimizer_parameters.gamma, optimizer_parameters.pre_mult,
                         optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
   domain_(domain),
   gaussian_process_mcmc_(&gaussian_process_mcmc),
@@ -244,7 +245,7 @@ template struct KnowledgeGradientMCMCState<SimplexIntersectTensorProductDomain>;
 template <typename DomainType>
 void ComputeKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                         const GradientDescentParameters& optimizer_parameters,
-                                        const NewtonParameters& optimizer_parameters_inner,
+                                        const GradientDescentParameters& optimizer_parameters_inner,
                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                         double const * restrict points_being_sampled,
                                         double const * discrete_pts,
@@ -306,7 +307,7 @@ void ComputeKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
 template void ComputeKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
@@ -315,7 +316,7 @@ template void ComputeKGMCMCOptimalPointsToSample(
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 template void ComputeKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,

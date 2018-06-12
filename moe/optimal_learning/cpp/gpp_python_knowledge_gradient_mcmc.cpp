@@ -104,7 +104,7 @@ double ComputeKnowledgeGradientMCMCWrapper(GaussianProcessMCMC& gaussian_process
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
   TensorProductDomain domain(domain_bounds_C.data(), input_container.dim-num_fidelity);
-  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   std::vector<typename KnowledgeGradientState<TensorProductDomain>::EvaluatorType> evaluator_vector;
   KnowledgeGradientMCMCEvaluator<TensorProductDomain> kg_evaluator(gaussian_process_mcmc, num_fidelity, input_container_discrete.points_to_sample.data(),
@@ -150,7 +150,7 @@ boost::python::list ComputeGradKnowledgeGradientMCMCWrapper(GaussianProcessMCMC&
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
   TensorProductDomain domain(domain_bounds_C.data(), input_container.dim-num_fidelity);
-  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   std::vector<typename KnowledgeGradientState<TensorProductDomain>::EvaluatorType> evaluator_vector;
   KnowledgeGradientMCMCEvaluator<TensorProductDomain> kg_evaluator(gaussian_process_mcmc, num_fidelity, input_container_discrete.points_to_sample.data(),
@@ -177,7 +177,7 @@ boost::python::list ComputeGradKnowledgeGradientMCMCWrapper(GaussianProcessMCMC&
   \param
     :optimizer_parameters: python/cpp_wrappers/optimization._CppOptimizerParameters
       Python object containing the DomainTypes domain_type and OptimizerTypes optimzer_type to use as well as
-      appropriate parameter structs e.g., NewtonParameters for type kNewton).
+      appropriate parameter structs e.g., GradientDescentParameters for type kNewton).
       See comments on the python interface for multistart_expected_improvement_optimization_wrapper
     :gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities) that describes the
       underlying GP
@@ -214,7 +214,7 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
     case OptimizerTypes::kNull: {
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_static);
       // optimizer_parameters must contain an int num_random_samples field, extract it
-      const NewtonParameters& gradient_descent_parameters_inner = boost::python::extract<NewtonParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
+      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       ComputeKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
@@ -233,7 +233,7 @@ void DispatchKnowledgeGradientMCMCOptimization(const boost::python::object& opti
       // optimizer_parameters must contain a optimizer_parameters field
       // of type GradientDescentParameters. extract it
       const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
-      const NewtonParameters& gradient_descent_parameters_inner = boost::python::extract<NewtonParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
+      const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       ThreadSchedule thread_schedule(max_num_threads, omp_sched_dynamic);
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
@@ -369,7 +369,7 @@ boost::python::list EvaluateKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
 
   TensorProductDomain domain(domain_bounds_C.data(), input_container.dim);
   TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
-  const NewtonParameters& gradient_descent_parameters = boost::python::extract<NewtonParameters&>(optimizer_parameters.attr("optimizer_parameters"));
+  const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
   EvaluateKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
                             discrete_pts_and_pts_being_sampled.data() + num_pts*gaussian_process_mcmc.num_mcmc()*(gaussian_process_mcmc.dim()-num_fidelity),
@@ -487,7 +487,7 @@ void ExportKnowldegeGradientMCMCFunctions() {
 
     :param optimizer_parameters: python object containing the DomainTypes domain_type and
       OptimizerTypes optimzer_type to use as well as
-      appropriate parameter structs e.g., NewtonParameters for type kNewton)
+      appropriate parameter structs e.g., GradientDescentParameters for type kNewton)
     :type optimizer_parameters: _CppOptimizerParameters
     :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
     :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)

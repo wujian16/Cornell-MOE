@@ -752,6 +752,7 @@ void GaussianProcess::ComputeHessianMeanOfPoints(const StateType& points_to_samp
       }
     }
   }
+}
 
 void GaussianProcess::ComputeGradMeanOfAdditionalPoints(double const * discrete_pts,
                                                         int num_pts, int const * gradients_discrete_pts,

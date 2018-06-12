@@ -28,14 +28,15 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(const Gaussia
                                                                    int num_pts,
                                                                    int num_mc_iterations,
                                                                    const DomainType& domain,
-                                                                   const NewtonParameters& optimizer_parameters,
+                                                                   const GradientDescentParameters& optimizer_parameters,
                                                                    double best_so_far)
   : dim_(gaussian_process_in.dim()),
     num_fidelity_(num_fidelity),
     num_mc_iterations_(num_mc_iterations),
     best_so_far_(best_so_far),
     optimizer_parameters_(optimizer_parameters.num_multistarts, optimizer_parameters.max_num_steps,
-                          optimizer_parameters.gamma, optimizer_parameters.time_factor,
+                          optimizer_parameters.max_num_restarts, optimizer_parameters.num_steps_averaged,
+                          optimizer_parameters.gamma, optimizer_parameters.pre_mult,
                           optimizer_parameters.max_relative_change, optimizer_parameters.tolerance),
     domain_(domain),
     gaussian_process_(&gaussian_process_in),
@@ -49,9 +50,10 @@ KnowledgeGradientEvaluator<DomainType>::KnowledgeGradientEvaluator(KnowledgeGrad
     num_fidelity_(other.num_fidelity()),
     num_mc_iterations_(other.num_mc_iterations()),
     best_so_far_(other.best_so_far()),
-    optimizer_parameters_(other.newton_params().num_multistarts, other.newton_params().max_num_steps,
-                          other.newton_params().gamma, other.newton_params().time_factor,
-                          other.newton_params().max_relative_change, other.newton_params().tolerance),
+    optimizer_parameters_(other.gradient_descent_params().num_multistarts, other.gradient_descent_params().max_num_steps,
+                          other.gradient_descent_params().max_num_restarts, other.gradient_descent_params().num_steps_averaged,
+                          other.gradient_descent_params().gamma, other.gradient_descent_params().pre_mult,
+                          other.gradient_descent_params().max_relative_change, other.gradient_descent_params().tolerance),
     domain_(other.domain()),
     gaussian_process_(other.gaussian_process()),
     discrete_pts_(other.discrete_pts_copy()),
@@ -356,14 +358,14 @@ void PosteriorMeanEvaluator::ComputeGradPosteriorMean(
   }
 }
 
-void PosteriorMeanEvaluator::ComputeHessianPosteriorMean(StateType * ps_state,
-                                                         double * restrict hessian_PS) const {
-  double * restrict hessian_mu = ps_state->hessian_mu.data();
-  gaussian_process_->ComputeHessianMeanOfPoints(ps_state->points_to_sample_state, hessian_mu);
-  for (int i = 0; i < Square(dim_-ps_state->num_fidelity); ++i) {
-    hessian_PS[i] = -hessian_mu[i];
-  }
-}
+//void PosteriorMeanEvaluator::ComputeHessianPosteriorMean(StateType * ps_state,
+//                                                         double * restrict hessian_PS) const {
+//  double * restrict hessian_mu = ps_state->hessian_mu.data();
+//  gaussian_process_->ComputeHessianMeanOfPoints(ps_state->points_to_sample_state, hessian_mu);
+//  for (int i = 0; i < Square(dim_-ps_state->num_fidelity); ++i) {
+//    hessian_PS[i] = -hessian_mu[i];
+//  }
+//}
 
 void PosteriorMeanState::SetCurrentPoint(const EvaluatorType& ps_evaluator,
                                          double const * restrict point_to_sample_in) {
@@ -426,7 +428,7 @@ PosteriorMeanState::PosteriorMeanState(PosteriorMeanState&& OL_UNUSED(other)) = 
 \endrst*/
 template <typename DomainType>
 void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                 const NewtonParameters& optimizer_parameters,
+                                 const GradientDescentParameters& optimizer_parameters,
                                  const DomainType& domain, double const * restrict initial_guess, const int num_starts,
                                  bool * restrict found_flag, double * restrict best_next_point, double * best_function_value) {
   if (unlikely(optimizer_parameters.max_num_restarts <= 0)) {
@@ -481,11 +483,11 @@ void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const 
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
 template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                          const NewtonParameters& optimizer_parameters,
+                                          const GradientDescentParameters& optimizer_parameters,
                                           const TensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
                                           bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_process, const int num_fidelity,
-                                          const NewtonParameters& optimizer_parameters,
+                                          const GradientDescentParameters& optimizer_parameters,
                                           const SimplexIntersectTensorProductDomain& domain, double const * restrict initial_guess, const int num_starts,
                                           bool * restrict found_flag, double * restrict best_next_point, double * best_function_value);
 
@@ -497,7 +499,7 @@ template void ComputeOptimalPosteriorMean(const GaussianProcess& gaussian_proces
 template <typename DomainType>
 void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process, const int num_fidelity,
                                     const GradientDescentParameters& optimizer_parameters,
-                                    const NewtonParameters& optimizer_parameters_inner,
+                                    const GradientDescentParameters& optimizer_parameters_inner,
                                     const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                     double const * restrict points_being_sampled,
                                     double const * discrete_pts,
@@ -560,7 +562,7 @@ void ComputeKGOptimalPointsToSample(const GaussianProcess& gaussian_process, con
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
 template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled, double const * discrete_pts,
     int num_to_sample, int num_being_sampled,
@@ -569,7 +571,7 @@ template void ComputeKGOptimalPointsToSample(
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
 template void ComputeKGOptimalPointsToSample(
     const GaussianProcess& gaussian_process, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
-    const NewtonParameters& optimizer_parameters_inner,
+    const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
     double const * restrict points_being_sampled,double const * discrete_pts,
     int num_to_sample, int num_being_sampled, int num_pts, double best_so_far, int max_int_steps, bool lhc_search_only, int num_lhc_samples, bool * restrict found_flag,
