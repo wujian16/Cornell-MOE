@@ -775,7 +775,6 @@ OL_NONNULL_POINTERS void GradientDescentOptimizationLineSearch(
     objective_state->SetCurrentPoint(objective_evaluator, step_search.data());
     obj = objective_evaluator.ComputeObjectiveFunction(objective_state);
 
-
     if (obj <= obj_func_initial or search_index == max_search){
       objective_state->SetCurrentPoint(objective_evaluator, next_point.data());
       break;
@@ -1203,14 +1202,11 @@ class GradientDescentOptimizerLineSearch final {
   /*!\rst
     Optimize a given objective function (represented by ObjectiveFunctionEvaluator; see file comments for what this must provide)
     using restarted gradient descent (GD).
-
     See section 2a) and 3b, i) in the header docs and the docs for GradientDescentOptimization() for more details.
-
     Guaranteed to call GradientDescentOptimization() AT MOST max_num_restarts times.
     GradientDescentOptimization() implements gradient descent; see function comments above for details.
     This method calls gradient descent, then restarts (by calling GD again) from the GD's result point.  This is done until
     max_num_restarts is reached or the result point stops changing (compared to tolerance).
-
     Note that we are using an absolute tolerance, based on the size of the most recent step\*.  Here, 'step' is the
     distance covered by the last restart, not the last GD iteration (as in GradientDescentOptimization()).
     The suggested value is 1.0e-7, although this may need to be loosened for problems with 'difficult' optima (e.g., the shape
@@ -1223,6 +1219,12 @@ class GradientDescentOptimizerLineSearch final {
     Solution is guaranteed to lie within the region specified by "domain"; note that this may not be a
     true optima (i.e., the gradient may be substantially nonzero).
 
+    problem_size refers to objective_state->GetProblemSize(), the number of dimensions in a "point" aka the number of
+    variables being optimized.  (This might be the spatial dimension for EI or the number of hyperparameters for log likelihood.)
+
+    \* As opposed to say based on changes in the objective function.
+    Solution is guaranteed to lie within the region specified by "domain"; note that this may not be a
+    true optima (i.e., the gradient may be substantially nonzero).
     problem_size refers to objective_state->GetProblemSize(), the number of dimensions in a "point" aka the number of
     variables being optimized.  (This might be the spatial dimension for EI or the number of hyperparameters for log likelihood.)
 

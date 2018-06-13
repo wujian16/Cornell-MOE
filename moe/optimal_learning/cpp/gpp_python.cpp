@@ -35,6 +35,7 @@
 #include "gpp_python_knowledge_gradient.hpp"
 #include "gpp_python_knowledge_gradient_mcmc.hpp"
 #include "gpp_python_robust_knowledge_gradient_mcmc.hpp"
+#include "gpp_python_two_step_expected_improvement_mcmc.hpp"
 #include "gpp_python_gaussian_process.hpp"
 #include "gpp_python_model_selection.hpp"
 #include "gpp_python_test.hpp"
@@ -595,6 +596,7 @@ BOOST_PYTHON_MODULE(GPP) {
   ExportKnowldegeGradientFunctions();
   ExportKnowldegeGradientMCMCFunctions();
   ExportRobustKnowledgeGradientMCMCFunctions();
+  ExportTwoStepExpectedImprovementMCMCFunctions();
   ExportGaussianProcessFunctions();
   ExportModelSelectionFunctions();
   ExportOptimizerParameterStructs();

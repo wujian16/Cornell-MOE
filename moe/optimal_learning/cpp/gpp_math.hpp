@@ -625,7 +625,7 @@ class GaussianProcess final {
         variance of the GP.  ``grad_chol[d][i][j][k]`` is actually the gradients of ``var_{i,j}`` with
         respect to ``x_{d,k}``, the d-th dimension of the k-th entry of ``points_to_sample``
 
-    ** store in UPPER triangle
+    ** store in UPPER Triangle
   \endrst*/
   void ComputeGradCholeskyVarianceOfPoints(StateType * points_to_sample_state,
                                            double const * restrict chol_var,
