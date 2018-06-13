@@ -184,7 +184,7 @@ void DispatchValueFunctionMCMCOptimization(const boost::python::object& optimize
       const GradientDescentParameters& gradient_descent_parameters_inner = boost::python::extract<GradientDescentParameters&>(optimizer_parameters_inner.attr("optimizer_parameters"));
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
-      ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
+      ComputeRKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
                                                                 input_container.points_being_sampled.data(),
                                                                 input_container_discrete.points_to_sample.data(),
                                                                 num_random_samples, num_to_sample,
@@ -205,7 +205,7 @@ void DispatchValueFunctionMCMCOptimization(const boost::python::object& optimize
       int num_random_samples = boost::python::extract<int>(optimizer_parameters.attr("num_random_samples"));
 
       bool random_search_only = false;
-      ComputeVFMCMCOptimalPointsToSample(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
+      ComputeRKGMCMCOptimalPointsToSample(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, gradient_descent_parameters_inner, domain, inner_domain, thread_schedule,
                                          input_container.points_being_sampled.data(), input_container_discrete.points_to_sample.data(),
                                          num_to_sample, input_container.num_being_sampled, num_pts,
                                          best_so_far_list.data(), factor, max_int_steps, random_search_only, num_random_samples, &found_flag,
@@ -292,7 +292,7 @@ boost::python::list MultistartRobustKnowledgeGradientMCMCOptimizationWrapper(con
   return VectorToPylist(best_points_to_sample_C);
 }
 
-boost::python::list EvaluateVFMCMCAtPointListWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
+boost::python::list EvaluateRKGMCMCAtPointListWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
                                                      const boost::python::object& optimizer_parameters,
                                                      const boost::python::list& domain_bounds,
                                                      const boost::python::list& initial_guesses,
@@ -340,7 +340,7 @@ boost::python::list EvaluateVFMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
   TensorProductDomain inner_domain(domain_bounds_C.data(), input_container.dim- num_fidelity);
   const GradientDescentParameters& gradient_descent_parameters = boost::python::extract<GradientDescentParameters&>(optimizer_parameters.attr("optimizer_parameters"));
 
-  EvaluateVFMCMCAtPointList(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
+  EvaluateRKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, gradient_descent_parameters, domain, inner_domain, thread_schedule, initial_guesses_C.data(),
                             discrete_pts_and_pts_being_sampled.data() + num_pts*gaussian_process_mcmc.num_mcmc()*(gaussian_process_mcmc.dim()-num_fidelity),
                             discrete_pts_and_pts_being_sampled.data(), num_multistarts, num_to_sample, input_container.num_being_sampled,
                             num_pts, best_so_far_list.data(), factor, max_int_steps, &found_flag, randomness_source.normal_rng_vec.data(),
@@ -353,7 +353,7 @@ boost::python::list EvaluateVFMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
 }  // end unnamed namespace
 
 void ExportRobustKnowledgeGradientMCMCFunctions() {
-  boost::python::def("compute_two_step_expected_improvement_mcmc", ComputeRobustKnowledgeGradientMCMCWrapper, R"%%(
+  boost::python::def("compute_robust_knowledge_gradient_mcmc", ComputeRobustKnowledgeGradientMCMCWrapper, R"%%(
     Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
     use (fast/accurate) analytic evaluation.
@@ -381,7 +381,7 @@ void ExportRobustKnowledgeGradientMCMCFunctions() {
     :rtype: float64 >= 0.0
     )%%");
 
-  boost::python::def("compute_grad_two_step_expected_improvement_mcmc", ComputeGradRobustKnowledgeGradientMCMCWrapper, R"%%(
+  boost::python::def("compute_grad_robust_knowledge_gradient_mcmc", ComputeGradRobustKnowledgeGradientMCMCWrapper, R"%%(
     Compute the gradient of knowledge gradient evaluated at points_to_sample.
     If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
     use (fast/accurate) analytic evaluation.
@@ -409,7 +409,7 @@ void ExportRobustKnowledgeGradientMCMCFunctions() {
     :rtype: list of float64 with shape (num_to_sample, dim)
     )%%");
 
-  boost::python::def("multistart_two_step_expected_improvement_mcmc_optimization", MultistartRobustKnowledgeGradientMCMCOptimizationWrapper, R"%%(
+  boost::python::def("multistart_robust_knowledge_gradient_mcmc_optimization", MultistartRobustKnowledgeGradientMCMCOptimizationWrapper, R"%%(
     Optimize expected improvement (i.e., solve q,p-EI) over the specified domain using the specified optimization method.
     Can optimize for num_to_sample new points to sample (i.e., aka "q", experiments to run) simultaneously.
     Allows the user to specify num_being_sampled (aka "p") ongoing/concurrent experiments.
@@ -458,7 +458,7 @@ void ExportRobustKnowledgeGradientMCMCFunctions() {
     :rtype: list of float64 with shape (num_to_sample, dim)
     )%%");
 
-  boost::python::def("evaluate_VF_mcmc_at_point_list", EvaluateVFMCMCAtPointListWrapper, R"%%(
+  boost::python::def("evaluate_RKG_mcmc_at_point_list", EvaluateRKGMCMCAtPointListWrapper, R"%%(
     Evaluates the expected improvement at each point in initial_guesses; can handle q,p-EI.
     Useful for plotting.
     Equivalent to::

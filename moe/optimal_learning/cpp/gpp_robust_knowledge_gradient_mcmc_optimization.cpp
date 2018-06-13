@@ -217,7 +217,7 @@ template struct RobustKnowledgeGradientMCMCState<SimplexIntersectTensorProductDo
   and falls back to latin hypercube search if gradient descent fails (or is not desired).
 \endrst*/
 template <typename DomainType>
-void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+void ComputeRKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                         const GradientDescentParameters& optimizer_parameters,
                                         const GradientDescentParameters& optimizer_parameters_inner,
                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
@@ -236,7 +236,7 @@ void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
   std::vector<double> next_points_to_sample(gaussian_process_mcmc.dim()*num_to_sample);
   bool found_flag_local = false;
   if (lhc_search_only == false) {
-    ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(gaussian_process_mcmc, num_fidelity, optimizer_parameters, optimizer_parameters_inner,
+    ComputeRKGMCMCOptimalPointsToSampleWithRandomStarts(gaussian_process_mcmc, num_fidelity, optimizer_parameters, optimizer_parameters_inner,
                                                        domain, inner_domain, thread_schedule, points_being_sampled, discrete_pts,
                                                        num_to_sample, num_being_sampled, num_pts,
                                                        best_so_far, factor, max_int_steps,
@@ -256,7 +256,7 @@ void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
       // Besides, this is the fastest setting.
       ThreadSchedule thread_schedule_naive_search(thread_schedule);
       thread_schedule_naive_search.schedule = omp_sched_static;
-      ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain,
+      ComputeRKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain,
                                                                 thread_schedule_naive_search,
                                                                 points_being_sampled, discrete_pts,
                                                                 num_lhc_samples, num_to_sample,
@@ -279,7 +279,7 @@ void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
 }
 
 // template explicit instantiation definitions, see gpp_common.hpp header comments, item 6
-template void ComputeVFMCMCOptimalPointsToSample(
+template void ComputeRKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
@@ -288,7 +288,7 @@ template void ComputeVFMCMCOptimalPointsToSample(
     int num_pts, double const * best_so_far, const double factor, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
-template void ComputeVFMCMCOptimalPointsToSample(
+template void ComputeRKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,

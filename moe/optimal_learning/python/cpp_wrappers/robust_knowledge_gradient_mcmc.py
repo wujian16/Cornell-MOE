@@ -72,7 +72,7 @@ def multistart_robust_knowledge_gradient_mcmc_optimization(
     if status is None:
         status = {}
 
-    best_points_to_sample = C_GP.multistart_two_step_expected_improvement_mcmc_optimization(
+    best_points_to_sample = C_GP.multistart_robust_knowledge_gradient_mcmc_optimization(
             twoei_optimizer.optimizer_parameters,
             inner_optimizer.optimizer_parameters,
             twoei_optimizer.objective_function._gaussian_process_mcmc._gaussian_process_mcmc,
@@ -255,7 +255,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
         # overrides any data inside ei_evaluator
         num_to_evaluate, num_to_sample, _ = points_to_evaluate.shape
         discrete_being_sampled = numpy.concatenate((numpy.ravel(self._discrete_pts_list), numpy.ravel(self._points_being_sampled)))
-        twoei_values_mcmc =  C_GP.evaluate_VF_mcmc_at_point_list(
+        twoei_values_mcmc =  C_GP.evaluate_RKG_mcmc_at_point_list(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
@@ -304,7 +304,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
         :rtype: float64
         """
 
-        two_step_expected_improvement_mcmc = C_GP.compute_two_step_expected_improvement_mcmc(
+        robust_knowledge_gradient_mcmc = C_GP.compute_robust_knowledge_gradient_mcmc(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
@@ -319,7 +319,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
                 self._factor,
                 self._randomness,
         )
-        return two_step_expected_improvement_mcmc
+        return robust_knowledge_gradient_mcmc
 
     compute_objective_function = compute_robust_knowledge_gradient_mcmc
 
@@ -344,7 +344,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
           ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
         :rtype: array of float64 with shape (num_to_sample, dim)
         """
-        grad_two_step_expected_improvement_mcmc = C_GP.compute_grad_two_step_expected_improvement_mcmc(
+        grad_robust_knowledge_gradient_mcmc = C_GP.compute_grad_robust_knowledge_gradient_mcmc(
                 self._gaussian_process_mcmc._gaussian_process_mcmc,
                 self._inner_optimizer.optimizer_parameters,
                 cpp_utils.cppify(self._inner_optimizer.domain.domain_bounds),
@@ -359,7 +359,7 @@ class RobustKnowledgeGradientMCMC(OptimizableInterface):
                 self._factor,
                 self._randomness,
         )
-        return grad_two_step_expected_improvement_mcmc
+        return grad_robust_knowledge_gradient_mcmc
 
     compute_grad_objective_function = compute_grad_robust_knowledge_gradient_mcmc
 

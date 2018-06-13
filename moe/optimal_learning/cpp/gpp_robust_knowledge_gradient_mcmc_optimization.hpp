@@ -465,7 +465,7 @@ inline OL_NONNULL_POINTERS void SetupRobustKnowledgeGradientMCMCState(
     :next_point[dim][num_to_sample]: points yielding the best KG according to gradient descent
 \endrst*/
 template <typename RobustKnowledgeGradientMCMCEvaluator, typename DomainType>
-void RestartedGradientDescentVFMCMCOptimization(const RobustKnowledgeGradientMCMCEvaluator& vf_evaluator,
+void RestartedGradientDescentRKGMCMCOptimization(const RobustKnowledgeGradientMCMCEvaluator& vf_evaluator,
                                                 const GradientDescentParameters& optimizer_parameters,
                                                 const DomainType& domain, double const * restrict initial_guess,
                                                 double const * restrict points_being_sampled, int num_to_sample,
@@ -546,7 +546,7 @@ void RestartedGradientDescentVFMCMCOptimization(const RobustKnowledgeGradientMCM
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradientDescent(
+OL_NONNULL_POINTERS void ComputeRKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(
     GaussianProcessMCMC& gaussian_process_mcmc,
     const int num_fidelity,
     const GradientDescentParameters& optimizer_parameters,
@@ -587,7 +587,7 @@ OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradient
                                   normal_rng, vf_state_vector.data(), &state_vector);
 
   std::vector<double> VF_starting(num_multistarts);
-  EvaluateVFMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule,
+  EvaluateRKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule,
                             start_point_set, points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
                             num_being_sampled, num_pts, best_so_far, factor, max_int_steps, found_flag, normal_rng,
                             VF_starting.data(), best_next_point);
@@ -662,7 +662,7 @@ OL_NONNULL_POINTERS void ComputeVFMCMCOptimalPointsToSampleViaMultistartGradient
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
 template <typename DomainType>
-void EvaluateVFMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+void EvaluateRKGMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                const GradientDescentParameters& optimizer_parameters_inner,
                                const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
                                double const * restrict initial_guesses,
@@ -683,7 +683,7 @@ void EvaluateVFMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const
     std::vector<typename RobustKnowledgeGradientState<DomainType>::EvaluatorType> vf_evaluator_lst;
 
     RobustKnowledgeGradientMCMCEvaluator<DomainType> vf_evaluator(gaussian_process_mcmc, num_fidelity, discrete_pts, num_pts, max_int_steps,
-                                                            inner_domain, optimizer_parameters_inner, best_so_far, factor, &vf_evaluator_lst);
+                                                                  inner_domain, optimizer_parameters_inner, best_so_far, factor, &vf_evaluator_lst);
 
     int num_derivatives = (*vf_evaluator.robust_knowledge_gradient_evaluator_list())[0].gaussian_process()->num_derivatives();
     std::vector<int> derivatives((*vf_evaluator.robust_knowledge_gradient_evaluator_list())[0].gaussian_process()->derivatives());
@@ -741,7 +741,7 @@ void EvaluateVFMCMCAtPointList(GaussianProcessMCMC& gaussian_process_mcmc, const
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+void ComputeRKGMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                                         const GradientDescentParameters& optimizer_parameters,
                                                         const GradientDescentParameters& optimizer_parameters_inner,
                                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
@@ -756,7 +756,7 @@ void ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
   RepeatedDomain<DomainType> repeated_domain(domain, num_to_sample);
   int num_multistarts = repeated_domain.GenerateUniformPointsInDomain(optimizer_parameters.num_multistarts,
                                                                       uniform_generator, starting_points.data());
-  ComputeVFMCMCOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process_mcmc, num_fidelity, optimizer_parameters, optimizer_parameters_inner, domain,
+  ComputeRKGMCMCOptimalPointsToSampleViaMultistartGradientDescent(gaussian_process_mcmc, num_fidelity, optimizer_parameters, optimizer_parameters_inner, domain,
                                                                  inner_domain, thread_schedule, starting_points.data(),
                                                                  points_being_sampled, discrete_pts, num_multistarts,
                                                                  num_to_sample, num_being_sampled, num_pts,
@@ -804,7 +804,7 @@ void ComputeVFMCMCOptimalPointsToSampleWithRandomStarts(GaussianProcessMCMC& gau
     :best_next_point[dim][num_to_sample]: points yielding the best KG according to dumb search
 \endrst*/
 template <typename DomainType>
-void ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+void ComputeRKGMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                                                const GradientDescentParameters& optimizer_parameters_inner,
                                                                const DomainType& domain, const DomainType& inner_domain,
                                                                const ThreadSchedule& thread_schedule,
@@ -822,7 +822,7 @@ void ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
   num_multistarts = repeated_domain.GenerateUniformPointsInDomain(num_multistarts, uniform_generator,
                                                                   initial_guesses.data());
 
-  EvaluateVFMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule, initial_guesses.data(),
+  EvaluateRKGMCMCAtPointList(gaussian_process_mcmc, num_fidelity, optimizer_parameters_inner, domain, inner_domain, thread_schedule, initial_guesses.data(),
                             points_being_sampled, discrete_pts, num_multistarts, num_to_sample,
                             num_being_sampled, num_pts, best_so_far, factor, max_int_steps,
                             found_flag, normal_rng, nullptr, best_next_point);
@@ -870,7 +870,7 @@ void ComputeVFMCMCOptimalPointsToSampleViaLatinHypercubeSearch(GaussianProcessMC
     :best_points_to_sample[num_to_sample*dim]: point yielding the best KG according to MGD
 \endrst*/
 template <typename DomainType>
-void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
+void ComputeRKGMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity,
                                         const GradientDescentParameters& optimizer_parameters,
                                         const GradientDescentParameters& optimizer_parameters_inner,
                                         const DomainType& domain, const DomainType& inner_domain, const ThreadSchedule& thread_schedule,
@@ -883,7 +883,7 @@ void ComputeVFMCMCOptimalPointsToSample(GaussianProcessMCMC& gaussian_process_mc
                                         UniformRandomGenerator * uniform_generator,
                                         NormalRNG * normal_rng, double * restrict best_points_to_sample);
 // template explicit instantiation declarations, see gpp_common.hpp header comments, item 6
-extern template void ComputeVFMCMCOptimalPointsToSample(
+extern template void ComputeRKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
     const TensorProductDomain& domain, const TensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
@@ -892,7 +892,7 @@ extern template void ComputeVFMCMCOptimalPointsToSample(
     int num_pts, double const * best_so_far, const double factor, int max_int_steps, bool lhc_search_only,
     int num_lhc_samples, bool * restrict found_flag, UniformRandomGenerator * uniform_generator,
     NormalRNG * normal_rng, double * restrict best_points_to_sample);
-extern template void ComputeVFMCMCOptimalPointsToSample(
+extern template void ComputeRKGMCMCOptimalPointsToSample(
     GaussianProcessMCMC& gaussian_process_mcmc, const int num_fidelity, const GradientDescentParameters& optimizer_parameters,
     const GradientDescentParameters& optimizer_parameters_inner,
     const SimplexIntersectTensorProductDomain& domain, const SimplexIntersectTensorProductDomain& inner_domain, const ThreadSchedule& thread_schedule,
