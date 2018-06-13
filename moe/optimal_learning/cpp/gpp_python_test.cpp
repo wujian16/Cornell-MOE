@@ -82,6 +82,8 @@ int RunCppTestsWrapper() {
     OL_FAILURE_PRINTF("Robust KG tests failed\n");
   } else {
     OL_SUCCESS_PRINTF("Robust KG tests\n");
+  }
+  total_errors += error;
 
   error = RunTwoEITests();
   if (error != 0) {

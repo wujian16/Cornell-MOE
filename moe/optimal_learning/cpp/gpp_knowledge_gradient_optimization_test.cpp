@@ -506,18 +506,18 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
   MockExpectedImprovementEnvironment KG_environment;
 
   // gradient descent parameters
-  const double gamma = 1.01;
-  const double time_factor = 1.0e-3;
+  const double gamma = 0.7;
+  const double pre_mult = 1.0;
   const double max_relative_change = 0.7;
   const double tolerance = 1.0e-5;
 
-  const int max_gradient_descent_steps = 200;
-  const int max_num_restarts = 100;
+  const int max_gradient_descent_steps = 100;
+  const int max_num_restarts = 10;
   const int num_steps_averaged = 15;
 
-  GradientDescentParameters newton_params(1, max_gradient_descent_steps,
-                                 gamma, time_factor,
-                                 max_relative_change, tolerance);
+  GradientDescentParameters gd_params(1, max_gradient_descent_steps, max_num_restarts,
+                                      num_steps_averaged, gamma, pre_mult,
+                                      max_relative_change, tolerance);
   ClosedInterval * domain_bounds = new ClosedInterval[dim];
   for (int i=0; i<dim; ++i){
     domain_bounds[i] = ClosedInterval(-5.0, 5.0);
@@ -537,7 +537,7 @@ OL_WARN_UNUSED_RESULT int PingKGTest(int num_to_sample, int num_being_sampled, d
       lengths[j] = uniform_double(uniform_generator.engine);
     }
 
-    KGEvaluator KG_evaluator(domain, newton_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
+    KGEvaluator KG_evaluator(domain, gd_params, lengths.data(), KG_environment.points_being_sampled(), KG_environment.points_sampled(),
                              KG_environment.points_sampled_value(), gradients, alpha, best_so_far, KG_environment.dim,
                              KG_environment.num_to_sample, KG_environment.num_being_sampled, KG_environment.num_sampled,
                              num_mc_iter, num_pts, num_gradients);
@@ -647,7 +647,7 @@ int PingKGGeneralTest() {
 
   //total_errors += PingKGTest<PingKnowledgeGradient>(8, 0, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
-  int total_errors = PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
+  total_errors += PingPSTest<PingPosteriorMean>(1, epsilon_KG, 9.0e-2, 3.0e-1, 1.0e-18);
 
   return total_errors;
 }
