@@ -221,7 +221,7 @@ double RobustKnowledgeGradientEvaluator<DomainType>::ComputeGradValueFunction(St
         }
 
         for (int d = 0; d < dim_; ++d) {
-          vf_state->aggregate[d + k*dim_] += -(-mean_grad[d] + 2.0*std_grad[d]);
+          vf_state->aggregate[d + k*dim_] += -(-mean_grad[d] + 1.0*std_grad[d]);
         }
         grad_chol_decomp_winner_block += dim_*num_union*(1+num_gradients_to_sample);
       }
@@ -340,13 +340,21 @@ PosteriorCVAREvaluator::PosteriorCVAREvaluator(
   See Ginsbourger, Le Riche, and Carraro.
 \endrst*/
 double PosteriorCVAREvaluator::ComputePosteriorCVAR(StateType * ps_state) const {
+//  double to_sample_mean;
+//  gaussian_process_->ComputeMeanOfAdditionalPoints(ps_state->point_to_sample.data(),
+//                                                   1, nullptr, 0,
+//                                                   &to_sample_mean);
+//
+//  double to_sample_var;
+//  gaussian_process_->ComputeAdditionalVarianceOfPoint(ps_state->point_to_sample.data(), 1, &to_sample_var);
+//  to_sample_var = std::sqrt(std::fmax(kMinimumVarianceEI, to_sample_var));
   double to_sample_mean;
   gaussian_process_->ComputeMeanOfPoints(ps_state->points_to_sample_state, &to_sample_mean);
 
   double to_sample_var;
   gaussian_process_->ComputeVarianceOfPoints(&(ps_state->points_to_sample_state), nullptr, 0, &to_sample_var);
   to_sample_var = std::sqrt(std::fmax(kMinimumVarianceEI, to_sample_var));
-  return -(to_sample_mean + 2.0 * to_sample_var);
+  return -(to_sample_mean + 1.0 * to_sample_var);
 }
 
 /*!\rst
@@ -373,8 +381,29 @@ void PosteriorCVAREvaluator::ComputeGradPosteriorCVAR(
   std::vector<double> grad_std(dim_);
   gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(ps_state->points_to_sample_state), &sigma, grad_std.data());
   for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
-    grad_PS[i] = -(grad_mu[i] + 2.0*grad_std[i]);
+    grad_PS[i] = -(grad_mu[i] + 1.0*grad_std[i]);
   }
+//  double to_sample_mean;
+//  gaussian_process_->ComputeMeanOfAdditionalPoints(ps_state->point_to_sample.data(),
+//                                                   1, nullptr, 0,
+//                                                   &to_sample_mean);
+//
+//  double * restrict grad_mu = ps_state->grad_mu.data();
+//  gaussian_process_->ComputeGradMeanOfAdditionalPoints(ps_state->point_to_sample.data(),
+//                                                       1, nullptr, 0,
+//                                                       grad_mu);
+//
+//  double to_sample_var;
+//  gaussian_process_->ComputeAdditionalVarianceOfPoint(ps_state->point_to_sample.data(), 1, &to_sample_var);
+//  to_sample_var = std::fmax(kMinimumVarianceGradEI, to_sample_var);
+//  double sigma = std::sqrt(to_sample_var);
+//
+//  std::vector<double> grad_std(dim_);
+//  gaussian_process_->ComputeGradAdditionalVarianceOfPoint(ps_state->point_to_sample.data(), 1, grad_std.data());
+//  for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
+//    grad_std[i] = 0.5 * grad_std[i]/sigma;
+//    grad_PS[i] = -(grad_mu[i] + 1.0*grad_std[i]);
+//  }
 }
 
 void PosteriorCVARState::SetCurrentPoint(const EvaluatorType& ps_evaluator,

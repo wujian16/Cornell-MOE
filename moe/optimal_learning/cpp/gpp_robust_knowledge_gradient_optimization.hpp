@@ -645,7 +645,6 @@ struct PosteriorCVARState final {
 
   //! gaussian process state
   GaussianProcess::StateType points_to_sample_state;
-
   // temporary storage: preallocated space used by OnePotentialSampleExpectedImprovementEvaluator's member functions
   //! the gradient of the GP mean evaluated at point_to_sample, wrt point_to_sample
   std::vector<double> grad_mu;

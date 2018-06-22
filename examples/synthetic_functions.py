@@ -7,7 +7,7 @@ class Branin(object):
     def __init__(self):
         self._dim = 2
         self._search_domain = numpy.array([[0, 15], [-5, 15]])
-        self._num_init_pts = 3
+        self._num_init_pts = 20
         self._sample_var = 0.0
         self._min_value = 0.397887
         self._observations = numpy.arange(self._dim)
@@ -189,23 +189,23 @@ class Hartmann6(object):
 
 class Ackley(object):
     def __init__(self):
-        self._dim = 5
+        self._dim = 10
         self._search_domain = numpy.repeat([[-1., 1.]], self._dim, axis=0)
-        self._num_init_pts = 3
+        self._num_init_pts = 100
         self._sample_var = 0.0
         self._min_value = 0.0
         self._observations = []
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
-        x = 20*x
+        x = 32.*x
         firstSum = 0.0
         secondSum = 0.0
         for c in x:
             firstSum += c**2.0
             secondSum += math.cos(2.0*math.pi*c)
         n = float(len(x))
-        results=[(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e)/6.]
+        results=[(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e)]
         for i in range(int(n)):
             results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
                         math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]

@@ -533,6 +533,9 @@ class GaussianProcess final {
                                int num_gradients_to_sample_part2,
                                double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
 
+  void ComputeAdditionalVarianceOfPoint(double const * restrict discrete_pts,
+                                        int num_pts, double * restrict var_star) const noexcept OL_NONNULL_POINTERS;
+
   /*!\rst
     Computes the covariance (matrix) of this GP at each point of ``Xs`` (``points_to_sample``) and each point of discrete points.
 
@@ -581,6 +584,8 @@ class GaussianProcess final {
   void ComputeGradVarianceOfPoints(StateType * points_to_sample_state,
                                    double * restrict grad_var) const noexcept OL_NONNULL_POINTERS;
 
+  void ComputeGradAdditionalVarianceOfPoint(double const * restrict discrete_pts,
+                                            int num_pts, double * restrict grad_var) const noexcept;
   /*!\rst
     \param
       :points_to_sample_state[1]: ptr to a FULLY CONFIGURED PointsToSampleState (configure via PointsToSampleState::SetupState)

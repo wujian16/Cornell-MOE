@@ -4,12 +4,10 @@ import random
 random.seed(12345)
 import os, sys
 import time
-import copy
 
 from moe.optimal_learning.python.cpp_wrappers.domain import TensorProductDomain as cppTensorProductDomain
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import PosteriorMeanMCMC
 from moe.optimal_learning.python.cpp_wrappers.log_likelihood_mcmc import GaussianProcessLogLikelihoodMCMC as cppGaussianProcessLogLikelihoodMCMC
-from moe.optimal_learning.python.cpp_wrappers.optimization import NewtonOptimizer as cppNewtonOptimizer
 
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentParameters as cppGradientDescentParameters
 from moe.optimal_learning.python.cpp_wrappers.optimization import GradientDescentOptimizer as cppGradientDescentOptimizer
@@ -40,7 +38,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 20
+num_func_eval = 160
 num_iteration = int(num_func_eval / num_to_sample) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),
@@ -178,6 +176,10 @@ for n in xrange(num_iteration):
             report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]
             discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
                                              (discrete_pts_optima.shape[0] + 1, cpp_gp.dim-objective_func._num_fidelity))
+
+            # report_point = np.zeros((cpp_gp.dim-objective_func._num_fidelity, 1))
+            # discrete_pts_optima = np.reshape(np.append(discrete_pts_optima, report_point),
+            #                                  (discrete_pts_optima.shape[0] + 1, cpp_gp.dim-objective_func._num_fidelity))
             discrete_pts_list.append(discrete_pts_optima)
 
         ps_evaluator = PosteriorMean(cpp_gp_loglikelihood.models[0], num_fidelity)
