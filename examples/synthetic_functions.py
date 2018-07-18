@@ -7,7 +7,7 @@ class Branin(object):
     def __init__(self):
         self._dim = 2
         self._search_domain = numpy.array([[0, 15], [-5, 15]])
-        self._num_init_pts = 20
+        self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
         self._observations = numpy.arange(self._dim)
@@ -157,7 +157,7 @@ class Hartmann6(object):
     def __init__(self):
         self._dim = 6
         self._search_domain = numpy.repeat([[0., 1.]], self._dim, axis=0)
-        self._num_init_pts = 3
+        self._num_init_pts = 20
         self._sample_var = 0.0
         self._min_value = -3.32237
         self._observations = []#numpy.arange(self._dim)
@@ -191,10 +191,10 @@ class Ackley(object):
     def __init__(self):
         self._dim = 10
         self._search_domain = numpy.repeat([[-1., 1.]], self._dim, axis=0)
-        self._num_init_pts = 100
+        self._num_init_pts = 10
         self._sample_var = 0.0
         self._min_value = 0.0
-        self._observations = []
+        self._observations = numpy.arange(self._dim)
         self._num_fidelity = 0
 
     def evaluate_true(self, x):
@@ -207,9 +207,40 @@ class Ackley(object):
         n = float(len(x))
         results=[(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e)]
         for i in range(int(n)):
-            results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
-                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
+            results += [32.*(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
+                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i])))]
 
+        return numpy.array(results)
+
+    def evaluate(self, x):
+        t = self.evaluate_true(x)
+        results = []
+        for r in t:
+            n = numpy.random.normal(0, numpy.sqrt(self._sample_var))
+            results += [r+n]
+        return numpy.array(results)
+
+class Cosine(object):
+    def __init__(self):
+        self._dim = 8
+        self._search_domain = numpy.repeat([[-1., 1.]], self._dim, axis=0)
+        self._num_init_pts = 3
+        self._sample_var = 0.0
+        self._min_value = -0.4
+        self._observations = []
+        self._num_fidelity = 0
+
+    def evaluate_true(self, x):
+        """ Global minimum is 0 at (0, 0, ..., 0)
+
+            :param x[2]: 2-dimension numpy array
+        """
+        value = 0.0
+        for i in xrange(len(x)):
+            value += -0.1*cos(5*pi*x[i]) + (x[i]**2)
+        results = [value/2.]
+        for i in xrange(self._dim):
+            results += [0.5*pi*sin(5*pi*x[i]) + 2*x[i]]
         return numpy.array(results)
 
     def evaluate(self, x):

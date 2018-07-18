@@ -889,7 +889,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                               EI_starting.data(), best_next_point);
 
     std::priority_queue<std::pair<double, int>> q;
-    int k = 20; // number of indices we need
+    int k = std::min(20, num_multistarts); // number of indices we need
     for (int i = 0; i < EI_starting.size(); ++i) {
       if (i < k){
         q.push(std::pair<double, int>(-EI_starting[i], i));
@@ -944,7 +944,7 @@ OL_NONNULL_POINTERS void ComputeEIMCMCOptimalPointsToSampleViaMultistartGradient
                               EI_starting.data(), best_next_point);
 
     std::priority_queue<std::pair<double, int>> q;
-    int k = 20; // number of indices we need
+    int k = std::min(20, num_multistarts); // number of indices we need
     for (int i = 0; i < EI_starting.size(); ++i) {
       if (i < k){
         q.push(std::pair<double, int>(-EI_starting[i], i));

@@ -79,6 +79,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
 
   double aggregate = 0.0;
   kg_state->normal_rng->ResetToMostRecentSeed();
+  const double leverage_factor = 1.0;
 
   GaussianProcess gaussian_process_after(*gaussian_process_);
   std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
@@ -92,7 +93,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
     }
     else {
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = leverage_factor*(*(kg_state->normal_rng))();
       }
     }
 
@@ -109,7 +110,12 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeKnowledgeGradient(StateTyp
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
                                 &found_flag, kg_state->best_point.data() + i*dim_, &best_function_value);
-    aggregate += best_posterior + best_function_value;
+
+    double adjustment = 1.0;
+    for (int j = 0; j < num_union; ++j) {
+      adjustment *= leverage_factor*exp((1-Square(leverage_factor))*Square(kg_state->normals[j])/(2.0*Square(leverage_factor)));
+    }
+    aggregate += adjustment*(best_posterior + best_function_value);
   }
   return aggregate/static_cast<double>(num_mc_iterations_);
 }
@@ -154,18 +160,20 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
 
   std::fill(kg_state->aggregate.begin(), kg_state->aggregate.end(), 0.0);
 
-  if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
-    for (int k = 0; k < dim_; ++k) {
-      kg_state->aggregate[winner_so_far*dim_ + k] += num_mc_iterations_ * kg_state->grad_mu[winner_so_far*dim_ + k];
-    }
-  }
+//  if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
+//    for (int k = 0; k < dim_; ++k) {
+//      kg_state->aggregate[winner_so_far*dim_ + k] += num_mc_iterations_ * kg_state->grad_mu[winner_so_far*dim_ + k];
+//    }
+//  }
   std::fill(kg_state->best_point.begin(), kg_state->best_point.end(), 1.0);
   double aggregate = 0.0;
   kg_state->normal_rng->ResetToMostRecentSeed();
+  const double leverage_factor = 1.0;
 
   GaussianProcess gaussian_process_after(*gaussian_process_);
   std::vector<double> make_up_function_value(num_union*(1+num_gradients_to_sample));
   gaussian_process_after.AddSampledPointsToGP(kg_state->union_of_points.data(), make_up_function_value.data(), num_union);
+  std::vector<double> adjustments(num_mc_iterations_);
 
   for (int i = 0; i < num_mc_iterations_; ++i) {
     if (i % 2 == 1){
@@ -175,7 +183,7 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
     }
     else {
       for (int j = 0; j < num_union*(1+num_gradients_to_sample); ++j) {
-        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = (*(kg_state->normal_rng))();// - 1.0;
+        kg_state->normals[j + i*num_union*(1+num_gradients_to_sample)] = leverage_factor*(*(kg_state->normal_rng))();
       }
     }
 
@@ -192,7 +200,12 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
     ComputeOptimalPosteriorMean(gaussian_process_after, num_fidelity_, optimizer_parameters_,
                                 domain_, kg_state->discretized_set.data(), num_union + num_pts_,
                                 &found_flag, kg_state->best_point.data() + i*dim_, &best_function_value);
-    aggregate += best_posterior + best_function_value;
+
+    adjustments[i] = 1.0;
+    for (int j = 0; j < num_union; ++j) {
+      adjustments[i] *= leverage_factor*exp((1-Square(leverage_factor))*Square(kg_state->normals[j])/(2.0*Square(leverage_factor)));
+    }
+    aggregate += adjustments[i]*(best_posterior + best_function_value);
   }  // end for i: num_mc_iterations_
   double KG =aggregate/static_cast<double>(num_mc_iterations_);
 
@@ -214,8 +227,21 @@ double KnowledgeGradientEvaluator<DomainType>::ComputeGradKnowledgeGradient(Stat
   double const * restrict grad_chol_decomp_winner_block = kg_state->grad_chol_inverse_cov.data();
   for (int k = 0; k < kg_state->num_to_sample; ++k) {
     for (int i = 0; i < num_mc_iterations_; ++i){
+      std::vector<double> grad_temp(kg_state->num_to_sample*dim_);
+      std::fill(grad_temp.begin(), grad_temp.end(), 0.0);
+
+      if (winner_so_far >= 0 && winner_so_far < kg_state->num_to_sample){
+        for (int d = 0; d < dim_; ++d) {
+          grad_temp[winner_so_far*dim_ + d] += kg_state->grad_mu[winner_so_far*dim_ + d];
+        }
+      }
+
       GeneralMatrixVectorMultiply(grad_chol_decomp_winner_block, 'N', kg_state->normals.data() + i*num_union*(1+num_gradients_to_sample), -1.0, 1.0,
-                                  dim_, num_union*(1+num_gradients_to_sample), dim_, kg_state->aggregate.data() + k*dim_);
+                                  dim_, num_union*(1+num_gradients_to_sample), dim_, grad_temp.data() + k*dim_);
+
+      for (int j=0; j<dim_; j++){
+        kg_state->aggregate[k*dim_+j] += adjustments[i]*grad_temp[k*dim_+j];
+      }
       grad_chol_decomp_winner_block += dim_*num_union*(1+num_gradients_to_sample);
     }
   }

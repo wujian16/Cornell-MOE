@@ -2154,7 +2154,7 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
 
   double aggregate = 0.0;
   ei_state->normal_rng->ResetToMostRecentSeed();
-  const double leverage_factor = 6.0;
+  const double leverage_factor = 4.0;
   for (int i = 0; i < num_mc_iterations_; ++i) {
     double improvement_this_step = 0.0;
     for (int j = 0; j < num_union; ++j) {
@@ -2180,7 +2180,6 @@ double ExpectedImprovementEvaluator::ComputeExpectedImprovement(StateType * ei_s
       aggregate += improvement_this_step * adjustment;
     }
   }
-
   return aggregate/static_cast<double>(num_mc_iterations_);
 }
 
@@ -2225,7 +2224,7 @@ void ExpectedImprovementEvaluator::ComputeGradExpectedImprovement(StateType * ei
 
   std::fill(ei_state->aggregate.begin(), ei_state->aggregate.end(), 0.0);
   double aggregate_EI = 0.0;
-  const double leverage_factor = 6.0;
+  const double leverage_factor = 4.0;
   ei_state->normal_rng->ResetToMostRecentSeed();
   for (int i = 0; i < num_mc_iterations_; ++i) {
     for (int j = 0; j < num_union; ++j) {

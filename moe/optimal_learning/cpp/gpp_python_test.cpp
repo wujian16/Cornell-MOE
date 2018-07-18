@@ -77,7 +77,7 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = RunRKGTests();
+  //error = RunRKGTests();
   if (error != 0) {
     OL_FAILURE_PRINTF("Robust KG tests failed\n");
   } else {
@@ -85,7 +85,7 @@ int RunCppTestsWrapper() {
   }
   total_errors += error;
 
-  error = RunTwoEITests();
+  //error = RunTwoEITests();
   if (error != 0) {
     OL_FAILURE_PRINTF("Two-step EI tests failed\n");
   } else {
