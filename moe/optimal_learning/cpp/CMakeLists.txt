@@ -115,7 +115,7 @@ set(OPTIMAL_LEARNING_TEST_SOURCES
   gpp_robust_knowledge_gradient_optimization_test.cpp
   gpp_two_step_expected_improvement_optimization_test.cpp
   gpp_model_selection_test.cpp
-  gpp_optimization_test.cpp
+  #gpp_optimization_test.cpp
   gpp_random_test.cpp
   gpp_test_utils.cpp
   gpp_test_utils_test.cpp
