@@ -1,32 +1,55 @@
 ## What is Cornell-MOE?
-1. Cornell-MOE is built on [MOE][1], which was open sourced by Yelp.
-2. We extend the batch expected improvement (q-EI) to the setting where derivative information is available (d-EI, [Wu et al, 2017][27]).
-3. We implement batch knowledge gradient with (d-KG, [Wu et al, 2017][27]) and without (q-KG, [Wu and Frazier, 2016][26]) derivative information.
-4. We implement the Bayesian treatment of hyperparamters in GP regression, which makes our batch Bayesian optimization algorithms more robust.
-5. We provide several examples of optimizing synthetic and real-world functions using q-KG and d-KG in the folder 'examples'. More examples are coming.
-6. The project is under active development. We are revising comments in the code, and an update will be ready soon. Bug reports and issues are welcome!
+Cornell-MOE (Cornell-Metrics-Optimization-Engine) is a package for Bayesian Optimization (BayesOpt).  It is written in Python, with internal routines in C++. Cornell-MOE provides high-performance implementations of BayesOpt methods appropriate for industrial applications.  In addition to standard features available in other BayesOpt packages, Cornell-MOE supports parallel optimization, optimization with derivatives, and high-performance knowledge-gradient acquisition functions.
+  
+## What is Bayesian Optimization (BayesOpt)?
+Bayesian Optimization (BayesOpt) is an approach to solving challenging optimization problems.  It uses a machine learning technique ([Gaussian process regression][30]) to estimate the objective function based on past evaluations, and then uses an [acquisition function][29] to decide where to sample next.  It typically takes longer than other optimization methods to decide where to sample, but uses fewer evaluations to find good solutions.
 
-## Introduction:
-Below we show two demos: 
+## When is using BayesOpt a good idea? 
+BayesOpt is a good choice when:
 
-#### a demo of q-KG on a 1-d derivative-free synthetic function with a batch size q=2. 
-The left-hand side shows the fitted statistical model and the points suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
+1. Each evaluation of the objective function takes a long time to evaluate (minutes, hours, or days), or is expensive (e.g., each evaluation costs $1000 using Amazon Web Services).  This prevents evaluating the objective too many times.  In most BayesOpt applications we expect to evaluate the objective between 50 and 1000 times.
+
+2. The objective function is a continuous function of the inputs.
+
+3. The objective function lacks other special structure, such as convexity or concavity, that could be used by an optimization method purpose-built for problems with that structure.  We say that the objective is a "black box".
+
+4. The inputs can be specified as a vector with a limited number of inputs.  Most successful applications of BayesOpt have fewer than 20 inputs.  Methods exist for high-dimensional Bayesian optimization, but these are not currently included in Cornell-MOE.
+ 
+5. Constraints on the inputs are simple and inexpensive to evaluate.  Cornell-MOE supports box and simplex constraints.  Methods exist for slow- or expensive- to-evaluate constraints, but these are not currently implemented in Cornell-MOE.
+
+6. We are interested in global rather than local optima.
+ 
+Additionally, BayesOpt can operate when:
+
+* evaluations are noisy;
+* derivative information is unavailable;  (Most BayesOpt methods do not use derivative information, although Cornell-MOE includes methods that can use it if it is available.)
+* past objective function evaluations are available, even if the points evaluated weren't chosen using BayesOpt;
+* additional information about the objective is available in the form of a Bayesian prior distribution.  (This additional information might include an estimate of how quickly the objective changes in each direction.)
+
+For more information about BayesOpt, see these [slides][28] from a talk at Stanford or this [tutorial article][29].
+
+
+## Why is this package called Cornell-MOE?
+"MOE" stands for "Metrics Optimization Engine", and the package was developed at Cornell.
+
+## How does Cornell-MOE relate to the MOE BayesOpt package?
+Cornell-MOE is based on the [MOE][1] BayesOpt package, developed at Yelp.   MOE is extremely fast, but can be difficult to install and use.  Cornell-MOE is designed to address these usability issues, focusing on ease of installation.  Cornell-MOE also adds algorithmic improvements (e.g., Bayesian treatment of hyperparamters in GP regression, which improves robustness) and support for several new BayesOpt algorithms: an extension of the batch expected improvement (q-EI) to the setting where derivative information is available (d-EI, [Wu et al, 2017][27]); and batch knowledge gradient with (d-KG, [Wu et al, 2017][27]) and without (q-KG, [Wu and Frazier, 2016][26]) derivative information.
+
+## Demos:
+Below we briefly describe two demos.  For more detail, please refer to main.py in the folder 'examples'. 
+
+#### Demo 1: Batch BayesOpt
+
+In this demo, we optimize a 1-dimensional derivative-free noisy synthetic function with a batch size of 2, using the q-KG BayesOpt method. The left-hand side shows the statistical model fitted to the objective and the points for evaluation suggested by Cornell-MOE. Note that the function evaluation is subject to noise; the right-hand side visualizes the acquisition function according to q-KG criteria.
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_9_cpp_KG_gradients/qkg-demo.gif" height="350" width="600"></center>
 
-#### a demo of d-KG vs. d-EI on a 1-d synthetic function. d-KG explores much more efficiently.
+#### Demo 2: BayesOpt with Derivatives
+
+In this demo, we optimize a 1-dimensional synthetic function with derivatives.  We demonstrate two BayesOpt method: d-KG, which uses these derivatives; and d-EI, which does not.  Using derivatives allows d-KG to explore more efficiently.
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/dKG-demo.gif" height="400" width="600"></center>
 
-Cornell-MOE implements a library of batch Bayesian optimization algorithms. It works by iteratively:
-
-1. Fitting a Gaussian Process (GP) with historical data
-2. Sampling the hyperparameters of the Gaussian Process via MCMC
-3. Finding the set of points to sample next with highest gain, by batch Expected Improvement or batch knowledge gradient or derivative-enabled knowledge gradient or continuous-fidelity knowledge gradient (cf-KG)
-4. Returning the points to sample
-
-Externally you can use Cornell-MOE through the the Python interface. Please refer to the examples in the file main.py in the folder 'examples'.
-
-## Step-by-Step Install
-We recommend install from source (please see [Install Documentation][7] for details). We have tested the package on both Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 with Ubuntu operating system.
+## Step-by-Step Installation
+We recommend installing from source (please see [Install Documentation][7] for details). We have tested the package on both the Ubuntu and CentOS operating systems. Below we provide a step-by-step instruction to install Cornell-MOE on a AWS EC2 instance with Ubuntu as the operating system.
 
 #### step 1, install requires: python 2.6.7+, gcc 4.7.2+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
 
@@ -98,10 +121,7 @@ If one modifies to ```self._observations = []```, and then rerun the command abo
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 
-### Mode: continuous-fidelity knowledge gradient (cf-KG)
-coming soon
-
-## Citation
+## Citing Cornell-MOE
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
 
 ```bash
@@ -145,3 +165,6 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [25]: http://yelp.github.io/MOE/contributing.html#making-a-pull-request
 [26]: https://arxiv.org/abs/1606.04414
 [27]: https://papers.nips.cc/paper/7111-bayesian-optimization-with-gradients
+[28]: http://mcqmc2016.stanford.edu/Frazier-Peter.pdf
+[29]: https://arxiv.org/abs/1807.02811
+[30]: http://www.gaussianprocess.org/gpml/
