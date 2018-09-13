@@ -238,7 +238,9 @@ for n in xrange(num_iteration):
     report_point = report_point.ravel()
     report_point = np.concatenate((report_point, np.ones(objective_func._num_fidelity)))
 
-    print "the recommended point: ",
+    print
+    print "Optimization finished successfully!"
+    print "The recommended point: ",
     print report_point
     print "recommending the point takes "+str((time.time()-time1))+" seconds"
     print method + ", VOI {0}, best so far {1}".format(voi, objective_func.evaluate_true(report_point)[0])
