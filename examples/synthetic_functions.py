@@ -1,3 +1,7 @@
+from __future__ import division
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import numpy
 from numpy import abs, cos, exp, mean, pi, prod, sin, sqrt, sum
 import math
@@ -19,11 +23,11 @@ class Branin(object):
             :param x[2]: 2-dim numpy array
         """
         a = 1
-        b = 5.1 / (4 * pow(numpy.pi, 2.0))
-        c = 5 / numpy.pi
+        b = old_div(5.1, (4 * pow(numpy.pi, 2.0)))
+        c = old_div(5, numpy.pi)
         r = 6
         s = 10
-        t = 1 / (8 * numpy.pi)
+        t = old_div(1, (8 * numpy.pi))
         return numpy.array([(a * pow(x[1] - b * pow(x[0], 2.0) + c * x[0] - r, 2.0) + s * (1 - t) * numpy.cos(x[0]) + s),
                 (2*a*(x[1] - b * pow(x[0], 2.0) + c * x[0] - r) * (-2* b * x[0] + c) + s * (1 - t) * (-numpy.sin(x[0]))),
                 (2*a*(x[1] - b * pow(x[0], 2.0) + c * x[0] - r))])
@@ -83,7 +87,7 @@ class Hartmann3(object):
             for j in range(self._dim):
                 inner_value -= A[i, j] * pow(x[j] - P[i, j], 2.0)
             results[0] -= alpha[i] * numpy.exp(inner_value)
-            for j in xrange(self._dim-self._num_fidelity):
+            for j in range(self._dim-self._num_fidelity):
                 results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
         return numpy.array(results)
 
@@ -110,7 +114,7 @@ class Levy4(object):
         """
         x = numpy.asarray_chkfinite(x)
         n = len(x)
-        z = 1 + (x - 1) / 4
+        z = 1 + old_div((x - 1), 4)
 
         results = [0] * (n+1)
         results[0] = (sin( pi * z[0] )**2
@@ -151,12 +155,12 @@ class Hartmann6(object):
         P = 1.0e-4 * numpy.array([[1312, 1696, 5569, 124, 8283, 5886], [2329, 4135, 8307, 3736, 1004, 9991],
                                   [2348, 1451, 3522, 2883, 3047, 6650], [4047, 8828, 8732, 5743, 1091, 381]])
         results = [0.0]*7
-        for i in xrange(4):
+        for i in range(4):
             inner_value = 0.0
-            for j in xrange(self._dim-self._num_fidelity):
+            for j in range(self._dim-self._num_fidelity):
                 inner_value -= A[i, j] * pow(x[j] - P[i, j], 2.0)
             results[0] -= alpha[i] * numpy.exp(inner_value)
-            for j in xrange(self._dim-self._num_fidelity):
+            for j in range(self._dim-self._num_fidelity):
                 results[j+1] -= (alpha[i] * numpy.exp(inner_value)) * ((-2) * A[i,j] * (x[j] - P[i, j]))
         return numpy.array(results)
 
@@ -181,10 +185,10 @@ class Ackley(object):
             firstSum += c**2.0
             secondSum += math.cos(2.0*math.pi*c)
         n = float(len(x))
-        results=[(-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) - math.exp(secondSum/n) + 20 + math.e)/6.]
+        results=[old_div((-20.0*math.exp(-0.2*math.sqrt(old_div(firstSum,n))) - math.exp(old_div(secondSum,n)) + 20 + math.e),6.)]
         for i in range(int(n)):
-            results += [-20.0*math.exp(-0.2*math.sqrt(firstSum/n)) * (-0.2*(x[i]/n)/(math.sqrt(firstSum/n))) -
-                        math.exp(secondSum/n) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
+            results += [-20.0*math.exp(-0.2*math.sqrt(old_div(firstSum,n))) * (-0.2*(old_div(x[i],n))/(math.sqrt(old_div(firstSum,n)))) -
+                        math.exp(old_div(secondSum,n)) * (2.0*math.pi/n) * (-math.sin(2.0*math.pi*x[i]))]
 
         return numpy.array(results)
 
