@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import object
 import numpy
 from multiprocessing import Process, Queue
 
