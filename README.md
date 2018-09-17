@@ -121,6 +121,30 @@ If one modifies to ```self._observations = []```, and then rerun the command abo
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 
+## Correct performance evaluation with knowledge gradient acquisition functions
+
+Cornell-MOE offers an implementation of several knowledge-gradient acquisition functions.  When performing Bayesian Optimization using expected improvement acquisition functions and deterministic function evaluations, researchers often report based on the best evaluated point.  However, when using knowledge-gradient acquisition functions, it is important to report performance based on the point with the best posterior mean, even if this point has not been previously evaluated.  This is because (1) selecting the point with the best posterior mean improves average-case performance (for a correctly specified prior) for all acquisition functions, and (2) the knowledge-gradient acquisition function depends on the final selection being made in this way to explore more aggressively.
+
+To illustrate this point, some of Cornell MOE’s output for a problem with batch evaluations of size 4 is included below.  The points to be evaluated are noted where it says "KG suggests points".  The point with the best posterior mean is shown below where it says "the recommended point".  It is called a "recommended" point because it is the point that the Bayesian analysis would recommend for a final solution if no more function evaluations could be taken.
+
+````
+best so far in the initial data 0.912960655101
+
+KG, 1th job, 0th iteration, func=Branin, q=4
+KG takes 100.078722954 seconds
+KG suggests points:
+[[  9.28035975   2.4600118 ]
+[ 12.9719972   -1.62215938]
+[  4.6534124   13.86030534]
+[  6.93604372   3.11664763]]
+evaluating takes capital 1.0 so far
+retraining the model takes 5.53436684608 seconds
+the recommended point:  [ 3.12892842  2.28794067]
+recommending the point takes 1.66913294792 seconds
+KG, VOI 1.70365313419, best so far 0.39866661799
+```
+
+
 ## Citing Cornell-MOE
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
 
