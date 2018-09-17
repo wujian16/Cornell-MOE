@@ -123,11 +123,11 @@ observations. The comparison between q-KG and d-KG on 10 independent runs are as
 
 ## Correct performance evaluation with knowledge gradient acquisition functions
 
-Cornell-MOE offers an implementation of several knowledge-gradient acquisition functions.  When performing Bayesian Optimization using expected improvement acquisition functions and deterministic function evaluations, researchers often report based on the best evaluated point.  However, when using knowledge-gradient acquisition functions, it is important to report performance based on the point with the best posterior mean, even if this point has not been previously evaluated.  This is because (1) selecting the point with the best posterior mean improves average-case performance (for a correctly specified prior) for all acquisition functions, and (2) the knowledge-gradient acquisition function depends on the final selection being made in this way to explore more aggressively.
+Cornell-MOE implements knowledge-gradient acquisition functions.  Evaluating performance with these acquisition requires some care.  When using expected improvement acquisition functions and deterministic function evaluations, researchers often measure performance at the best *evaluated* point.  However, when using knowledge-gradient acquisition functions, performance should be measured at the point with the *best posterior mean*, even if this point has not been previously evaluated.  This is because (1) using candidate solutions with the best posterior mean improves average-case performance, and (2) the knowledge-gradient acquisition function depends candidate solutions being selected in this way to explore more aggressively.
 
-To illustrate this point, some of Cornell MOE’s output for a problem with batch evaluations of size 4 is included below.  The points to be evaluated are noted where it says "KG suggests points".  The point with the best posterior mean is shown below where it says "the recommended point".  It is called a "recommended" point because it is the point that the Bayesian analysis would recommend for a final solution if no more function evaluations could be taken.
+As an example, Cornell MOE’s output for a problem with batch evaluations of size 4 is included below.  The points actually sampled are shown where it says "KG suggests points".  The point with the best posterior mean, which should be taken as a candidate solution when measuring performance, is shown below where it says "the recommended point".  It is called a "recommended" point because it is the point that the Bayesian analysis would recommend for a final solution if no more function evaluations could be taken.
 
-````
+```
 best so far in the initial data 0.912960655101
 
 KG, 1th job, 0th iteration, func=Branin, q=4
