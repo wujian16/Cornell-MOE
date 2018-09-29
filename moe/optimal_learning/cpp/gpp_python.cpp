@@ -36,6 +36,7 @@
 #include "gpp_python_knowledge_gradient_mcmc.hpp"
 #include "gpp_python_robust_knowledge_gradient_mcmc.hpp"
 #include "gpp_python_two_step_expected_improvement_mcmc.hpp"
+#include "gpp_python_lower_confidence_bound.hpp"
 #include "gpp_python_gaussian_process.hpp"
 #include "gpp_python_model_selection.hpp"
 #include "gpp_python_test.hpp"
@@ -601,6 +602,7 @@ BOOST_PYTHON_MODULE(GPP) {
   ExportModelSelectionFunctions();
   ExportOptimizerParameterStructs();
   ExportRandomnessContainer();
+  ExportLowerConfidenceBoundFunctions();
 }  // end BOOST_PYTHON_MODULE(GPP) definition
 
 }  // end unnamed namespace

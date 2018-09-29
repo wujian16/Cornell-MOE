@@ -91,7 +91,7 @@ cpp_gp_loglikelihood = cppGaussianProcessLogLikelihoodMCMC(historical_data = ini
                                                            noisy = False)
 cpp_gp_loglikelihood.train()
 
-py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=1000,
+py_sgd_params_ps = pyGradientDescentParameters(max_num_steps=100,
                                                max_num_restarts=3,
                                                num_steps_averaged=15,
                                                gamma=0.7,
@@ -253,15 +253,28 @@ for n in xrange(num_iteration):
         for i, pt in enumerate(eval_pts):
             ps.set_current_point(pt.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
             test[i] = -ps.compute_objective_function()
-        initial_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
+        initial_points = np.zeros((10, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
+        indices = np.argsort(test)
+        for i in range(10):
+            initial_points[i, :] = eval_pts[indices[i]]
+
+        #initial_point = eval_pts[np.argmin(test)].reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity))
 
         py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = inner_search_domain)
         ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
-        report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
+        report_point = multistart_optimize(ps_mean_opt, initial_points, num_multistarts = 10)[0]
 
         ps.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
         if -ps.compute_objective_function() > np.min(test):
-            report_point = initial_point
+            report_point = initial_points[0]
+
+        # py_repeated_search_domain = RepeatedDomain(num_repeats = 1, domain = inner_search_domain)
+        # ps_mean_opt = pyGradientDescentOptimizer(py_repeated_search_domain, ps, py_sgd_params_ps)
+        # report_point = multistart_optimize(ps_mean_opt, initial_point, num_multistarts = 1)[0]
+        #
+        # ps.set_current_point(report_point.reshape((1, cpp_gp_loglikelihood.dim-objective_func._num_fidelity)))
+        # if -ps.compute_objective_function() > np.min(test):
+        #     report_point = initial_point
     else:
         cpp_gp = cpp_gp_loglikelihood.models[0]
         report_point = (cpp_gp.get_historical_data_copy()).points_sampled[np.argmin(cpp_gp._points_sampled_value[:, 0])]

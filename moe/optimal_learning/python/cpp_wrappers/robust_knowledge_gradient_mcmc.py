@@ -14,6 +14,146 @@ from moe.optimal_learning.python.constant import DEFAULT_EXPECTED_IMPROVEMENT_MC
 import moe.optimal_learning.python.cpp_wrappers.cpp_utils as cpp_utils
 from moe.optimal_learning.python.interfaces.optimization_interface import OptimizableInterface
 
+
+class LowerConfidenceBoundMCMC(OptimizableInterface):
+    def __init__(
+            self,
+            gaussian_process_list,
+            num_fidelity,
+            points_to_sample=None,
+            randomness=None,
+    ):
+        self._gaussian_process_list = gaussian_process_list
+        self._num_fidelity = num_fidelity
+
+        if points_to_sample is None:
+            self._points_to_sample = numpy.zeros((1, self._gaussian_process_list[0].dim))
+
+        if randomness is None:
+            self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
+            # Set seed based on less repeatable factors (e.g,. time)
+            self._randomness.SetRandomizedUniformGeneratorSeed(0)
+            self._randomness.SetRandomizedNormalRNGSeed(0)
+        else:
+            self._randomness = randomness
+
+        self.objective_type = None  # Not used for KG, but the field is expected in C++
+
+    @property
+    def dim(self):
+        """Return the number of spatial dimensions."""
+        return self._gaussian_process_list[0].dim
+
+    @property
+    def problem_size(self):
+        """Return the number of independent parameters to optimize."""
+        return self.dim-self._num_fidelity
+
+    def get_current_point(self):
+        """Get the current_point (array of float64 with shape (problem_size)) at which this object is evaluating the objective function, ``f(x)``."""
+        return numpy.copy(self._points_to_sample)
+
+    def set_current_point(self, points_to_sample):
+        """Set current_point to the specified point; ordering must match.
+        :param points_to_sample: current_point at which to evaluate the objective function, ``f(x)``
+        :type points_to_sample: array of float64 with shape (problem_size)
+        """
+        self._points_to_sample = numpy.copy(numpy.atleast_2d(points_to_sample))
+
+    current_point = property(get_current_point, set_current_point)
+
+    def compute_lower_confidence_bound_mcmc(self, force_monte_carlo=False):
+        r"""Compute the knowledge gradient at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
+
+        .. Note:: These comments were copied from
+          :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_expected_improvement`
+
+        ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
+
+        Computes the knowledge gradient ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``, where ``Xs``
+        are potential points to sample (union of ``points_to_sample`` and ``points_being_sampled``) and ``X`` are
+        already sampled points.  The ``^+`` indicates that the expression in the expectation evaluates to 0 if it
+        is negative.  ``f^*(X)`` is the MINIMUM over all known function evaluations (``points_sampled_value``),
+        whereas ``f(Xs)`` are *GP-predicted* function evaluations.
+
+        In words, we are computing the knowledge gradient (over the current ``best_so_far``, best known
+        objective function value) that would result from sampling (aka running new experiments) at
+        ``points_to_sample`` with ``points_being_sampled`` concurrent/ongoing experiments.
+
+        In general, the EI expression is complex and difficult to evaluate; hence we use Monte-Carlo simulation to approximate it.
+        When faster (e.g., analytic) techniques are available, we will prefer them.
+
+        The idea of the MC approach is to repeatedly sample at the union of ``points_to_sample`` and
+        ``points_being_sampled``. This is analogous to gaussian_process_interface.sample_point_from_gp,
+        but we sample ``num_union`` points at once:
+        ``y = \mu + Lw``
+        where ``\mu`` is the GP-mean, ``L`` is the ``chol_factor(GP-variance)`` and ``w`` is a vector
+        of ``num_union`` draws from N(0, 1). Then:
+        ``improvement_per_step = max(max(best_so_far - y), 0.0)``
+        Observe that the inner ``max`` means only the smallest component of ``y`` contributes in each iteration.
+        We compute the improvement over many random draws and average.
+
+        :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
+        :type force_monte_carlo: boolean
+        :return: the knowledge gradient from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
+        :rtype: float64
+
+        """
+        lower_confidence_bound_mcmc = 0
+        for gp in self._gaussian_process_list:
+            lower_confidence_bound_mcmc += C_GP.compute_lower_confidence_bound(
+                    gp._gaussian_process,
+                    self._num_fidelity,
+                    cpp_utils.cppify(self._points_to_sample),
+            )
+        return lower_confidence_bound_mcmc/len(self._gaussian_process_list)
+
+    compute_objective_function = compute_lower_confidence_bound_mcmc
+
+    def compute_grad_lower_confidence_bound_mcmc(self, force_monte_carlo=False):
+        r"""Compute the gradient of knowledge gradient at ``points_to_sample`` wrt ``points_to_sample``, with ``points_being_sampled`` concurrent samples.
+
+        .. Note:: These comments were copied from
+          :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_grad_expected_improvement`
+
+        ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
+
+        In general, the expressions for gradients of EI are complex and difficult to evaluate; hence we use
+        Monte-Carlo simulation to approximate it. When faster (e.g., analytic) techniques are available, we will prefer them.
+
+        The MC computation of grad EI is similar to the computation of EI (decsribed in
+        compute_expected_improvement). We differentiate ``y = \mu + Lw`` wrt ``points_to_sample``;
+        only terms from the gradient of ``\mu`` and ``L`` contribute. In EI, we computed:
+        ``improvement_per_step = max(max(best_so_far - y), 0.0)``
+        and noted that only the smallest component of ``y`` may contribute (if it is > 0.0).
+        Call this index ``winner``. Thus in computing grad EI, we only add gradient terms
+        that are attributable to the ``winner``-th component of ``y``.
+
+        :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
+        :type force_monte_carlo: boolean
+        :return: gradient of EI, ``\pderiv{EI(Xq \cup Xp)}{Xq_{i,d}}`` where ``Xq`` is ``points_to_sample``
+          and ``Xp`` is ``points_being_sampled`` (grad EI from sampling ``points_to_sample`` with
+          ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
+        :rtype: array of float64 with shape (num_to_sample, dim)
+
+        """
+        grad_lower_confidence_bound_mcmc = numpy.zeros((1, self.dim-self._num_fidelity))
+        for gp in self._gaussian_process_list:
+            temp = C_GP.compute_grad_lower_confidence_bound(
+                    gp._gaussian_process,
+                    self._num_fidelity,
+                    cpp_utils.cppify(self._points_to_sample),
+            )
+            grad_lower_confidence_bound_mcmc += cpp_utils.uncppify(temp, (1, self.dim-self._num_fidelity))
+        return grad_lower_confidence_bound_mcmc/len(self._gaussian_process_list)
+
+    compute_grad_objective_function = compute_grad_lower_confidence_bound_mcmc
+
+    def compute_hessian_objective_function(self, **kwargs):
+        """We do not currently support computation of the (spatial) hessian of knowledge gradient."""
+        raise NotImplementedError('Currently we cannot compute the hessian of knowledge gradient.')
+
+
 def multistart_robust_knowledge_gradient_mcmc_optimization(
         twoei_optimizer,
         inner_optimizer,

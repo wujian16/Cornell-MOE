@@ -354,7 +354,7 @@ double PosteriorCVAREvaluator::ComputePosteriorCVAR(StateType * ps_state) const 
   double to_sample_var;
   gaussian_process_->ComputeVarianceOfPoints(&(ps_state->points_to_sample_state), nullptr, 0, &to_sample_var);
   to_sample_var = std::sqrt(std::fmax(kMinimumVarianceEI, to_sample_var));
-  return -(to_sample_mean + 1.0 * to_sample_var);
+  return -(to_sample_mean - 1.0 * to_sample_var);
 }
 
 /*!\rst
@@ -381,7 +381,7 @@ void PosteriorCVAREvaluator::ComputeGradPosteriorCVAR(
   std::vector<double> grad_std(dim_);
   gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(ps_state->points_to_sample_state), &sigma, grad_std.data());
   for (int i = 0; i < dim_-ps_state->num_fidelity; ++i) {
-    grad_PS[i] = -(grad_mu[i] + 1.0*grad_std[i]);
+    grad_PS[i] = -(grad_mu[i] - 1.0*grad_std[i]);
   }
 //  double to_sample_mean;
 //  gaussian_process_->ComputeMeanOfAdditionalPoints(ps_state->point_to_sample.data(),

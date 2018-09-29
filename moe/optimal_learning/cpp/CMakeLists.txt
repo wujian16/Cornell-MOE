@@ -132,6 +132,7 @@ set(OPTIMAL_LEARNING_PYTHON_SOURCES
   gpp_python_knowledge_gradient_mcmc.cpp
   gpp_python_robust_knowledge_gradient_mcmc.cpp
   gpp_python_two_step_expected_improvement_mcmc.cpp
+  gpp_python_lower_confidence_bound.cpp
   gpp_python_gaussian_process.cpp
   gpp_python_model_selection.cpp
   gpp_python_test.cpp

@@ -30,7 +30,7 @@
 #include "gpp_common.hpp"
 #include "gpp_domain.hpp"
 #include "gpp_exception.hpp"
-#include "gpp_knowledge_gradient_optimization.hpp"
+#include "gpp_robust_knowledge_gradient_optimization.hpp"
 #include "gpp_geometry.hpp"
 #include "gpp_math.hpp"
 #include "gpp_optimization.hpp"
@@ -50,10 +50,10 @@ double ComputeLowerConfidenceBoundWrapper(const GaussianProcess& gaussian_proces
   PythonInterfaceInputContainer input_container(points_to_sample, gradients, gaussian_process.dim()-num_fidelity, 1, num_derivatives_input);
 
   bool configure_for_gradients = false;
-  PosteriorMeanEvaluator ps_evaluator(gaussian_process);
-  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
+  PosteriorCVAREvaluator ps_evaluator(gaussian_process);
+  PosteriorCVAREvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
 
-  return ps_evaluator.ComputePosteriorMean(&ps_state);
+  return ps_evaluator.ComputePosteriorCVAR(&ps_state);
 }
 
 boost::python::list ComputeGradLowerConfidenceBoundWrapper(const GaussianProcess& gaussian_process,
@@ -67,17 +67,17 @@ boost::python::list ComputeGradLowerConfidenceBoundWrapper(const GaussianProcess
   std::vector<double> grad_PS(input_container.dim);
   bool configure_for_gradients = true;
 
-  PosteriorMeanEvaluator ps_evaluator(gaussian_process);
-  PosteriorMeanEvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
+  PosteriorCVAREvaluator ps_evaluator(gaussian_process);
+  PosteriorCVAREvaluator::StateType ps_state(ps_evaluator, num_fidelity, input_container.points_to_sample.data(), configure_for_gradients);
 
-  ps_evaluator.ComputeGradPosteriorMean(&ps_state, grad_PS.data());
+  ps_evaluator.ComputeGradPosteriorCVAR(&ps_state, grad_PS.data());
   return VectorToPylist(grad_PS);
 }
 
 }  // end unnamed namespace
 
 void ExportLowerConfidenceBoundFunctions() {
-  boost::python::def("compute_lower_confidence_bound", ComputePosteriorMeanWrapper, R"%%(
+  boost::python::def("compute_lower_confidence_bound", ComputeLowerConfidenceBoundWrapper, R"%%(
     Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
     use (fast/accurate) analytic evaluation.
@@ -106,7 +106,7 @@ void ExportLowerConfidenceBoundFunctions() {
     :rtype: float64 >= 0.0
     )%%");
 
-  boost::python::def("compute_grad_lower_confidence_bound", ComputeGradPosteriorMeanWrapper, R"%%(
+  boost::python::def("compute_grad_lower_confidence_bound", ComputeGradLowerConfidenceBoundWrapper, R"%%(
     Compute the gradient of knowledge gradient evaluated at points_to_sample.
     If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
     use (fast/accurate) analytic evaluation.
