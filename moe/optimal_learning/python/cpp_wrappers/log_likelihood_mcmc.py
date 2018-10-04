@@ -50,7 +50,9 @@ how probable that validation set is given the remaining training data and model 
 Again, we can maximize this quanitity over hyperparameters to help us choose the "right" set for the GP.
 
 """
+from __future__ import print_function
 
+from builtins import object
 import copy
 
 import numpy
@@ -63,7 +65,7 @@ from moe.optimal_learning.python.cpp_wrappers.covariance import SquareExponentia
 from moe.optimal_learning.python.cpp_wrappers.gaussian_process import GaussianProcess
 from moe.optimal_learning.python.cpp_wrappers.knowledge_gradient_mcmc import GaussianProcessMCMC
 
-class GaussianProcessLogLikelihoodMCMC:
+class GaussianProcessLogLikelihoodMCMC(object):
 
     r"""Class for computing log likelihood-like measures of model fit via C++ wrappers (currently log marginal and leave one out cross validation).
 
@@ -250,7 +252,7 @@ class GaussianProcessLogLikelihoodMCMC:
         hypers_list = []
         noises_list = []
         for sample in self.hypers:
-            print sample
+            print(sample)
             if numpy.any((-20 > sample) + (sample > 20)):
                 continue
             sample = numpy.exp(sample)

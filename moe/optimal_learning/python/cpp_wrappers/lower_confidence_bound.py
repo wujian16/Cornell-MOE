@@ -8,6 +8,7 @@ The optimization functions are convenient wrappers around the matching C++ calls
 See gpp_knowledge_gradient_optimization.hpp/cpp for further details on knowledge gradient.
 
 """
+from builtins import range
 import numpy
 
 from moe.optimal_learning.python.data_containers import SamplePoint
@@ -50,7 +51,7 @@ def lower_confidence_bound_optimization(
     # Create enough randomness sources if none are specified.
     mean_surface = gaussian_process.compute_mean_of_points(candidate_pts)
     standard_deviation = numpy.zeros(candidate_pts.shape[0])
-    for pt in xrange(candidate_pts.shape[0]):
+    for pt in range(candidate_pts.shape[0]):
         standard_deviation[pt] = gaussian_process.compute_cholesky_variance_of_points(candidate_pts[[pt],:])[0,0]
 
     target = mean_surface - standard_deviation
@@ -65,12 +66,12 @@ def lower_confidence_bound_optimization(
     results = numpy.zeros((num_to_sample, gaussian_process.dim))
     results[0] = candidate_pts[index]
 
-    for i in xrange(1, num_to_sample):
+    for i in range(1, num_to_sample):
         sample_point = [SamplePoint(results[i-1],
                         numpy.zeros(gaussian_process.num_derivatives+1),
                         0.25)]
         gaussian_process.add_sampled_points(sample_point)
-        for pt in xrange(satisfied_standard_deviation.shape[0]):
+        for pt in range(satisfied_standard_deviation.shape[0]):
             satisfied_standard_deviation[pt] = gaussian_process.compute_cholesky_variance_of_points(satisfied_candidate_pts[[pt],:])[0,0]
 
         index = numpy.argmax(satisfied_standard_deviation)
