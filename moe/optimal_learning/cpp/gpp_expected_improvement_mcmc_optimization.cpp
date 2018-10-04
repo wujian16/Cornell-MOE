@@ -228,6 +228,115 @@ void OnePotentialSampleExpectedImprovementMCMCState::SetupState(const EvaluatorT
   SetCurrentPoint(ei_evaluator, points_to_sample);
 }
 
+
+
+
+
+
+ProbabilityImprovementMCMCEvaluator::ProbabilityImprovementMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc, double const * best_so_far,
+                                                                                                       std::vector<typename ProbabilityImprovementState::EvaluatorType> * evaluator_vector)
+: dim_(gaussian_process_mcmc.dim()),
+  num_mcmc_hypers_(gaussian_process_mcmc.num_mcmc()),
+  best_so_far_(best_so_far_list(best_so_far)),
+  gaussian_process_mcmc_(&gaussian_process_mcmc),
+  expected_improvement_evaluator_lst(evaluator_vector) {
+    expected_improvement_evaluator_lst->reserve(num_mcmc_hypers_);
+    for (int i=0; i<num_mcmc_hypers_; ++i){
+      expected_improvement_evaluator_lst->emplace_back(gaussian_process_mcmc_->gaussian_process_lst[i], best_so_far_[i]);
+    }
+}
+
+/*!\rst
+  Compute Knowledge Gradient
+  This version requires the discretization of A (the feasibe domain).
+  The discretization usually is: some set + points previous sampled + points being sampled + points to sample
+\endrst*/
+double ProbabilityImprovementMCMCEvaluator::ComputeProbabilityImprovement(StateType * ei_state) const {
+  double ei_value = 0.0;
+  for (int i=0; i<num_mcmc_hypers_; ++i){
+    ei_value += (*expected_improvement_evaluator_lst)[i].ComputeProbabilityImprovement((*(ei_state->ei_state_list)).data()+i);
+  }
+  return ei_value/static_cast<double>(num_mcmc_hypers_);
+}
+
+/*!\rst
+  Computes gradient of KG (see KnowledgeGradientEvaluator::ComputeGradKnowledgeGradient) wrt points_to_sample (stored in
+  ``union_of_points[0:num_to_sample]``).
+
+  Mechanism is similar to the computation of KG, where points' contributions to the gradient are thrown out of their
+  corresponding ``improvement <= 0.0``.
+
+  Thus ``\nabla(\mu)`` only contributes when the ``winner`` (point w/best improvement this iteration) is the current point.
+  That is, the gradient of ``\mu`` at ``x_i`` wrt ``x_j`` is 0 unless ``i == j`` (and only this result is stored in
+  ``kg_state->grad_mu``).  The interaction with ``kg_state->grad_chol_decomp`` is harder to know a priori (like with
+  ``grad_mu``) and has a more complex structure (rank 3 tensor), so the derivative wrt ``x_j`` is computed fully, and
+  the relevant submatrix (indexed by the current ``winner``) is accessed each iteration.
+
+  .. Note:: comments here are copied to _compute_grad_knowledge_gradient_monte_carlo() in python_version/knowledge_gradient.py
+\endrst*/
+void ProbabilityImprovementMCMCEvaluator::ComputeGradProbabilityImprovement(StateType * ei_state, double * restrict grad_EI) const {
+  for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
+    grad_EI[k] = 0;
+  }
+  for (int i=0; i<num_mcmc_hypers_; ++i){
+    std::vector<double> temp(ei_state->dim*ei_state->num_to_sample, 0.0);
+    (*expected_improvement_evaluator_lst)[i].ComputeGradProbabilityImprovement((*(ei_state->ei_state_list)).data()+i, temp.data());
+    for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
+        grad_EI[k] += temp[k];
+    }
+  }
+  for (int k = 0; k < ei_state->num_to_sample*dim_; ++k) {
+    grad_EI[k] = grad_EI[k]/static_cast<double>(num_mcmc_hypers_);
+  }
+}
+
+
+void ProbabilityImprovementMCMCState::SetCurrentPoint(const EvaluatorType& ei_evaluator,
+                                                                     double const * restrict point_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
+
+  // evaluate derived quantities for the GP
+  for (int i=0; i<ei_evaluator.num_mcmc();++i){
+    (ei_state_list->at(i)).SetCurrentPoint(ei_evaluator.expected_improvement_evaluator_list()->at(i), point_to_sample_in);
+  }
+}
+
+ProbabilityImprovementMCMCState::ProbabilityImprovementMCMCState(
+    const EvaluatorType& ei_evaluator,
+    double const * restrict point_to_sample_in,
+    double const * restrict OL_UNUSED(points_being_sampled),
+    int OL_UNUSED(num_to_sample_in),
+    int OL_UNUSED(num_being_sampled_in),
+    bool configure_for_gradients,
+    NormalRNGInterface * OL_UNUSED(normal_rng_in),
+    std::vector<typename ProbabilityImprovementEvaluator::StateType> * ei_state_vector)
+    : dim(ei_evaluator.dim()),
+      num_derivatives(configure_for_gradients ? num_to_sample : 0),
+      point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+      ei_state_list(ei_state_vector) {
+  ei_state_list->reserve(ei_evaluator.num_mcmc());
+  // evaluate derived quantities for the GP
+  for (int i=0; i<ei_evaluator.num_mcmc();++i){
+    ei_state_list->emplace_back(ei_evaluator.expected_improvement_evaluator_list()->at(i),
+                                point_to_sample_in,
+                                configure_for_gradients);
+  }
+}
+
+ProbabilityImprovementMCMCState::ProbabilityImprovementMCMCState(ProbabilityImprovementMCMCState&& OL_UNUSED(other)) = default;
+
+void ProbabilityImprovementMCMCState::SetupState(const EvaluatorType& ei_evaluator,
+                                                                double const * restrict points_to_sample) {
+  if (unlikely(dim != ei_evaluator.dim())) {
+    OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, ei_evaluator.dim());
+  }
+
+  // update quantities derived from points_to_sample
+  SetCurrentPoint(ei_evaluator, points_to_sample);
+}
+
+
 /*!\rst
   Routes the EI computation through MultistartOptimizer + NullOptimizer to perform EI function evaluations at the list of input
   points, using the appropriate EI evaluator (e.g., monte carlo vs analytic) depending on inputs.

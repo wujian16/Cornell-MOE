@@ -602,6 +602,220 @@ struct OnePotentialSampleExpectedImprovementMCMCState final {
   OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(OnePotentialSampleExpectedImprovementMCMCState);
 };
 
+
+struct ProbabilityImprovementMCMCState;
+/*!\rst
+  A class to encapsulate the computation of knowledge gradient and its spatial gradient. This class handles the
+  general KG computation case using monte carlo integration; it can support q,p-KG optimization. It is designed to work
+  with any GaussianProcess.  Additionally, this class has no state and within the context of KG optimization, it is
+  meant to be accessed by const reference only.
+
+  The random numbers needed for KG computation will be passed as parameters instead of contained as members to make
+  multithreading more straightforward.
+\endrst*/
+class ProbabilityImprovementMCMCEvaluator final {
+ public:
+  using StateType = ProbabilityImprovementMCMCState;
+  /*!\rst
+    Constructs a KnowledgeGradientEvaluator object.  All inputs are required; no default constructor nor copy/assignment are allowed.
+
+    \param
+      :gaussian_process: GaussianProcess object (holds ``points_sampled``, ``values``, ``noise_variance``, derived quantities)
+        that describes the underlying GP
+      :discrete_pts[dim][num_pts]: the set of points to approximate the KG factor
+      :num_pts: number of points in discrete_pts
+      :num_mc_iterations: number of monte carlo iterations
+      :best_so_far: best (minimum) objective function value (in ``points_sampled_value``)
+  \endrst*/
+  ProbabilityImprovementMCMCEvaluator(const GaussianProcessMCMC& gaussian_process_mcmc, double const * best_so_far,
+                                      std::vector<typename ProbabilityImprovementState::EvaluatorType> * evaluator_vector);
+
+  int dim() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim_;
+  }
+
+  int num_mcmc() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return num_mcmc_hypers_;
+  }
+
+  std::vector<ProbabilityImprovementEvaluator> * expected_improvement_evaluator_list() const noexcept OL_WARN_UNUSED_RESULT {
+    return expected_improvement_evaluator_lst;
+  }
+
+  std::vector<double> best_so_far_list(double const * best_so_far) const noexcept OL_WARN_UNUSED_RESULT {
+    std::vector<double> result(num_mcmc_hypers_);
+    std::copy(best_so_far, best_so_far + num_mcmc_hypers_, result.data());
+    return result;
+  }
+
+  /*!\rst
+    Wrapper for ComputeKnowledgeGradient(); see that function for details.
+  \endrst*/
+  double ComputeObjectiveFunction(StateType * ei_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT {
+    return ComputeProbabilityImprovement(ei_state);
+  }
+
+  /*!\rst
+    Wrapper for ComputeGradKnowledgeGradient(); see that function for details.
+  \endrst*/
+  void ComputeGradObjectiveFunction(StateType * ei_state, double * restrict grad_EI) const OL_NONNULL_POINTERS {
+    ComputeGradProbabilityImprovement(ei_state, grad_EI);
+  }
+
+  /*!\rst
+    Computes the knowledge gradient
+    \param
+      :kg_state[1]: properly configured state object
+    \output
+      :kg_state[1]: state with temporary storage modified; ``normal_rng`` modified
+    \return
+      the knowledge gradient from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
+  \endrst*/
+  double ComputeProbabilityImprovement(StateType * ei_state) const OL_NONNULL_POINTERS OL_WARN_UNUSED_RESULT;
+
+  /*!\rst
+    Computes the (partial) derivatives of the knowledge gradient with respect to each point of ``points_to_sample``.
+    As with ComputeKnowledgeGradient(), this computation accounts for the effect of ``points_being_sampled``
+    concurrent experiments.
+
+    ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-KG.
+
+    \param
+      :kg_state[1]: properly configured state object
+    \output
+      :kg_state[1]: state with temporary storage modified; ``normal_rng`` modified
+      :grad_KG[dim][num_to_sample]: gradient of KG, ``\pderiv{KG(Xq \cup Xp)}{Xq_{d,i}}`` where ``Xq`` is ``points_to_sample``
+      and ``Xp`` is ``points_being_sampled`` (grad KG from sampling ``points_to_sample`` with
+      ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
+  \endrst*/
+  void ComputeGradProbabilityImprovement(StateType * ei_state, double * restrict grad_EI) const OL_NONNULL_POINTERS;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(ProbabilityImprovementMCMCEvaluator);
+
+ private:
+  //! spatial dimension (e.g., entries per point of points_sampled)
+  const int dim_;
+  //! number of mcmc hyperparameters
+  int num_mcmc_hypers_;
+  //! best (minimum) objective function value (in points_sampled_value)
+  std::vector<double> best_so_far_;
+  //! pointer to gaussian process used in KG computations
+  const GaussianProcessMCMC * gaussian_process_mcmc_;
+  //! pointer to gaussian process used in KG computations
+  std::vector<typename ProbabilityImprovementState::EvaluatorType> * expected_improvement_evaluator_lst;
+};
+
+/*!\rst
+  State object for KnowledgeGradientEvaluator.  This tracks the points being sampled in concurrent experiments
+  (``points_being_sampled``) ALONG with the points currently being evaluated via knowledge gradient for future experiments
+  (called ``points_to_sample``); these are the p and q of q,p-KG, respectively.  ``points_to_sample`` joined with
+  ``points_being_sampled`` is stored in ``union_of_points`` in that order.
+
+  This struct also tracks the state of the GaussianProcess that underlies the knowledge gradient computation: the GP state
+  is built to handle the initial ``union_of_points``, and subsequent updates to ``points_to_sample`` in this object also update
+  the GP state.
+
+  This struct also holds a pointer to a random number generator needed for Monte Carlo integrated KG computations.
+
+  .. WARNING::
+       Users MUST guarantee that multiple state objects DO NOT point to the same RNG (in a multithreaded env).
+
+  See general comments on State structs in ``gpp_common.hpp``'s header docs.
+\endrst*/
+struct ProbabilityImprovementMCMCState final {
+  using EvaluatorType = ProbabilityImprovementMCMCEvaluator;
+
+  /*!\rst
+    Constructs an KnowledgeGradientMCMCState object with a specified source of randomness for the purpose of computing KG
+    (and its gradient) over the specified set of points to sample.
+    This establishes properly sized/initialized temporaries for KG computation, including dependent state from the
+    associated Gaussian Process (which arrives as part of the kg_evaluator).
+
+    .. WARNING:: This object is invalidated if the associated kg_evaluator is mutated.  SetupState() should be called to reset.
+
+    .. WARNING::
+         Using this object to compute gradients when ``configure_for_gradients`` := false results in UNDEFINED BEHAVIOR.
+
+    \param
+      :kg_evaluator: knowledge gradient evaluator object that specifies the parameters & GP for KG evaluation
+      :points_to_sample[dim][num_to_sample]: points at which to evaluate KG and/or its gradient to check their value in future experiments (i.e., test points for GP predictions)
+      :points_being_sampled[dim][num_being_sampled]: points being sampled in concurrent experiments
+      :num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
+      :num_being_sampled: number of points being sampled in concurrent experiments (i.e., the "p" in q,p-KG)
+      :configure_for_gradients: true if this object will be used to compute gradients, false otherwise
+      :normal_rng[1]: pointer to a properly initialized\* NormalRNG object
+
+    .. NOTE::
+         \* The NormalRNG object must already be seeded.  If multithreaded computation is used for KG, then every state object
+         must have a different NormalRNG (different seeds, not just different objects).
+  \endrst*/
+  ProbabilityImprovementMCMCState(const EvaluatorType& ei_evaluator, double const * restrict point_to_sample,
+                                   double const * restrict OL_UNUSED(points_being_sampled),
+                                   int OL_UNUSED(num_to_sample_in), int OL_UNUSED(num_being_sampled_in),
+                                   bool configure_for_gradients, NormalRNGInterface * OL_UNUSED(normal_rng_in),
+                                   std::vector<typename ProbabilityImprovementEvaluator::StateType> * ei_state_vector);
+
+  ProbabilityImprovementMCMCState(ProbabilityImprovementMCMCState&& other);
+
+  int GetProblemSize() const noexcept OL_PURE_FUNCTION OL_WARN_UNUSED_RESULT {
+    return dim*num_to_sample;
+  }
+
+  /*!\rst
+    Get the ``points_to_sample``: potential future samples whose KG (and/or gradients) are being evaluated
+
+    \output
+      :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
+  \endrst*/
+  void GetCurrentPoint(double * restrict points_to_sample) const noexcept OL_NONNULL_POINTERS {
+    std::copy(point_to_sample.data(), point_to_sample.data() + dim, points_to_sample);
+  }
+
+  /*!\rst
+    Change the potential samples whose KG (and/or gradient) are being evaluated.
+    Update the state's derived quantities to be consistent with the new points.
+
+    \param
+      :kg_evaluator: expected improvement evaluator object that specifies the parameters & GP for KG evaluation
+      :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
+  \endrst*/
+  void SetCurrentPoint(const EvaluatorType& kg_evaluator,
+                       double const * restrict points_to_sample_in) OL_NONNULL_POINTERS;
+
+  /*!\rst
+    Configures this state object with new ``points_to_sample``, the location of the potential samples whose KG is to be evaluated.
+    Ensures all state variables & temporaries are properly sized.
+    Properly sets all dependent state variables (e.g., GaussianProcess's state) for KG evaluation.
+
+    .. WARNING::
+         This object's state is INVALIDATED if the ``kg_evaluator`` (including the GaussianProcess it depends on) used in
+         SetupState is mutated! SetupState() should be called again in such a situation.
+
+    \param
+      :kg_evaluator: knowledge gradient evaluator object that specifies the parameters & GP for KG evaluation
+      :points_to_sample[dim][num_to_sample]: potential future samples whose KG (and/or gradients) are being evaluated
+  \endrst*/
+  void SetupState(const EvaluatorType& ei_evaluator, double const * restrict points_to_sample);
+
+  // size information
+  //! spatial dimension (e.g., entries per point of ``points_sampled``)
+  const int dim;
+  //! number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-KG)
+  const int num_to_sample = 1;
+
+  //! number of derivative terms desired (usually 0 for no derivatives or num_to_sample)
+  const int num_derivatives;
+
+  //! point at which to evaluate EI and/or its gradient (e.g., to check its value in future experiments)
+  std::vector<double> point_to_sample;
+
+  //! gaussian process state
+  std::vector<typename ProbabilityImprovementEvaluator::StateType> * ei_state_list;
+
+  OL_DISALLOW_DEFAULT_AND_COPY_AND_ASSIGN(ProbabilityImprovementMCMCState);
+};
+
+
 /*!\rst
   Set up vector of ExpectedImprovementEvaluator::StateType.
 

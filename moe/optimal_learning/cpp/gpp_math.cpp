@@ -2461,6 +2461,135 @@ void OnePotentialSampleExpectedImprovementState::SetupState(const EvaluatorType&
   SetCurrentPoint(ei_evaluator, point_to_sample_in);
 }
 
+
+
+ProbabilityImprovementEvaluator::ProbabilityImprovementEvaluator(
+    const GaussianProcess& gaussian_process_in,
+    double best_so_far)
+    : dim_(gaussian_process_in.dim()),
+      best_so_far_(best_so_far),
+      normal_(0.0, 1.0),
+      gaussian_process_(&gaussian_process_in) {
+}
+
+ProbabilityImprovementEvaluator::ProbabilityImprovementEvaluator(ProbabilityImprovementEvaluator&& other)
+    : dim_(other.dim()),
+      best_so_far_(other.best_so_far()),
+      normal_(0.0, 1.0),
+      gaussian_process_(other.gaussian_process()){
+}
+
+///*!\rst
+//  Uses analytic formulas to compute EI when ``num_to_sample = 1`` and ``num_being_sampled = 0`` (occurs only in 1,0-EI).
+//  In this case, the single-parameter (posterior) GP is just a Gaussian.  So the integral in EI (previously eval'd with MC)
+//  can be computed 'exactly' using high-accuracy routines for the pdf & cdf of a Gaussian random variable.
+//
+//  See Ginsbourger, Le Riche, and Carraro.
+//\endrst*/
+double ProbabilityImprovementEvaluator::ComputeProbabilityImprovement(StateType * ei_state) const {
+  double to_sample_mean;
+  double to_sample_var;
+
+  gaussian_process_->ComputeMeanOfPoints(ei_state->points_to_sample_state, &to_sample_mean);
+  gaussian_process_->ComputeVarianceOfPoints(&(ei_state->points_to_sample_state),
+                                             ei_state->points_to_sample_state.gradients.data(),
+                                             ei_state->points_to_sample_state.num_gradients_to_sample,
+                                             &to_sample_var);
+  to_sample_var = std::sqrt(std::fmax(kMinimumVarianceEI, to_sample_var));
+
+  double temp = best_so_far_ - to_sample_mean;
+  double EI = boost::math::cdf(normal_, temp/to_sample_var);
+
+  return std::fmax(0.0, EI);
+}
+
+///*!\rst
+//  Differentiates OnePotentialSampleExpectedImprovementEvaluator::ComputeExpectedImprovement wrt
+//  ``points_to_sample`` (which is just ONE point; i.e., 1,0-EI).
+//  Again, this uses analytic formulas in terms of the pdf & cdf of a Gaussian since the integral in EI (and grad EI)
+//  can be evaluated exactly for this low dimensional case.
+//
+//  See Ginsbourger, Le Riche, and Carraro.
+//\endrst*/
+void ProbabilityImprovementEvaluator::ComputeGradProbabilityImprovement(
+    StateType * ei_state,
+    double * restrict exp_grad_EI) const {
+  double to_sample_mean;
+  double to_sample_var;
+
+  double * restrict grad_mu = ei_state->grad_mu.data();
+  gaussian_process_->ComputeMeanOfPoints(ei_state->points_to_sample_state, &to_sample_mean);
+  gaussian_process_->ComputeGradMeanOfPoints(ei_state->points_to_sample_state, grad_mu);
+  gaussian_process_->ComputeVarianceOfPoints(&(ei_state->points_to_sample_state),
+                                             ei_state->points_to_sample_state.gradients.data(),
+                                             ei_state->points_to_sample_state.num_gradients_to_sample,
+                                             &to_sample_var);
+  to_sample_var = std::fmax(kMinimumVarianceGradEI, to_sample_var);
+  double sigma = std::sqrt(to_sample_var);
+
+  double * restrict grad_chol_decomp = ei_state->grad_chol_decomp.data();
+  // there is only 1 point, so gradient wrt 0-th point
+  gaussian_process_->ComputeGradCholeskyVarianceOfPoints(&(ei_state->points_to_sample_state), &sigma, grad_chol_decomp);
+
+  double mu_diff = best_so_far_ - to_sample_mean;
+  double C = mu_diff/sigma;
+  double pdf_C = boost::math::pdf(normal_, C);
+  //double cdf_C = boost::math::cdf(normal_, C);
+
+  for (int i = 0; i < dim_; ++i) {
+    double d_C = (-sigma*grad_mu[i] - grad_chol_decomp[i]*mu_diff)/to_sample_var;
+    double d_A = pdf_C*d_C;
+
+    exp_grad_EI[i] = d_A;
+  }
+}
+
+void ProbabilityImprovementState::SetCurrentPoint(const EvaluatorType& ei_evaluator,
+                                                  double const * restrict point_to_sample_in) {
+  // update current point in union_of_points
+  std::copy(point_to_sample_in, point_to_sample_in + dim, point_to_sample.data());
+
+  // evaluate derived quantities
+  points_to_sample_state.SetupState(*ei_evaluator.gaussian_process(), point_to_sample.data(),
+                                    num_to_sample, 0, num_derivatives, (num_derivatives>0));
+}
+
+ProbabilityImprovementState::ProbabilityImprovementState(
+    const EvaluatorType& ei_evaluator,
+    double const * restrict point_to_sample_in,
+    bool configure_for_gradients)
+    : dim(ei_evaluator.dim()),
+      num_derivatives(configure_for_gradients ? num_to_sample : 0),
+      point_to_sample(point_to_sample_in, point_to_sample_in + dim),
+      points_to_sample_state(*ei_evaluator.gaussian_process(), point_to_sample.data(), num_to_sample,
+                             nullptr, 0, num_derivatives, configure_for_gradients),
+      grad_mu(dim*num_derivatives),
+      grad_chol_decomp(dim*num_derivatives) {
+}
+
+ProbabilityImprovementState::ProbabilityImprovementState(
+    const EvaluatorType& ei_evaluator,
+    double const * restrict points_to_sample,
+    double const * restrict OL_UNUSED(points_being_sampled),
+    int OL_UNUSED(num_to_sample_in),
+    int OL_UNUSED(num_being_sampled_in),
+    bool configure_for_gradients,
+    NormalRNGInterface * OL_UNUSED(normal_rng_in))
+    : ProbabilityImprovementState(ei_evaluator, points_to_sample, configure_for_gradients) {
+}
+
+ProbabilityImprovementState::ProbabilityImprovementState(
+    ProbabilityImprovementState&& OL_UNUSED(other)) = default;
+
+void ProbabilityImprovementState::SetupState(const EvaluatorType& ei_evaluator,
+                                                            double const * restrict point_to_sample_in) {
+  if (unlikely(dim != ei_evaluator.dim())) {
+    OL_THROW_EXCEPTION(InvalidValueException<int>, "Evaluator's and State's dim do not match!", dim, ei_evaluator.dim());
+  }
+
+  SetCurrentPoint(ei_evaluator, point_to_sample_in);
+}
+
 /*!\rst
   Perform multistart gradient descent (MGD) to solve the posterior-mean problem (see ComputeOptimalPointsToSample and/or
   header docs), starting from ``num_multistarts`` points selected randomly from the within th domain.

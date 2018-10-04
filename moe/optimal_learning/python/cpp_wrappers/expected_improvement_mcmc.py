@@ -308,6 +308,7 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
                 cpp_utils.cppify(self._best_so_far_list),
                 self._randomness,
         )
+
         return expected_improvement_mcmc
 
     compute_objective_function = compute_expected_improvement
@@ -349,9 +350,210 @@ class ExpectedImprovementMCMC(ExpectedImprovementInterface, OptimizableInterface
                 cpp_utils.cppify(self._best_so_far_list),
                 self._randomness,
         )
+        grad_ei_mcmc = cpp_utils.uncppify(grad_ei_mcmc, (1, self.dim))
         return grad_ei_mcmc
 
     compute_grad_objective_function = compute_grad_expected_improvement
+
+    def compute_hessian_objective_function(self, **kwargs):
+        """We do not currently support computation of the (spatial) hessian of Expected Improvement."""
+        raise NotImplementedError('Currently we cannot compute the hessian of expected improvement.')
+
+class ProbabilityImprovementMCMC(OptimizableInterface):
+
+    r"""Implementation of Expected Improvement computation via C++ wrappers: EI and its gradient at specified point(s) sampled from a GaussianProcess.
+
+    A class to encapsulate the computation of expected improvement and its spatial gradient using points sampled from an
+    associated GaussianProcess. The general EI computation requires monte-carlo integration; it can support q,p-EI optimization.
+    It is designed to work with any GaussianProcess.
+
+    .. Note:: Equivalent methods of ExpectedImprovementInterface and OptimizableInterface are aliased below (e.g.,
+      compute_expected_improvement and compute_objective_function, etc).
+
+    See :mod:`moe.optimal_learning.python.interfaces.expected_improvement_interface` docs for further details.
+
+    """
+
+    def __init__(
+            self,
+            gaussian_process_mcmc,
+            num_to_sample,
+            points_to_sample=None,
+            points_being_sampled=None,
+            num_mc_iterations=DEFAULT_EXPECTED_IMPROVEMENT_MC_ITERATIONS,
+            randomness=None
+    ):
+        """Construct an ExpectedImprovement object that knows how to call C++ for evaluation of member functions.
+
+        :param gaussian_process: GaussianProcess describing
+        :type gaussian_process: :class:`moe.optimal_learning.python.cpp_wrappers.gaussian_process.GaussianProcess` object
+        :param points_to_sample: points at which to evaluate EI and/or its gradient to check their value in future experiments (i.e., "q" in q,p-EI)
+        :type points_to_sample: array of float64 with shape (num_to_sample, dim)
+        :param points_being_sampled: points being sampled in concurrent experiments (i.e., "p" in q,p-EI)
+        :type points_being_sampled: array of float64 with shape (num_being_sampled, dim)
+        :param num_mc_iterations: number of monte-carlo iterations to use (when monte-carlo integration is used to compute EI)
+        :type num_mc_iterations: int > 0
+        :param randomness: RNGs used by C++ as the source of normal random numbers when monte-carlo is used
+        :type randomness: RandomnessSourceContainer (C++ object; e.g., from C_GP.RandomnessSourceContainer())
+
+        """
+        self._num_mc_iterations = num_mc_iterations
+        self._gaussian_process_mcmc = gaussian_process_mcmc
+        self._num_to_sample = num_to_sample
+
+        if gaussian_process_mcmc._historical_data.points_sampled_value.size > 0:
+            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.amin(gaussian_process_mcmc._historical_data.points_sampled_value[:,0])]
+            # self._best_so_far = numpy.amin(gaussian_process._historical_data.points_sampled_value)
+        else:
+            self._best_so_far_list = gaussian_process_mcmc._num_mcmc*[numpy.finfo(numpy.float64).max]
+
+        if points_being_sampled is None:
+            self._points_being_sampled = numpy.array([])
+        else:
+            self._points_being_sampled = numpy.copy(points_being_sampled)
+
+        if points_to_sample is None:
+            # set an arbitrary point
+            self.current_point = numpy.zeros((self._num_to_sample, gaussian_process_mcmc.dim))
+        else:
+            self.current_point = points_to_sample
+
+        if randomness is None:
+            self._randomness = C_GP.RandomnessSourceContainer(1)  # create randomness for only 1 thread
+            # Set seed based on less repeatable factors (e.g,. time)
+            self._randomness.SetRandomizedUniformGeneratorSeed(0)
+            self._randomness.SetRandomizedNormalRNGSeed(0)
+            self._randomness.SetNormalRNGSeedPythonList([314], [True])
+        else:
+            self._randomness = randomness
+
+        self.objective_type = None  # Not used for EI, but the field is expected in C++
+
+    @property
+    def dim(self):
+        """Return the number of spatial dimensions."""
+        return self._gaussian_process_mcmc._historical_data.dim
+
+    @property
+    def num_to_sample(self):
+        """Number of points at which to compute/optimize EI, aka potential points to sample in future experiments; i.e., the ``q`` in ``q,p-EI``."""
+        return self._points_to_sample.shape[0]
+
+    @property
+    def num_being_sampled(self):
+        """Number of points being sampled in concurrent experiments; i.e., the ``p`` in ``q,p-EI``."""
+        return self._points_being_sampled.shape[0]
+
+    @property
+    def problem_size(self):
+        """Return the number of independent parameters to optimize."""
+        return self.num_to_sample * self.dim
+
+    def get_current_point(self):
+        """Get the current_point (array of float64 with shape (problem_size)) at which this object is evaluating the objective function, ``f(x)``."""
+        return numpy.copy(self._points_to_sample)
+
+    def set_current_point(self, points_to_sample):
+        """Set current_point to the specified point; ordering must match.
+
+        :param points_to_sample: current_point at which to evaluate the objective function, ``f(x)``
+        :type points_to_sample: array of float64 with shape (problem_size)
+
+        """
+        self._points_to_sample = numpy.copy(numpy.atleast_2d(points_to_sample))
+
+    current_point = property(get_current_point, set_current_point)
+
+    def compute_probability_improvement(self, force_monte_carlo=False):
+        r"""Compute the expected improvement at ``points_to_sample``, with ``points_being_sampled`` concurrent points being sampled.
+
+        .. Note:: These comments were copied from
+          :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_expected_improvement`
+
+        ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
+
+        Computes the expected improvement ``EI(Xs) = E_n[[f^*_n(X) - min(f(Xs_1),...,f(Xs_m))]^+]``, where ``Xs``
+        are potential points to sample (union of ``points_to_sample`` and ``points_being_sampled``) and ``X`` are
+        already sampled points.  The ``^+`` indicates that the expression in the expectation evaluates to 0 if it
+        is negative.  ``f^*(X)`` is the MINIMUM over all known function evaluations (``points_sampled_value``),
+        whereas ``f(Xs)`` are *GP-predicted* function evaluations.
+
+        In words, we are computing the expected improvement (over the current ``best_so_far``, best known
+        objective function value) that would result from sampling (aka running new experiments) at
+        ``points_to_sample`` with ``points_being_sampled`` concurrent/ongoing experiments.
+
+        In general, the EI expression is complex and difficult to evaluate; hence we use Monte-Carlo simulation to approximate it.
+        When faster (e.g., analytic) techniques are available, we will prefer them.
+
+        The idea of the MC approach is to repeatedly sample at the union of ``points_to_sample`` and
+        ``points_being_sampled``. This is analogous to gaussian_process_interface.sample_point_from_gp,
+        but we sample ``num_union`` points at once:
+        ``y = \mu + Lw``
+        where ``\mu`` is the GP-mean, ``L`` is the ``chol_factor(GP-variance)`` and ``w`` is a vector
+        of ``num_union`` draws from N(0, 1). Then:
+        ``improvement_per_step = max(max(best_so_far - y), 0.0)``
+        Observe that the inner ``max`` means only the smallest component of ``y`` contributes in each iteration.
+        We compute the improvement over many random draws and average.
+
+        :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
+        :type force_monte_carlo: boolean
+        :return: the expected improvement from sampling ``points_to_sample`` with ``points_being_sampled`` concurrent experiments
+        :rtype: float64
+
+        """
+        probability_improvement_mcmc = C_GP.compute_probability_improvement_mcmc(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                cpp_utils.cppify(self._points_to_sample),
+                cpp_utils.cppify(self._points_being_sampled),
+                self.num_to_sample,
+                self.num_being_sampled,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._randomness,
+        )
+        return probability_improvement_mcmc
+
+    compute_objective_function = compute_probability_improvement
+
+    def compute_grad_probability_improvement(self, force_monte_carlo=False):
+        r"""Compute the gradient of expected improvement at ``points_to_sample`` wrt ``points_to_sample``, with ``points_being_sampled`` concurrent samples.
+
+        .. Note:: These comments were copied from
+          :meth:`moe.optimal_learning.python.interfaces.expected_improvement_interface.ExpectedImprovementInterface.compute_grad_expected_improvement`
+
+        ``points_to_sample`` is the "q" and ``points_being_sampled`` is the "p" in q,p-EI.
+
+        In general, the expressions for gradients of EI are complex and difficult to evaluate; hence we use
+        Monte-Carlo simulation to approximate it. When faster (e.g., analytic) techniques are available, we will prefer them.
+
+        The MC computation of grad EI is similar to the computation of EI (decsribed in
+        compute_expected_improvement). We differentiate ``y = \mu + Lw`` wrt ``points_to_sample``;
+        only terms from the gradient of ``\mu`` and ``L`` contribute. In EI, we computed:
+        ``improvement_per_step = max(max(best_so_far - y), 0.0)``
+        and noted that only the smallest component of ``y`` may contribute (if it is > 0.0).
+        Call this index ``winner``. Thus in computing grad EI, we only add gradient terms
+        that are attributable to the ``winner``-th component of ``y``.
+
+        :param force_monte_carlo: whether to force monte carlo evaluation (vs using fast/accurate analytic eval when possible)
+        :type force_monte_carlo: boolean
+        :return: gradient of EI, ``\pderiv{EI(Xq \cup Xp)}{Xq_{i,d}}`` where ``Xq`` is ``points_to_sample``
+          and ``Xp`` is ``points_being_sampled`` (grad EI from sampling ``points_to_sample`` with
+          ``points_being_sampled`` concurrent experiments wrt each dimension of the points in ``points_to_sample``)
+        :rtype: array of float64 with shape (num_to_sample, dim)
+
+        """
+        grad_pi_mcmc = C_GP.compute_grad_probability_improvement_mcmc(
+                self._gaussian_process_mcmc._gaussian_process_mcmc,
+                cpp_utils.cppify(self._points_to_sample),
+                cpp_utils.cppify(self._points_being_sampled),
+                self.num_to_sample,
+                self.num_being_sampled,
+                cpp_utils.cppify(self._best_so_far_list),
+                self._randomness,
+        )
+        grad_pi_mcmc = cpp_utils.uncppify(grad_pi_mcmc, (1, self.dim))
+        return grad_pi_mcmc
+
+    compute_grad_objective_function = compute_grad_probability_improvement
 
     def compute_hessian_objective_function(self, **kwargs):
         """We do not currently support computation of the (spatial) hessian of Expected Improvement."""

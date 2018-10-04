@@ -43,6 +43,71 @@ namespace optimal_learning {
 
 namespace {
 
+double ComputeProbabilityImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
+                                             const boost::python::list& points_to_sample,
+                                             const boost::python::list& points_being_sampled,
+                                             int num_to_sample, int num_being_sampled,
+                                             const boost::python::list& best_so_far,
+                                             RandomnessSourceContainer& randomness_source) {
+  int num_derivatives_input = 0;
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
+
+  bool configure_for_gradients = false;
+
+  std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
+  CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
+
+  std::vector<typename ProbabilityImprovementState::EvaluatorType> evaluator_vector;
+  ProbabilityImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc,
+                                                best_so_far_list.data(), &evaluator_vector);
+
+  std::vector<typename ProbabilityImprovementEvaluator::StateType> state_vector;
+  ProbabilityImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                       input_container.points_being_sampled.data(),
+                                                       input_container.num_to_sample,
+                                                       input_container.num_being_sampled,
+                                                       configure_for_gradients,
+                                                       randomness_source.normal_rng_vec.data(), &state_vector);
+  return ei_evaluator.ComputeProbabilityImprovement(&ei_state);
+}
+
+boost::python::list ComputeGradProbabilityImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
+                                                              const boost::python::list& points_to_sample,
+                                                              const boost::python::list& points_being_sampled,
+                                                              int num_to_sample, int num_being_sampled,
+                                                              const boost::python::list& best_so_far,
+                                                              RandomnessSourceContainer& randomness_source) {
+  int num_derivatives_input = 0;
+  const boost::python::list gradients;
+
+  PythonInterfaceInputContainer input_container(points_to_sample, points_being_sampled, gradients, gaussian_process_mcmc.dim(),
+                                                num_to_sample, num_being_sampled, num_derivatives_input);
+
+  std::vector<double> grad_EI(num_to_sample*input_container.dim);
+  bool configure_for_gradients = true;
+
+  std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
+  CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
+
+  std::vector<typename ProbabilityImprovementState::EvaluatorType> evaluator_vector;
+  ProbabilityImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc,
+                                                best_so_far_list.data(), &evaluator_vector);
+
+  std::vector<typename ProbabilityImprovementEvaluator::StateType> state_vector;
+  ProbabilityImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                       input_container.points_being_sampled.data(),
+                                                       input_container.num_to_sample,
+                                                       input_container.num_being_sampled,
+                                                       configure_for_gradients,
+                                                       randomness_source.normal_rng_vec.data(), &state_vector);
+  ei_evaluator.ComputeGradProbabilityImprovement(&ei_state, grad_EI.data());
+
+  return VectorToPylist(grad_EI);
+}
+
 double ComputeExpectedImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
                                              const boost::python::list& points_to_sample,
                                              const boost::python::list& points_being_sampled,
@@ -60,19 +125,34 @@ double ComputeExpectedImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_proce
   std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
-  std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
-  ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
-                                                best_so_far_list.data(), &evaluator_vector);
+  if (num_to_sample == 1){
+    std::vector<typename OnePotentialSampleExpectedImprovementState::EvaluatorType> evaluator_vector;
+    OnePotentialSampleExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc,
+                                                  best_so_far_list.data(), &evaluator_vector);
 
-  std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
-  ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
-                                                       input_container.points_being_sampled.data(),
-                                                       input_container.num_to_sample,
-                                                       input_container.num_being_sampled,
-                                                       gaussian_process_mcmc.derivatives().data(),
-                                                       gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
-                                                       randomness_source.normal_rng_vec.data(), &state_vector);
-  return ei_evaluator.ComputeExpectedImprovement(&ei_state);
+    std::vector<typename OnePotentialSampleExpectedImprovementEvaluator::StateType> state_vector;
+    OnePotentialSampleExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                         input_container.points_being_sampled.data(),
+                                                         input_container.num_to_sample,
+                                                         input_container.num_being_sampled,
+                                                         configure_for_gradients,
+                                                         randomness_source.normal_rng_vec.data(), &state_vector);
+    return ei_evaluator.ComputeExpectedImprovement(&ei_state);
+  } else{
+    std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
+    ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
+                                                  best_so_far_list.data(), &evaluator_vector);
+
+    std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
+    ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                         input_container.points_being_sampled.data(),
+                                                         input_container.num_to_sample,
+                                                         input_container.num_being_sampled,
+                                                         gaussian_process_mcmc.derivatives().data(),
+                                                         gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
+                                                         randomness_source.normal_rng_vec.data(), &state_vector);
+    return ei_evaluator.ComputeExpectedImprovement(&ei_state);
+  }
 }
 
 boost::python::list ComputeGradExpectedImprovementMCMCWrapper(GaussianProcessMCMC& gaussian_process_mcmc,
@@ -93,19 +173,34 @@ boost::python::list ComputeGradExpectedImprovementMCMCWrapper(GaussianProcessMCM
   std::vector<double> best_so_far_list(gaussian_process_mcmc.num_mcmc());
   CopyPylistToVector(best_so_far, gaussian_process_mcmc.num_mcmc(), best_so_far_list);
 
-  std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
-  ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
-                                                best_so_far_list.data(), &evaluator_vector);
+  if (num_to_sample == 1){
+    std::vector<typename OnePotentialSampleExpectedImprovementState::EvaluatorType> evaluator_vector;
+    OnePotentialSampleExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc,
+                                                  best_so_far_list.data(), &evaluator_vector);
 
-  std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
-  ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
-                                                       input_container.points_being_sampled.data(),
-                                                       input_container.num_to_sample,
-                                                       input_container.num_being_sampled,
-                                                       gaussian_process_mcmc.derivatives().data(),
-                                                       gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
-                                                       randomness_source.normal_rng_vec.data(), &state_vector);
-  ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
+    std::vector<typename OnePotentialSampleExpectedImprovementEvaluator::StateType> state_vector;
+    OnePotentialSampleExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                         input_container.points_being_sampled.data(),
+                                                         input_container.num_to_sample,
+                                                         input_container.num_being_sampled,
+                                                         configure_for_gradients,
+                                                         randomness_source.normal_rng_vec.data(), &state_vector);
+    ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
+  } else{
+    std::vector<typename ExpectedImprovementState::EvaluatorType> evaluator_vector;
+    ExpectedImprovementMCMCEvaluator ei_evaluator(gaussian_process_mcmc, max_int_steps,
+                                                  best_so_far_list.data(), &evaluator_vector);
+
+    std::vector<typename ExpectedImprovementEvaluator::StateType> state_vector;
+    ExpectedImprovementMCMCEvaluator::StateType ei_state(ei_evaluator, input_container.points_to_sample.data(),
+                                                         input_container.points_being_sampled.data(),
+                                                         input_container.num_to_sample,
+                                                         input_container.num_being_sampled,
+                                                         gaussian_process_mcmc.derivatives().data(),
+                                                         gaussian_process_mcmc.num_derivatives(), configure_for_gradients,
+                                                         randomness_source.normal_rng_vec.data(), &state_vector);
+    ei_evaluator.ComputeGradExpectedImprovement(&ei_state, grad_EI.data());
+  }
 
   return VectorToPylist(grad_EI);
 }
@@ -299,6 +394,64 @@ boost::python::list EvaluateEIMCMCAtPointListWrapper(GaussianProcessMCMC& gaussi
 }  // end unnamed namespace
 
 void ExportExpectedImprovementMCMCFunctions() {
+  boost::python::def("compute_probability_improvement_mcmc", ComputeProbabilityImprovementMCMCWrapper, R"%%(
+    Compute knowledge gradient.
+    If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
+    use (fast/accurate) analytic evaluation.
+    Otherwise monte carlo-based KG computation is used.
+
+    :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
+    :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
+    :param points_to_sample: initial points to load into state (must be a valid point for the problem);
+      i.e., points at which to evaluate EI and/or its gradient
+    :type points_to_sample: list of float64 with shape (num_to_sample, dim)
+    :param points_being_sampled: points that are being sampled in concurrently experiments
+    :type points_being_sampled: list of float64 with shape (num_being_sampled, dim)
+    :param num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :type num_to_sample: int > 0
+    :param num_being_sampled: number of points being sampled concurrently (i.e., the p in q,p-EI)
+    :type num_being_sampled: int >= 0
+    :param max_int_steps: number of MC integration points in EI
+    :type max_int_steps: int >= 0
+    :param best_so_far: best known value of objective so far
+    :type best_so_far: float64
+    :param force_monte_carlo: true to force monte carlo evaluation of EI
+    :type force_monte_carlo: bool
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :return: computed EI
+    :rtype: float64 >= 0.0
+    )%%");
+
+  boost::python::def("compute_grad_probability_improvement_mcmc", ComputeGradProbabilityImprovementMCMCWrapper, R"%%(
+    Compute the gradient of knowledge gradient evaluated at points_to_sample.
+    If num_to_sample = 1 and num_being_sampled = 0 AND force_monte_carlo is false, this will
+    use (fast/accurate) analytic evaluation.
+    Otherwise monte carlo-based KG computation is used.
+
+    :param gaussian_process: GaussianProcess object (holds points_sampled, values, noise_variance, derived quantities)
+    :type gaussian_process: GPP.GaussianProcess (boost::python ctor wrapper around optimal_learning::GaussianProcess)
+    :param points_to_sample: initial points to load into state (must be a valid point for the problem);
+      i.e., points at which to evaluate EI and/or its gradient
+    :type points_to_sample: list of float64 with shape (num_to_sample, dim)
+    :param points_being_sampled: points that are being sampled in concurrently experiments
+    :type points_being_sampled: list of float64 with shape (num_being_sampled, dim)
+    :param num_to_sample: number of potential future samples; gradients are evaluated wrt these points (i.e., the "q" in q,p-EI)
+    :type num_to_sample: int > 0
+    :param num_being_sampled: number of points being sampled concurrently (i.e., the p in q,p-EI)
+    :type num_being_sampled: int >= 0
+    :param max_int_steps: number of MC integration points in EI
+    :type max_int_steps: int >= 0
+    :param best_so_far: best known value of objective so far
+    :type best_so_far: float64
+    :param force_monte_carlo: true to force monte carlo evaluation of EI
+    :type force_monte_carlo: bool
+    :param randomness_source: object containing randomness sources; only thread 0's source is used
+    :type randomness_source: GPP.RandomnessSourceContainer
+    :return: gradient of EI (computed at points_to_sample + points_being_sampled, wrt points_to_sample)
+    :rtype: list of float64 with shape (num_to_sample, dim)
+    )%%");
+
   boost::python::def("compute_expected_improvement_mcmc", ComputeExpectedImprovementMCMCWrapper, R"%%(
     Compute knowledge gradient.
     If ``num_to_sample == 1`` and ``num_being_sampled == 0`` AND ``force_monte_carlo is false``, this will
