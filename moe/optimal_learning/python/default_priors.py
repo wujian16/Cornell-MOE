@@ -3,6 +3,7 @@ Created on Oct 14, 2015
 
 @author: Aaron Klein
 '''
+from builtins import range
 import numpy
 
 from moe.optimal_learning.python.base_prior import BasePrior, TophatPrior, HorseshoePrior, NormalPrior
@@ -30,7 +31,7 @@ class DefaultPrior(BasePrior):
         # Lengthscales
         lp += self.tophat.lnprob(theta[1:-self.num_noise])
         # Noise
-        for i in xrange(self.num_noise, 0, -1):
+        for i in range(self.num_noise, 0, -1):
             lp += self.horseshoe.lnprob(theta[-i])
         return lp
 
@@ -40,11 +41,11 @@ class DefaultPrior(BasePrior):
         p0[:, 0] = self.ln_prior.sample_from_prior(n_samples)[:, 0]
         # Lengthscales
         ls_sample = numpy.array([self.tophat.sample_from_prior(n_samples)[:, 0]
-                              for _ in xrange(1, (self.n_dims - self.num_noise))]).T
+                              for _ in range(1, (self.n_dims - self.num_noise))]).T
         p0[:, 1:(self.n_dims - self.num_noise)] = ls_sample
         # Noise
         ns_sample = numpy.array([self.horseshoe.sample_from_prior(n_samples)[:, 0]
-                              for _ in xrange(self.num_noise)]).T
+                              for _ in range(self.num_noise)]).T
         p0[:, -self.num_noise:] = ns_sample
 
         return p0
