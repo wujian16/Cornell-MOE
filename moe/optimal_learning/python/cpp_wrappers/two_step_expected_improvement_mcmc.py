@@ -392,7 +392,7 @@ class TwoStepExpectedImprovementMCMC(OptimizableInterface):
                 self._factor,
                 self._randomness,
         )
-        return grad_two_step_expected_improvement_mcmc
+        return cpp_utils.uncppify(grad_two_step_expected_improvement_mcmc, (1, self.problem_size))
 
     compute_grad_objective_function = compute_grad_two_step_expected_improvement_mcmc
 
