@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 import numpy          as np
 import numpy.random   as npr
 import scipy.linalg   as spla
@@ -37,7 +40,7 @@ def sample_gp_with_random_features(gp, nFeatures, use_woodbury_if_faster=True):
     sigma2 = hyperparameters[0]  # the kernel amplitude
 
     # We draw the random features
-    W = npr.randn(nFeatures, d) / hyperparameters[1:]
+    W = old_div(npr.randn(nFeatures, d), hyperparameters[1:])
     b = npr.uniform(low=0, high=2*np.pi, size=nFeatures)[:,None]
 
     randomness = npr.randn(nFeatures)
@@ -57,7 +60,7 @@ def sample_gp_with_random_features(gp, nFeatures, use_woodbury_if_faster=True):
             index += 1
             tDesignMatrix = np.concatenate((tDesignMatrix, temp_design), axis=1)
 
-        observed_value =  (gp._points_sampled_value / np.sqrt(nu2)).flatten('F')
+        observed_value =  (old_div(gp._points_sampled_value, np.sqrt(nu2))).flatten('F')
 
         if use_woodbury_if_faster and N_data*(1+N_derivatives) < nFeatures:
             # you can do things in cost N^2d instead of d^3 by doing this woodbury thing
@@ -81,7 +84,7 @@ def sample_gp_with_random_features(gp, nFeatures, use_woodbury_if_faster=True):
             idx = D.argsort()[::-1] # in decreasing order instead of increasing
             D = D[idx]
             U = U[:,idx]
-            R = 1.0 / (np.sqrt(D) * (np.sqrt(D) + 1))
+            R = old_div(1.0, (np.sqrt(D) * (np.sqrt(D) + 1)))
             # R = 1.0 / (D + np.sqrt(D*1))
 
             # We sample from the posterior of the coefficients

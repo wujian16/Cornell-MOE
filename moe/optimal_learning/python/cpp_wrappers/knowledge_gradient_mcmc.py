@@ -8,6 +8,10 @@ The optimization functions are convenient wrappers around the matching C++ calls
 See gpp_knowledge_gradient_optimization.hpp/cpp for further details on knowledge gradient.
 
 """
+from __future__ import division
+from builtins import zip
+from builtins import object
+from past.utils import old_div
 import copy
 
 import numpy
@@ -109,7 +113,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
                                         self._num_fidelity,
                                         cpp_utils.cppify(self._points_to_sample),
                                        )
-        return posterior_mean_mcmc/len(self._gaussian_process_list)
+        return old_div(posterior_mean_mcmc,len(self._gaussian_process_list))
 
     compute_objective_function = compute_posterior_mean_mcmc
 
@@ -148,7 +152,7 @@ class PosteriorMeanMCMC(OptimizableInterface):
                 cpp_utils.cppify(self._points_to_sample),
             )
             grad_posterior_mean_mcmc += cpp_utils.uncppify(temp, (1, self.dim-self._num_fidelity))
-        return grad_posterior_mean_mcmc/len(self._gaussian_process_list)
+        return old_div(grad_posterior_mean_mcmc,len(self._gaussian_process_list))
 
     compute_grad_objective_function = compute_grad_posterior_mean_mcmc
 
