@@ -3,7 +3,10 @@ Created on Oct 14, 2015
 
 @author: Aaron Klein
 '''
+from __future__ import division
 
+from past.utils import old_div
+from builtins import object
 import numpy as np
 import scipy.stats as sps
 
@@ -195,7 +198,7 @@ class HorseshoePrior(BasePrior):
         # We computed it exactly as in the original spearmint code
         if np.any(theta == 0.0):
             return np.inf
-        return np.log(np.log(1 + 3.0 * (self.scale / theta) ** 2))
+        return np.log(np.log(1 + 3.0 * (old_div(self.scale, theta)) ** 2))
 
     def sample_from_prior(self, n_samples):
         """
@@ -235,7 +238,7 @@ class HorseshoePrior(BasePrior):
         a = -(6 * self.scale ** 2)
         b = (3 * self.scale ** 2 + np.exp(2 * theta))
         b *= np.log(3 * self.scale ** 2 * np.exp(- 2 * theta) + 1)
-        return a / b
+        return old_div(a, b)
 
 
 class LognormalPrior(BasePrior):
@@ -386,5 +389,5 @@ class NormalPrior(BasePrior):
             The gradient of the prior at theta.
         """
         #return sps.norm.pdf(theta, scale=self.sigma, loc=self.mean)
-        return (1 / (self.sigma * np.sqrt(2 * np.pi))) * (- theta /
-            (self.sigma ** 2) * np.exp(- (theta ** 2) / (2 * self.sigma ** 2)))
+        return (old_div(1, (self.sigma * np.sqrt(2 * np.pi)))) * (- theta /
+            (self.sigma ** 2) * np.exp(old_div(- (theta ** 2), (2 * self.sigma ** 2))))

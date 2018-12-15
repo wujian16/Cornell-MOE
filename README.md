@@ -89,6 +89,50 @@ $ pip install -r requirements.txt
 $ python setup.py install
 ```
 
+## Step-by-Step Installation Guide for Python 3 Users
+
+#### step 1, install requires: python 3.2+, gcc 4.7.2+, cmake 2.8.9+, boost 1.51+, pip 1.2.1+, doxygen 1.8.5+
+
+```bash
+$ sudo apt-get update
+$ sudo apt-get install python3 python3-dev gcc cmake libboost-all-dev python3-pip libblas-dev liblapack-dev gfortran git python3-numpy python3-scipy
+```
+
+#### step 2, we recommend install Cornell-MOE in the virtual environment
+
+```bash
+$ pip3 install virtualenv
+$ python3 -m venv --system-site-packages ENV_NAME
+```
+
+#### step 3, set the correct environment variables for compiling the cpp code. One need to create a script with the content as follows, then **_source_** it.
+```bash
+export MOE_CC_PATH=/path/to/your/gcc && export MOE_CXX_PATH=/path/to/your/g++
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/path/to/where/Python.h/is/found -D MOE_PYTHON_LIBRARY=/path/to/python/shared/library/object"
+```
+For example, the script that we use on a AWS EC2 with Ubuntu OS is as follows
+```bash
+#!/bin/bash
+
+export MOE_CC_PATH=/usr/bin/gcc
+export MOE_CXX_PATH=/usr/bin/g++
+
+export MOE_CMAKE_OPTS="-D MOE_PYTHON_INCLUDE_DIR=/usr/include/python3.6m -D MOE_PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so.1.0"
+```
+
+#### step 4, finish the installment in the virtualenv.
+```bash
+$ source ENV_NAME/bin/activate
+$ git clone https://github.com/wujian16/Cornell-MOE.git
+$ cd Cornell-MOE
+$ pip3 install -r requirements.txt
+$ python3 setup.py install
+```
+
+
+
+
+
 ## Running Cornell-MOE
 See the examples in the folder 'examples'. One can run the main.py following the instruction there. The black-box functions that we would like to optimize are defined in synthetic_functions.py and real_functions.py. One can also define their own functions there.
 ### Mode: batch knowledge gradient (q-KG)
