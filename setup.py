@@ -52,6 +52,8 @@ requires = [
     'simplejson',
     'numpy',
     'scipy',
+    'emcee',
+    'future',
     'colander',
     'sphinx',
     'breathe',
