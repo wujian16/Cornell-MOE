@@ -1,0 +1,33 @@
+package:
+  name: moe
+  version: "0.1.1"
+
+source:
+  path: ../../
+
+build:
+  number: 2
+
+requirements:
+  build:
+    - python
+    - emcee
+    - setuptools
+    - boost
+    - numpy
+    - future
+    - scipy
+  
+  run:
+    - python
+    - boost
+    - setuptools
+    - numpy
+    - scipy
+    - emcee
+    - future
+
+test:
+  # Python imports
+  imports:
+    - moe
