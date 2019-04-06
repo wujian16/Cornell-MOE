@@ -81,7 +81,7 @@ def posterior_mean_optimization(
         ps_optimizer.objective_function._gaussian_process._gaussian_process,
         ps_optimizer.objective_function._num_fidelity,
         ps_optimizer.optimizer_parameters,
-        cpp_utils.cppify(ps_optimizer.domain.domain_bounds),
+        [float(x) for x in cpp_utils.cppify(ps_optimizer.domain.domain_bounds)],
         cpp_utils.cppify(initial_guess),
         status,
     )
@@ -291,7 +291,7 @@ def multistart_knowledge_gradient_optimization(
         inner_optimizer.optimizer_parameters,
         kg_optimizer.objective_function._gaussian_process._gaussian_process,
         kg_optimizer.objective_function._num_fidelity,
-        cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
+        float(x) for x in cpp_utils.cppify(kg_optimizer.domain.domain_bounds),
         cpp_utils.cppify(discrete_pts),
         cpp_utils.cppify(kg_optimizer.objective_function._points_being_sampled),
         num_pts, num_to_sample,
