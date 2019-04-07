@@ -9,7 +9,7 @@ import math
 class Branin(object):
     def __init__(self):
         self._dim = 2
-        self._search_domain = numpy.array([[0, 15], [-5, 15]])
+        self._search_domain = numpy.array([[0.0, 15.0], [-5.0, 15.0]])
         self._num_init_pts = 3
         self._sample_var = 0.0
         self._min_value = 0.397887
