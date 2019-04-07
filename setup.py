@@ -9,6 +9,7 @@ import subprocess
 import sys
 import warnings
 from collections import namedtuple
+import io
 
 from moe import __version__
 
@@ -22,7 +23,7 @@ except ImportError:
 
 
 here = os.path.abspath(os.path.dirname(__file__))
-README = open(os.path.join(here, 'README.md'), encoding="latin-1").read()
+README = io.open(os.path.join(here, 'README.md'), encoding="latin-1").read()
 
 
 VERSION = __version__
