@@ -1,5 +1,5 @@
 package:
-  name: cornell_moe3
+  name: cornell_moe2
   version: "0.1.1"
 
 source:
@@ -13,14 +13,14 @@ requirements:
     - python
     - emcee
     - setuptools
-    - boost
+    - boost=1.65.1
     - numpy
     - future
     - scipy
   
   run:
     - python
-    - boost
+    - boost=1.65.1
     - setuptools
     - numpy
     - scipy
