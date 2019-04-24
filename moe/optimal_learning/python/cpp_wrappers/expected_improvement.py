@@ -88,7 +88,7 @@ def multistart_expected_improvement_optimization(
     best_points_to_sample = C_GP.multistart_expected_improvement_optimization(
         ei_optimizer.optimizer_parameters,
         ei_optimizer.objective_function._gaussian_process._gaussian_process,
-        cpp_utils.cppify(ei_optimizer.domain.domain_bounds),
+        [float(x) for x in cpp_utils.cppify(ei_optimizer.domain.domain_bounds)],
         cpp_utils.cppify(ei_optimizer.objective_function._points_being_sampled),
         num_to_sample,
         ei_optimizer.objective_function.num_being_sampled,
