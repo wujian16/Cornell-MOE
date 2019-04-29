@@ -13,14 +13,14 @@ requirements:
     - python=3.7
     - emcee
     - setuptools
-    - boost=1.67.0
+    - boost=1.67
     - numpy
     - future
     - scipy
   
   run:
     - python=3.7
-    - boost=1.67.0
+    - boost=1.67
     - setuptools
     - numpy
     - scipy

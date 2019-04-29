@@ -86,6 +86,10 @@ string(SUBSTRING ${PYTHONLIBS_VERSION_STRING} 2 1 PYTHON_MINOR)
 	find_package(Boost 1.51 COMPONENTS python${PYTHON_MAJOR}${PYTHON_MINOR})
     endif()
     if (NOT Boost_FOUND)
+	#check libboost_python36.so
+	find_package(Boost 1.51 COMPONENTS python36)
+    endif()
+    if (NOT Boost_FOUND)
         #check libboost_python3.so
         find_package(Boost 1.51 COMPONENTS python3)
     endif()

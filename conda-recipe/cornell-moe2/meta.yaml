@@ -10,17 +10,17 @@ build:
 
 requirements:
   build:
-    - python
+    - python=2.7
     - emcee
     - setuptools
-    - boost=1.65.1
+    - boost=1.67
     - numpy
     - future
     - scipy
   
   run:
-    - python
-    - boost=1.65.1
+    - python=2.7
+    - boost=1.67
     - setuptools
     - numpy
     - scipy

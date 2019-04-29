@@ -1,7 +1,10 @@
-conda-recipe
+conda-moe
 =========
 
-This repository provides the recipes for building binary packages of [Cornell-MOE]
+This repository provides the recipes for building binary packages of cornel-moe. 
+
+
+The built binaries are available on binstar.org, and can be installed using the following command
 
 ```
 conda config --add channels https://conda.binstar.org/rmcgibbo
@@ -44,4 +47,4 @@ conda config --add channels https://conda.binstar.org/rmcgibbo
 git clone https://github.com/rmcgibbo/conda-moe.git
 cd conda-moe
 conda build *
-`
+```
