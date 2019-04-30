@@ -40,7 +40,7 @@ num_to_sample = int(argv[2])
 job_id = int(argv[3])
 
 # constants
-num_func_eval = 100
+num_func_eval = 12
 num_iteration = int(old_div(num_func_eval, num_to_sample)) + 1
 
 obj_func_dict = {'Branin': synthetic_functions.Branin(),

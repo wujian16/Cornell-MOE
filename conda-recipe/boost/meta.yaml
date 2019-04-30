@@ -1,33 +1,33 @@
-
 package:
-    name: boost
-    version: 1.55.0
+  name: boost
+  version: 1.65.1
 
 source:
-    fn: boost_1_55_0.tar.bz2 [unix]
-    url: http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2 [unix]
-    fn: boost_1_55_0-msvc-10.0-64.exe [win64]
-    url: http://downloads.sourceforge.net/project/boost/boost-binaries/1.55.0-build2/boost_1_55_0-msvc-10.0-64.exe [win64]
-    fn: boost_1_55_0-msvc-10.0-32.exe [win32]
-    url: http://download.sourceforge.net/project/boost/boost-binaries/1.55.0-build2/boost_1_55_0-msvc-10.0-32.exe [win32]
-    patches:
-      - e4bde20f.patch [osx]
-      - 6bb71fdd.patch [osx]
-
+  fn:  boost_1_65_1.tar.bz2
+  url: http://sourceforge.net/projects/boost/files/boost/1.65.1/boost_1_65_1.tar.bz2
+  md5: 41d7542ce40e171f3f7982aff008ff0d
+ 
 build:
-    number: 3
+  features:
+    - vc9               [win and py27]
+    - vc10              [win and py34]
+    - vc14              [win and py35]
 
 requirements:
-    build:
-      - zlib [unix]
-      - bzip2 [unix]
-      - python [unix]
-    run:	
-      - zlib [unix]
-      - bzip2 [unix]
-      - python [unix]
+  build:
+    - python=2.7
+    - icu 54.*          [unix]
+    - bzip2             [unix]
+    - zlib
+
+  run:
+    # python dependency is here due to libboost-python library that depends on
+    # python version
+    - python=2.7
+    - icu 54.*          [unix]
+    - zlib
 
 about:
-    home: http://www.boost.org/
-    license: Boost-1.0
+  home: http://www.boost.org/
+  license: Boost-1.0
 

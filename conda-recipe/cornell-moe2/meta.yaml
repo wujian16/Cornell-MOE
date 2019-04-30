@@ -1,0 +1,33 @@
+package:
+  name: cornell_moe2
+  version: "0.1.2"
+
+source:
+  path: ../../
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - python=2.7
+    - emcee
+    - setuptools
+    - boost=1.67
+    - numpy
+    - future
+    - scipy
+  
+  run:
+    - python=2.7
+    - boost=1.67
+    - setuptools
+    - numpy
+    - scipy
+    - emcee
+    - future
+
+test:
+  # Python imports
+  imports:
+    - moe

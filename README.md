@@ -130,7 +130,31 @@ $ python3 setup.py install
 ```
 
 
+## Installation using Conda package
+The conda package is available at [https://anaconda.org/frazierlab]. Users can install the package by adding the frazierlab channel to their configuration. Below is the guide on how to install via a conda package.
 
+### For Python 2 User
+
+If you install cornell_moe2 to a particular virtual environment:
+````bash
+$ conda activate ENV_NAME
+$ conda config --env --add channels frazierlab
+$ conda config --env --add channels conda-forge
+$ conda install cornell_moe2
+```
+
+If you install cornell-moe to your base environment, simply remove the ```--env``` argument when you add the channels.  
+
+### For Python 3 User
+If you install cornell_moe3 to a particular virtual environment:
+````bash
+$ conda activate ENV_NAME
+$ conda config --env --add channels frazierlab
+$ conda config --env --add channels conda-forge
+$ conda install cornell_moe3
+```
+
+If you install cornell-moe to your base environment, simply remove the ```--env``` argument when you add the channels.  
 
 
 ## Running Cornell-MOE
