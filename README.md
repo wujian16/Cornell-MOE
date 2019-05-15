@@ -230,7 +230,7 @@ If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016
   title={Bayesian Optimization with Gradients},
   author={Wu, Jian and Poloczek, Matthias and Wilson, Andrew Gordon and Frazier, Peter I},
   booktitle={Advances in Neural Information Processing Systems},
-  note={Accepted for publication},
+  pages={5267--5278},
   year={2017}
 }
 ```
