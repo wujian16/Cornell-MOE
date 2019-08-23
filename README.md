@@ -213,6 +213,9 @@ recommending the point takes 1.66913294792 seconds
 KG, VOI 1.70365313419, best so far 0.39866661799
 ```
 
+## Predictive Entropy Search 
+A new python implementation of the 'Predictive Entropy Search for Efficient Global Optimization of Black-box Functions' by J. M. Hernandez-Lobato, M. W. Hoffman, and Z. Ghahramani. is added to the Cornell MOE. One can go to the 'pes' folder under the root directory of Cornell MOE to see the codes. Also, we provide a simple example and documentation for support there. One can follow the installation guide and run the code directly under the subfolder. 
+
 
 ## Citing Cornell-MOE
 If you find the code useful, please kindly cite our papers [Wu and Frazier, 2016][26] and [Wu et al, 2017][27].
