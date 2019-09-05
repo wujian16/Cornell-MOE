@@ -214,7 +214,7 @@ KG, VOI 1.70365313419, best so far 0.39866661799
 ```
 
 ## Predictive Entropy Search 
-A new Python implementation of the 'Predictive Entropy Search for Efficient Global Optimization of Black-box Functions' by J. M. Hernandez-Lobato, M. W. Hoffman, and Z. Ghahramani is added to Cornell-MOE. One can go to the 'pes' folder under the root directory of Cornell-MOE to see the codes. Also, we provide a simple example and documentations for supports there. One can follow the installation guide and run the code directly under the subfolder.
+A new Python implementation of the 'Predictive Entropy Search for Efficient Global Optimization of Black-box Functions' by J. M. Hernandez-Lobato, M. W. Hoffman, and Z. Ghahramani is added to Cornell-MOE. One can go to the [pes][31] folder under the root directory of Cornell-MOE to see the codes. Also, we provide a simple example and documentations for supports there. One can follow the installation guide and run the code directly under the subfolder.
 
 
 ## Citing Cornell-MOE
@@ -264,3 +264,4 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [28]: http://mcqmc2016.stanford.edu/Frazier-Peter.pdf
 [29]: https://arxiv.org/abs/1807.02811
 [30]: http://www.gaussianprocess.org/gpml/
+[31]: https://github.com/wujian16/Cornell-MOE/tree/master/pes
