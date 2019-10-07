@@ -1,12 +1,13 @@
 import numpy as np
 
 
-def back_projection(low_obs, high_to_low, sign, bx_size):
+def back_projection(low_obs, high_to_low, sign, search_domain):
+    
     if len(low_obs.shape) == 1:
         low_obs = low_obs.reshape((1, low_obs.shape[0]))
     n = low_obs.shape[0]
     high_dim = high_to_low.shape[0]
-    low_dim = low_obs.shape[1]
+#    low_dim = low_obs.shape[1]
     high_obs = np.zeros((n, high_dim))
     scale = 1
     for i in range(high_dim):
