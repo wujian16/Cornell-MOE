@@ -29,7 +29,7 @@ from examples import bayesian_optimization
 from examples import synthetic_functions
 
 # arguments for calling this script:
-# python main.py [obj_func_name] [method_name] [num_to_sample] [job_id]
+# python main.py [obj_func_name] [method_name] [num_to_sample] [job_id] [hesbo_flag] [effective_dim]
 # example: python main.py Branin KG 4 1
 # you can define your own obj_function and then just change the objective_func object below, and run this script.
 
@@ -38,6 +38,9 @@ obj_func_name = str(argv[0])
 method = str(argv[1])
 num_to_sample = int(argv[2])
 job_id = int(argv[3])
+if len(argv)>4:
+    
+
 
 # constants
 num_func_eval = 12
