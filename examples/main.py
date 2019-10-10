@@ -39,6 +39,10 @@ method = str(argv[1])
 num_to_sample = int(argv[2])
 job_id = int(argv[3])
 if len(argv)>4:
+    hesbo = str(argv[4])
+else:
+    hesbo = None
+    
     
 
 
@@ -54,7 +58,19 @@ obj_func_dict = {'Branin': synthetic_functions.Branin(),
                  'Ackley': synthetic_functions.Ackley()}
 
 objective_func = obj_func_dict[obj_func_name]
-dim = int(objective_func._dim)
+
+if len(argv)>5:
+    effect_dim = int(argv[5])
+elif len(argv)>4:
+    effect_dim = int(min(6, objective_func._dim/4))
+
+# adjusting the dimensionality based on the HeSBO flag
+if hesbo == 'HeSBO':
+    dim = effect_dim
+else:
+    dim = int(objective_func._dim)
+
+
 num_initial_points = int(objective_func._num_init_pts)
 
 num_fidelity = objective_func._num_fidelity
