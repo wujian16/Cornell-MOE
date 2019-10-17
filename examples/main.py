@@ -27,6 +27,7 @@ from moe.optimal_learning.python.python_version.optimization import multistart_o
 
 from examples import bayesian_optimization
 from examples import synthetic_functions
+from hesbo_embed import projection
 
 # arguments for calling this script:
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id] [hesbo_flag] [effective_dim]
@@ -64,13 +65,12 @@ if len(argv)>5:
 elif len(argv)>4:
     effect_dim = int(min(6, objective_func._dim/4))
 
-# adjusting the dimensionality based on the HeSBO flag
+# adjusting the test function based on the HeSBO flag
 if hesbo == 'HeSBO':
-    dim = effect_dim
-else:
-    dim = int(objective_func._dim)
+    objective_func=projection(effect_dim, objective_func)
 
 
+dim = int(objective_func._dim)
 num_initial_points = int(objective_func._num_init_pts)
 
 num_fidelity = objective_func._num_fidelity
