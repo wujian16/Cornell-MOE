@@ -5,7 +5,7 @@ class projection:
     def __init__(self, low_dim, obj_func):
         # attributes of the original function
         self._dim = low_dim
-        self._search_domain = copy.deapcopy(obj_func._search_domain[:low_dim])
+        self._search_domain = copy.deepcopy(obj_func._search_domain[:low_dim])
         self._num_init_pts = obj_func._num_init_pts
         self._sample_var = obj_func._sample_var
         self._min_value = obj_func._min_value
@@ -15,8 +15,8 @@ class projection:
         # new attributes
         self.obj_func = obj_func
         self._org_search_domain = obj_func._search_domain
-        self._high_to_low = np.random.choice(range(low_dim), obj_func.dim)
-        self._sign = np.random.choice([-1, 1], obj_func.dim)
+        self._high_to_low = np.random.choice(range(low_dim), obj_func._dim)
+        self._sign = np.random.choice([-1, 1], obj_func._dim)
         
     
     def org_to_box(self, x):
@@ -46,10 +46,10 @@ class projection:
         for i in range(high_dim):
             high_obs[:, i] = self._sign[i] * low_obs[:, self._high_to_low[i]] * scale
         high_obs = self.box_to_org(high_obs)
-        return high_obs
+        return np.squeeze(high_obs)
     
     def evaluate_true(self, x):
-        self.obj_func.evaluate_true(self.back_projection(x))
+        return self.obj_func.evaluate_true(self.back_projection(x))
         
     def evaluate(self, x):
-        self.obj_func.evaluate(self.back_projection(x))
+        return self.obj_func.evaluate(self.back_projection(x))
