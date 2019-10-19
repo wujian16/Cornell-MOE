@@ -68,6 +68,8 @@ elif len(argv)>4:
 # adjusting the test function based on the HeSBO flag
 if hesbo == 'HeSBO':
     objective_func=projection(effect_dim, objective_func)
+elif len(argv)>4:
+	print('WARNING: The algorithm is not using HeSBO, if you want to use HeSBO embedding, check the spelling of the input argument to be HeSBO')
 
 
 dim = int(objective_func._dim)
