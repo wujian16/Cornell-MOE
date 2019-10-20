@@ -196,7 +196,7 @@ See [Nayebi et al, 2019][32]. We provide a subspcae embedding called HeSBO which
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id] [hesbo_flag] [effective_dim]
 $ python main.py Hartmann6 KG 4 1 HeSBO 3
 ```
-The above code runs HeSBO embedding assuming that the effective dimension is 3. HeSBO needs to know the effective dimensionality of the objective function. If the user does not specify the effective dimension, the algorithm assigns a default value to it.
+The above code runs HeSBO embedding alongside KG assuming that the effective dimension is 3. HeSBO needs to know the effective dimensionality of the objective function. If the user does not specify the effective dimension, the algorithm assigns a default value to it.
 
 ## Correct performance evaluation with knowledge gradient acquisition functions
 
