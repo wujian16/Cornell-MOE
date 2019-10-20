@@ -190,6 +190,14 @@ If one modifies to ```self._observations = []```, and then rerun the command abo
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 
+### Mode: HeSBO embedding for the high dimensional BO
+See [Nayebi et al, 2019][32]. We provide a subspcae embedding called HeSBO which is combined with Cornell-MOE and enables it to implement Bayesian Optimization in higher dimensional spaces. One can run the main.py script with the following command and two additional arguments to trigger KG(EI) using HeSBO embedding.
+```
+# python main.py [obj_func_name] [method_name] [num_to_sample] [job_id] [hesbo_flag] [effective_dim]
+$ python main.py Hartmann6 KG 4 1 HeSBO 3
+```
+The above code runs HeSBO embedding assuming that the effective dimension is 3. HeSBO needs to know the effective dimensionality of the objective function. If the user does not specify the effective dimension, the algorithm assigns a default value to it.
+
 ## Correct performance evaluation with knowledge gradient acquisition functions
 
 Cornell-MOE implements knowledge-gradient acquisition functions.  Evaluating performance with these acquisition requires some care.  When using expected improvement acquisition functions and deterministic function evaluations, researchers often measure performance at the best *evaluated* point.  However, when using knowledge-gradient acquisition functions, performance should be measured at the point with the *best posterior mean*, even if this point has not been previously evaluated.  This is because (1) using candidate solutions with the best posterior mean improves average-case performance for all acquisition functions; and (2) the knowledge-gradient acquisition function is designed assuming candidate solutions will be selected in this way.
@@ -265,3 +273,4 @@ Cornell-MOE is licensed under the Apache License, Version 2.0: http://www.apache
 [29]: https://arxiv.org/abs/1807.02811
 [30]: http://www.gaussianprocess.org/gpml/
 [31]: https://github.com/wujian16/Cornell-MOE/tree/master/pes
+[32]: http://proceedings.mlr.press/v97/nayebi19a.html
