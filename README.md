@@ -190,13 +190,13 @@ If one modifies to ```self._observations = []```, and then rerun the command abo
 observations. The comparison between q-KG and d-KG on 10 independent runs are as follows,
 <center><img src="https://github.com/wujian16/qKG/blob/jianwu_18_cpp_continuous_fidelity/KISSGP.jpg" height="400" width="450"></center>
 
-### Mode: HeSBO embedding for the high dimensional BO
-See [Nayebi et al, 2019][32]. We provide a subspcae embedding called HeSBO which is combined with Cornell-MOE and enables it to implement Bayesian Optimization in higher dimensional spaces. One can run the main.py script with the following command and two additional arguments to trigger KG(EI) using HeSBO embedding.
+### Mode: Use the HeSBO embedding for high dimensional problems
+See [Nayebi et al, 2019][32]. The HeSBO framework allows to run Cornell-MOE on high-dimensional problems with hundreds of tunable parameters.  Here the input search space is mapped to a random subspace of low dimension that contains an optimum with good probability (see the paper for details and guarantees). One can run the main.py script with the following command and two additional arguments to trigger KG(EI) using HeSBO embedding: The keyword 'HeSBO' activates the embedding and the positive integer sets the dimension of the embedded subspace.
 ```
 # python main.py [obj_func_name] [method_name] [num_to_sample] [job_id] [hesbo_flag] [effective_dim]
 $ python main.py Hartmann6 KG 4 1 HeSBO 3
 ```
-The above code runs HeSBO embedding alongside KG assuming that the effective dimension is 3. HeSBO needs to know the effective dimensionality of the objective function. If the user does not specify the effective dimension, the algorithm assigns a default value to it.
+The above code runs KG with a HeSBO embedding of dimension 3.  In practice, a higher dimension may give better solutions. However, the convergence may be slower due to the larger search space.  If the dimension is not specified, then a default value is used.
 
 ## Correct performance evaluation with knowledge gradient acquisition functions
 
